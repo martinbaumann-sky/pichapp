@@ -1,0 +1,21 @@
+# Copia este archivo como .env y configura las variables
+
+# Database
+DATABASE_URL="file:./dev.db"
+
+# Google Maps API (para imágenes de lugares)
+# Obtén tu API key en: https://console.cloud.google.com/
+# Habilita: Places API, Street View Static API, Maps Static API
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="tu-api-key-de-google-maps"
+
+# Mercado Pago (opcional)
+MP_ACCESS_TOKEN=""
+
+# Base URL
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+
+# Admin configuration
+ADMIN_EMAIL="admin@pichanga.com"
+ADMIN_PASSWORD="admin123"
+ADMIN_USER_ID="admin-user-id"
+ADMIN_EMAILS="admin@pichanga.com"

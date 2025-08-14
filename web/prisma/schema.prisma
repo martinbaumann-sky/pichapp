@@ -1,0 +1,198 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+/// Enums
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum Position {
+  ARQUERO
+  DEFENSA
+  LATERAL
+  VOLANTE
+  DELANTERO
+}
+
+enum MatchStatus {
+  PUBLISHED
+  FULL
+  CANCELED
+  FINISHED
+}
+
+enum SpotStatus {
+  AVAILABLE
+  RESERVED
+  PAID
+  CANCELED
+  NO_SHOW
+}
+
+enum WaitlistStatus {
+  WAITING
+  INVITED
+  EXPIRED
+  JOINED
+}
+
+enum PaymentProvider {
+  MP
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+/// Models
+model User {
+  id        String    @id @default(uuid())
+  email     String?   @unique
+  isAdmin   Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  profile   Profile?
+  matches   Match[]   @relation("MatchOrganizer")
+  spots     Spot[]
+  payments  Payment[]
+  waitlist  WaitlistEntry[]
+}
+
+model Profile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  name      String
+  phone     String
+  comuna    String
+  position  Position?
+  rating    Float    @default(5.0)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Venue {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  comuna    String
+  lat       Float?
+  lng       Float?
+  createdAt DateTime @default(now())
+
+  fields    Field[]
+}
+
+model Field {
+  id        String   @id @default(uuid())
+  venueId   String
+  name      String
+  createdAt DateTime @default(now())
+
+  venue     Venue    @relation(fields: [venueId], references: [id])
+  matches   Match[]
+}
+
+model Match {
+  id            String       @id @default(uuid())
+  title         String
+  organizerId   String
+  fieldId       String?
+  comuna        String
+  startsAt      DateTime
+  durationMins  Int
+  pricePerSpot  Int
+  totalSpots    Int
+  level         SkillLevel
+  status        MatchStatus  @default(PUBLISHED)
+  public        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+
+  venueName     String?
+  venueAddress  String?
+  lat           Float?
+  lng           Float?
+  coverImageUrl String?
+
+  organizer     User         @relation("MatchOrganizer", fields: [organizerId], references: [id])
+  field         Field?       @relation(fields: [fieldId], references: [id])
+  spots         Spot[]
+  waitlist      WaitlistEntry[]
+  payments      Payment[]
+
+  @@index([startsAt])
+  @@index([comuna])
+  @@index([pricePerSpot])
+}
+
+model Spot {
+  id         String      @id @default(uuid())
+  matchId    String
+  userId     String?
+  status     SpotStatus  @default(AVAILABLE)
+  holdUntil  DateTime?
+  priceCLP   Int
+  createdAt  DateTime    @default(now())
+
+  match      Match       @relation(fields: [matchId], references: [id])
+  user       User?       @relation(fields: [userId], references: [id])
+  payment    Payment?    @relation("SpotPayment")
+
+  @@index([matchId, status])
+  @@unique([matchId, userId])
+}
+
+model WaitlistEntry {
+  id         String         @id @default(uuid())
+  matchId    String
+  userId     String
+  position   Int
+  status     WaitlistStatus @default(WAITING)
+  invitedAt  DateTime?
+  expiresAt  DateTime?
+  inviteToken String?       @unique
+  createdAt  DateTime       @default(now())
+
+  match      Match          @relation(fields: [matchId], references: [id])
+  user       User           @relation(fields: [userId], references: [id])
+
+  @@unique([matchId, userId])
+  @@index([matchId, status, position])
+}
+
+model Payment {
+  id           String          @id @default(uuid())
+  provider     PaymentProvider @default(MP)
+  providerRef  String?
+  status       PaymentStatus   @default(PENDING)
+  amountCLP    Int
+  userId       String
+  matchId      String
+  spotId       String?         @unique
+  createdAt    DateTime        @default(now())
+
+  user         User            @relation(fields: [userId], references: [id])
+  match        Match           @relation(fields: [matchId], references: [id])
+  spot         Spot?           @relation("SpotPayment", fields: [spotId], references: [id])
+
+  @@index([providerRef])
+}
