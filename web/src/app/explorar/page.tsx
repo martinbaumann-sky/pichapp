@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Calendar, MapPin, Users, DollarSign, Filter, ImageIcon } from "lucide-react";
 import { comunasRM } from "@/lib/comunas-rm";
@@ -10,13 +11,13 @@ export default function ExplorePage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const [filters, setFilters] = useState({ comuna: "", from: "", level: "", maxPrice: "", page: 1, pageSize: 24 });
+  const [filters, setFilters] = useState({ comuna: "", from: "", level: "", maxPrice: 9000, page: 1, pageSize: 24 });
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     Object.entries({ ...filters, page: 1 }).forEach(([k, v]) => {
-      if (v) params.set(k, String(v));
+      if (v !== "" && v !== undefined && v !== null) params.set(k, String(v));
     });
     return params.toString();
   }, [filters.comuna, filters.from, filters.level, filters.maxPrice, filters.pageSize]);
@@ -70,7 +71,7 @@ export default function ExplorePage() {
   }, [loadMoreRef, filters, hasMore, loading]);
 
   return (
-    <div className="bg-gray-50">
+    <motion.div className="bg-gray-50" initial={{ x: 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.28, ease: [0,0,0.2,1] }}>
       {/* Header */}
       <header className="bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -124,13 +125,19 @@ export default function ExplorePage() {
                 </option>
               ))}
             </select>
-            <input
-              placeholder="Max $"
-              inputMode="numeric"
-              value={filters.maxPrice}
-              onChange={(e) => setFilters((f) => ({ ...f, maxPrice: e.target.value, page: 1 }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-            />
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-500">Máx $</label>
+              <input
+                type="range"
+                min={0}
+                max={9000}
+                step={500}
+                value={filters.maxPrice}
+                onChange={(e) => setFilters((f) => ({ ...f, maxPrice: Number(e.target.value), page: 1 }))}
+                className="w-full"
+              />
+              <div className="text-xs text-gray-600">{new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(filters.maxPrice)}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -216,7 +223,7 @@ export default function ExplorePage() {
         )}
         <div ref={loadMoreRef} />
       </main>
-    </div>
+    </motion.div>
   );
 }
 

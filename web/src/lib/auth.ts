@@ -19,5 +19,8 @@ export async function requireUserId(): Promise<string> {
 		if (user) return user.id;
 	}
 
-	throw new Response("No autenticado", { status: 401 });
+	throw new Response(JSON.stringify({ error: "No autenticado" }), { 
+		status: 401,
+		headers: { "Content-Type": "application/json" }
+	});
 }

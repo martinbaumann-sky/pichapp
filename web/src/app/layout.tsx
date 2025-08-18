@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import SupabaseProvider from "../components/SupabaseProvider";
+import RouteTransition from "../components/RouteTransition";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -33,7 +34,7 @@ export default function RootLayout({
       <body className={`${inter.variable} antialiased font-sans text-gray-900 bg-white min-h-screen flex flex-col`}>
         <SupabaseProvider>
           <Header />
-          <main className="flex-1">{children}</main>
+          <RouteTransition>{children}</RouteTransition>
           <Footer />
         </SupabaseProvider>
       </body>

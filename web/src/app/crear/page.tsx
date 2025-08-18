@@ -20,6 +20,7 @@ export default function CreateMatchPage() {
     level: "BEGINNER",
     venueName: "",
     venueAddress: "",
+    fieldNumber: "", // Nuevo campo para número de cancha
     lat: undefined as number | undefined,
     lng: undefined as number | undefined,
     place_id: undefined as string | undefined,
@@ -39,19 +40,25 @@ export default function CreateMatchPage() {
       if (coverImageUrl && !/^https?:\/\//i.test(coverImageUrl)) {
         coverImageUrl = undefined;
       }
-      const payload = {
-        ...formData,
-        // Normalizar strings a números
-        pricePerSpot: Number(formData.pricePerSpot || 0),
-        durationMins: Number(formData.durationMins || 0),
-        totalSpots: Number(formData.totalSpots || 0),
-        occupiedSpots: Number(formData.occupiedSpots || 0) || 0,
-        // Asegurar strings para address/name aun si van vacíos
-        venueName: formData.venueName || "",
-        venueAddress: formData.venueAddress || formData.displayAddress || "",
-        comuna: formData.comuna || "",
-        coverImageUrl,
-      } as any;
+             // Construir el título final incluyendo el número de cancha si existe
+       const finalTitle = formData.fieldNumber 
+         ? `${formData.title} - ${formData.fieldNumber}`
+         : formData.title;
+         
+       const payload = {
+         ...formData,
+         title: finalTitle,
+         // Normalizar strings a números
+         pricePerSpot: Number(formData.pricePerSpot || 0),
+         durationMins: Number(formData.durationMins || 0),
+         totalSpots: Number(formData.totalSpots || 0),
+         occupiedSpots: Number(formData.occupiedSpots || 0) || 0,
+         // Asegurar strings para address/name aun si van vacíos
+         venueName: formData.venueName || "",
+         venueAddress: formData.venueAddress || formData.displayAddress || "",
+         comuna: formData.comuna || "",
+         coverImageUrl,
+       } as any;
       const res = await fetch("/api/matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,6 +71,13 @@ export default function CreateMatchPage() {
           if (j?.message) msg = j.message;
           else if (j?.error) msg = j.error;
           console.error("/api/matches error", j);
+          
+          // Si es un error de autenticación, redirigir al login
+          if (res.status === 401) {
+            alert("Necesitas iniciar sesión para crear un partido. Serás redirigido al login.");
+            window.location.href = "/auth/sign-in";
+            return;
+          }
         } catch (e) {
           console.error("/api/matches error (no json)", e);
         }
@@ -122,31 +136,64 @@ export default function CreateMatchPage() {
       <main className="max-w-4xl mx-auto px-6 py-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Basic Info Section */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">
-                Información Básica
-              </h2>
-              
-            <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Título del partido
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
-                  placeholder="Ej: Club Los Maitenes - Cancha 2"
-                    required
-                  />
-                <p className="text-xs text-gray-500">Sugerencia: incluye nombre de cancha/club/estadio.</p>
-                </div>
-              
-              </div>
-            </div>
+                         {/* Basic Info Section */}
+             <div className="space-y-6">
+               <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">
+                 Información Básica
+               </h2>
+               
+               <div className="grid md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                   <label className="block text-sm font-medium text-gray-700">
+                     Título del partido
+                   </label>
+                   <input
+                     type="text"
+                     name="title"
+                     value={formData.title}
+                     onChange={handleChange}
+                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                     placeholder="Ej: Club Los Maitenes - Cancha 2"
+                     required
+                   />
+                   <p className="text-xs text-gray-500">Sugerencia: incluye nombre de cancha/club/estadio.</p>
+                 </div>
+                 
+                 <div className="space-y-2">
+                   <label className="block text-sm font-medium text-gray-700">
+                     Número de cancha (opcional)
+                   </label>
+                   <input
+                     type="text"
+                     name="fieldNumber"
+                     value={formData.fieldNumber}
+                     onChange={handleChange}
+                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                     placeholder="Ej: Cancha 1, 2, 3..."
+                   />
+                   <p className="text-xs text-gray-500">Especifica el número o nombre de la cancha.</p>
+                 </div>
+               </div>
+               
+               <div className="space-y-2">
+                 <label className="block text-sm font-medium text-gray-700">
+                   Lugar
+                 </label>
+                 <AddressAutocomplete
+                   value={formData.displayAddress}
+                   onChange={(v) => {
+                     handleAddressChange(v);
+                     if (v.comuna) setFormData((prev) => ({ ...prev, comuna: v.comuna }));
+                   }}
+                 />
+                 {formData.venueName && (
+                   <p className="text-sm text-gray-600">
+                     📍 Lugar seleccionado: <strong>{formData.venueName}</strong>
+                     {formData.comuna && <span className="text-blue-600"> • {formData.comuna}</span>}
+                   </p>
+                 )}
+               </div>
+             </div>
 
             {/* Date & Time Section */}
             <div className="space-y-6">
@@ -260,20 +307,7 @@ export default function CreateMatchPage() {
               </div>
             </div>
 
-            {/* Venue */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">Lugar</h2>
-              <AddressAutocomplete
-                value={formData.displayAddress}
-                onChange={(v) => {
-                  handleAddressChange(v);
-                  if (v.comuna) setFormData((prev) => ({ ...prev, comuna: v.comuna }));
-                }}
-              />
-              {formData.venueName && (
-                <p className="text-sm text-gray-600">Se guardará como: {formData.title ? `${formData.title} — ${formData.venueName}` : formData.venueName}</p>
-              )}
-            </div>
+            
 
             {/* Submit Button */}
             <div className="pt-6 border-t border-gray-200">

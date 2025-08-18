@@ -4,7 +4,7 @@ import { useState, useEffect, use } from "react";
 import AuthDialog from "@/components/AuthDialog";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, DollarSign, Clock, CheckCircle, AlertCircle, Share2, ImageIcon } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, DollarSign, Clock, CheckCircle, AlertCircle, Share2, ImageIcon, MessageSquare } from "lucide-react";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
 
@@ -230,17 +230,31 @@ export default function MatchDetailPage(props: any) {
               </div>
             </div>
 
-            {!isFull ? (
-              <button onClick={handleJoin} className="w-full px-8 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
-                <CheckCircle className="w-5 h-5" />
-                Tomar Cupo - {new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}
-              </button>
-            ) : (
-              <div className="w-full px-8 py-4 bg-gray-200 text-gray-600 rounded-lg font-semibold flex items-center justify-center gap-2">
-                <AlertCircle className="w-5 h-5" />
-                Partido Completo
-              </div>
-            )}
+            {(() => {
+              const isOrganizer = user && match && (user.id === (match.organizerId ?? match.organizer?.id));
+              if (isOrganizer) {
+                return (
+                  <Link href={`/match/${id}/chat`} className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-white border border-gray-300 text-black rounded-lg font-semibold hover:bg-gray-50 transition-all duration-200">
+                    <MessageSquare className="w-5 h-5" />
+                    Abrir chat
+                  </Link>
+                );
+              }
+              if (!isFull) {
+                return (
+                  <button onClick={handleJoin} className="w-full px-8 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    Tomar Cupo - {new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}
+                  </button>
+                );
+              }
+              return (
+                <div className="w-full px-8 py-4 bg-gray-200 text-gray-600 rounded-lg font-semibold flex items-center justify-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  Partido Completo
+                </div>
+              );
+            })()}
           </div>
         </div>
 

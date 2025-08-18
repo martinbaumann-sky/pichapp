@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import AuthDialog from "@/components/AuthDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,7 +22,7 @@ export default function Home() {
     router.push("/organizar");
   };
   return (
-    <div className="bg-white">
+    <motion.div className="bg-white" initial={{ x: 0, opacity: 1 }} animate={{ x: 0, opacity: 1 }}>
       {/* Hero Section */}
       <section className="flex flex-col md:flex-row items-center justify-between px-6 py-12 max-w-7xl mx-auto gap-10">
         {/* Left Content */}
@@ -62,24 +63,32 @@ export default function Home() {
         </div>
       </section>
       {/* Cómo funciona */}
-      <section id="como-funciona" className="max-w-7xl mx-auto px-6 py-12 grid md:grid-cols-3 gap-6">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-          <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center font-semibold mb-4">1</div>
-          <h3 className="font-semibold text-black mb-2">Explora partidos</h3>
-          <p className="text-gray-600 text-sm">Encuentra tu pichanga ideal por ubicación y nivel.</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-          <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center font-semibold mb-4">2</div>
-          <h3 className="font-semibold text-black mb-2">Reserva y paga</h3>
-          <p className="text-gray-600 text-sm">Asegura tu cupo en segundos con Mercado Pago.</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-          <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center font-semibold mb-4">3</div>
-          <h3 className="font-semibold text-black mb-2">Juega y disfruta</h3>
-          <p className="text-gray-600 text-sm">Te recordamos antes del partido. Solo llega y juega.</p>
+      <section id="como-funciona" className="max-w-7xl mx-auto px-6 py-12">
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <div className="text-6xl font-black leading-none text-neutral-200">1</div>
+            <div>
+              <h3 className="font-semibold text-black mb-2">Explora partidos</h3>
+              <p className="text-gray-600 text-sm">Encuentra tu pichanga ideal por ubicación y nivel.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <div className="text-6xl font-black leading-none text-neutral-200">2</div>
+            <div>
+              <h3 className="font-semibold text-black mb-2">Reserva y paga</h3>
+              <p className="text-gray-600 text-sm">Asegura tu cupo en segundos.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <div className="text-6xl font-black leading-none text-neutral-200">3</div>
+            <div>
+              <h3 className="font-semibold text-black mb-2">Juega y disfruta</h3>
+              <p className="text-gray-600 text-sm">Te recordamos antes. Solo llega y juega.</p>
+            </div>
+          </div>
         </div>
       </section>
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next="/organizar" />
-    </div>
+    </motion.div>
   );
 }

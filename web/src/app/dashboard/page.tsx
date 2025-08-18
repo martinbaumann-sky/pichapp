@@ -31,10 +31,22 @@ function DashboardContent() {
     qp.set("tab", tab === "organizer" ? "organizador" : "jugador");
     router.replace(`/dashboard?${qp.toString()}`);
   };
-  const matches = sampleMatches();
+  const [organizerData, setOrganizerData] = useState<any>({ nextMatch: null, metrics: { totalOrganized: 0, occupancy: 0, estimatedRevenue: 0 } });
+  const [playerData, setPlayerData] = useState<any>({ nextMatch: null, metrics: { playedCount: 0, totalSpent: 0 } });
 
-  const organizerMatches = matches.slice(0, 2);
-  const playerMatches = matches.slice(1, 3);
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      try {
+        const [o, p] = await Promise.all([
+          fetch("/api/dashboard/organizer", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+          fetch("/api/dashboard/player", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+        ]);
+        if (o?.metrics) setOrganizerData(o);
+        if (p?.metrics) setPlayerData(p);
+      } catch {}
+    })();
+  }, [user]);
 
   if (!user) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -99,8 +111,8 @@ function DashboardContent() {
                     <Calendar className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Partidos Activos</p>
-                    <p className="text-2xl font-bold text-black">{organizerMatches.length}</p>
+                    <p className="text-sm text-gray-500">Organizados (90d)</p>
+                    <p className="text-2xl font-bold text-black">{organizerData.metrics.totalOrganized}</p>
                   </div>
                 </div>
               </div>
@@ -111,10 +123,8 @@ function DashboardContent() {
                     <Users className="w-6 h-6 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Total Cupos</p>
-                    <p className="text-2xl font-bold text-black">
-                      {organizerMatches.reduce((acc, m) => acc + m.totalSpots, 0)}
-                    </p>
+                    <p className="text-sm text-gray-500">Ocupación promedio</p>
+                    <p className="text-2xl font-bold text-black">{Math.round(organizerData.metrics.occupancy * 100)}%</p>
                   </div>
                 </div>
               </div>
@@ -125,10 +135,8 @@ function DashboardContent() {
                     <DollarSign className="w-6 h-6 text-yellow-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Ingresos</p>
-                    <p className="text-2xl font-bold text-black">
-                      ${organizerMatches.reduce((acc, m) => acc + (m.pricePerSpot * m.spots.filter(s => s.status === "PAID").length), 0).toLocaleString("es-CL")}
-                    </p>
+                    <p className="text-sm text-gray-500">Ingresos estimados</p>
+                    <p className="text-2xl font-bold text-black">${organizerData.metrics.estimatedRevenue.toLocaleString("es-CL")}</p>
                   </div>
                 </div>
               </div>
@@ -140,7 +148,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Rating</p>
-                    <p className="text-2xl font-bold text-black">4.8</p>
+                    <p className="text-2xl font-bold text-black">0.0</p>
                   </div>
                 </div>
               </div>
@@ -150,42 +158,28 @@ function DashboardContent() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
               <h2 className="text-xl font-semibold text-black mb-6">Próximos Partidos</h2>
               <div className="space-y-4">
-                {organizerMatches.map((match) => (
-                  <div key={match.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                {organizerData.nextMatch ? (
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
                         <div className="text-gray-400 text-xl">⚽</div>
                       </div>
                       <div>
-                        <h3 className="font-medium text-black">{match.title}</h3>
-                        <p className="text-sm text-gray-600">
-                          {new Intl.DateTimeFormat("es-CL", { 
-                            weekday: "short", 
-                            day: "numeric", 
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          }).format(new Date(match.startsAt))} • {match.comuna}
-                        </p>
+                        <h3 className="font-medium text-black">{organizerData.nextMatch.title}</h3>
+                        <p className="text-sm text-gray-600">{new Intl.DateTimeFormat("es-CL", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(organizerData.nextMatch.startsAt))} • {organizerData.nextMatch.comuna}</p>
                       </div>
                     </div>
-                    
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="text-sm text-gray-500">Cupos</p>
-                        <p className="font-medium text-black">
-                          {match.spots.filter(s => s.status === "PAID").length}/{match.totalSpots}
-                        </p>
+                        <p className="font-medium text-black">{organizerData.nextMatch.paid}/{organizerData.nextMatch.totalSpots}</p>
                       </div>
-                       <Link
-                        href={`/match/${match.id}`}
-                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors duration-200 text-sm"
-                      >
-                        Ver Detalles
-                      </Link>
+                      <Link href={`/match/${organizerData.nextMatch.id}`} className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors duration-200 text-sm">Ver Detalles</Link>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  <div className="text-sm text-gray-500">No tienes partidos próximos como organizador.</div>
+                )}
               </div>
             </div>
           </div>
@@ -200,7 +194,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Reservas Activas</p>
-                    <p className="text-2xl font-bold text-black">{playerMatches.length}</p>
+                    <p className="text-2xl font-bold text-black">{playerData.nextMatch ? 1 : 0}</p>
                   </div>
                 </div>
               </div>
@@ -212,7 +206,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Próximo Partido</p>
-                    <p className="text-2xl font-bold text-black">2h</p>
+                    <p className="text-2xl font-bold text-black">{playerData.nextMatch ? new Intl.DateTimeFormat("es-CL", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).format(new Date(playerData.nextMatch.startsAt)) : "—"}</p>
                   </div>
                 </div>
               </div>
@@ -224,9 +218,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Total Gastado</p>
-                    <p className="text-2xl font-bold text-black">
-                      ${playerMatches.reduce((acc, m) => acc + m.pricePerSpot, 0).toLocaleString("es-CL")}
-                    </p>
+                    <p className="text-2xl font-bold text-black">${playerData.metrics.totalSpent.toLocaleString("es-CL")}</p>
                   </div>
                 </div>
               </div>
@@ -248,32 +240,21 @@ function DashboardContent() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
               <h2 className="text-xl font-semibold text-black mb-6">Mis Reservas</h2>
               <div className="space-y-4">
-                {playerMatches.map((match) => (
-                  <div key={match.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                {playerData.nextMatch ? (
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
                         <div className="text-gray-400 text-xl">⚽</div>
                       </div>
                       <div>
-                        <h3 className="font-medium text-black">{match.title}</h3>
-                        <p className="text-sm text-gray-600">
-                          {new Intl.DateTimeFormat("es-CL", { 
-                            weekday: "short", 
-                            day: "numeric", 
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          }).format(new Date(match.startsAt))} • {match.comuna}
-                        </p>
+                        <h3 className="font-medium text-black">{playerData.nextMatch.title}</h3>
+                        <p className="text-sm text-gray-600">{new Intl.DateTimeFormat("es-CL", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(playerData.nextMatch.startsAt))} • {playerData.nextMatch.comuna}</p>
                       </div>
                     </div>
-                    
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="text-sm text-gray-500">Precio</p>
-                        <p className="font-medium text-green-600">
-                          ${match.pricePerSpot.toLocaleString("es-CL")}
-                        </p>
+                        <p className="font-medium text-green-600">${/* @ts-ignore */ (playerData.nextMatch.pricePerSpot ?? 0).toLocaleString("es-CL")}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-5 h-5 text-green-600" />
@@ -281,7 +262,9 @@ function DashboardContent() {
                       </div>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  <div className="text-sm text-gray-500">No tienes reservas activas.</div>
+                )}
               </div>
             </div>
           </div>

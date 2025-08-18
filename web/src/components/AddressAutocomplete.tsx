@@ -3,95 +3,201 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { staticMapUrl } from "@/lib/maps";
 
-type Suggestion = { label: string; address: string; lat: number; lng: number; place_id?: string; photoUrl?: string; comuna?: string };
+type Suggestion = { 
+  label: string; 
+  address: string; 
+  lat: number; 
+  lng: number; 
+  place_id?: string; 
+  photoUrl?: string; 
+  comuna?: string 
+};
+
 type Props = {
   value: string;
-  onChange: (v: { venueName?: string; venueAddress?: string; lat?: number; lng?: number; display?: string; place_id?: string; photoUrl?: string; comuna?: string }) => void;
+  onChange: (v: { 
+    venueName?: string; 
+    venueAddress?: string; 
+    lat?: number; 
+    lng?: number; 
+    display?: string; 
+    place_id?: string; 
+    photoUrl?: string; 
+    comuna?: string 
+  }) => void;
 };
 
 export default function AddressAutocomplete({ value, onChange }: Props) {
-  const [q, setQ] = useState(value);
+  const [inputValue, setInputValue] = useState(value);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [selected, setSelected] = useState<Suggestion | null>(null);
-  const [open, setOpen] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
+  const [mustSelectHint, setMustSelectHint] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Usar useCallback para estabilizar la función onChange
-  const handleChange = useCallback((display: string) => {
-    onChange({ display });
-  }, [onChange]);
+  const searchSuggestions = useCallback(async (query: string) => {
+    if (!query || query.trim().length < 2) {
+      setSuggestions([]);
+      setIsOpen(false);
+      return;
+    }
 
-  const handleSelect = useCallback((s: Suggestion) => {
-    setSelected(s);
-    setOpen(false);
-    const display = s.label || s.address;
-    setQ(display);
-    onChange({ 
-      venueName: s.label, 
-      venueAddress: s.address, 
-      lat: s.lat, 
-      lng: s.lng, 
-      display, 
-      place_id: s.place_id, 
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/geocode?q=${encodeURIComponent(query.trim())}`, {
+        signal: abortControllerRef.current.signal,
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const items = data.items || [];
+      setSuggestions(items);
+      setIsOpen(items.length > 0);
+    } catch (error: any) {
+      if (error.name === 'AbortError') return;
+      console.error('Error buscando sugerencias:', error);
+      setSuggestions([]);
+      setIsOpen(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (!selectedSuggestion) {
+      timeoutRef.current = setTimeout(() => {
+        searchSuggestions(inputValue);
+      }, 200); // más ágil
+    }
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+  }, [inputValue, selectedSuggestion, searchSuggestions]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setInputValue(newValue);
+    setMustSelectHint(false);
+    if (selectedSuggestion) {
+      setSelectedSuggestion(null);
+    }
+    onChange({ display: newValue });
+  };
+
+  const selectSuggestion = (s: Suggestion) => {
+    setSelectedSuggestion(s);
+    setInputValue(s.label);
+    setIsOpen(false);
+    setMustSelectHint(false);
+    onChange({
+      venueName: s.label,
+      venueAddress: s.address,
+      lat: s.lat,
+      lng: s.lng,
+      display: s.label,
+      place_id: s.place_id,
       photoUrl: s.photoUrl,
       comuna: s.comuna,
     });
-  }, [onChange]);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (!selectedSuggestion) {
+        e.preventDefault();
+        // seleccionar automáticamente la primera sugerencia si existe
+        if (suggestions.length > 0) {
+          selectSuggestion(suggestions[0]);
+        } else {
+          setMustSelectHint(true);
+        }
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    if (!selectedSuggestion) {
+      // pedir selección cuando haya sugerencias
+      if (suggestions.length > 0) setMustSelectHint(true);
+    }
+  };
+
+  const handleClickOutside = useCallback((event: MouseEvent) => {
+    const target = event.target as Element;
+    if (!target.closest('.address-autocomplete')) setIsOpen(false);
+  }, []);
 
   useEffect(() => {
-    if (!q || q.length < 3) {
-      setSuggestions([]);
-      return;
-    }
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-    const id = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`, { signal: ac.signal, cache: "no-store" });
-        const data = await res.json();
-        setSuggestions(data.items ?? []);
-        setOpen(true);
-      } catch {}
-    }, 250);
-    return () => {
-      clearTimeout(id);
-      ac.abort();
-    };
-  }, [q]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [handleClickOutside]);
 
-  const mapUrlCandidate = selected?.photoUrl ?? (selected ? staticMapUrl({ lat: selected.lat, lng: selected.lng }) : null);
-  const mapUrl = mapUrlCandidate && /^https?:\/\//i.test(mapUrlCandidate) ? mapUrlCandidate : null;
+  const mapUrl = selectedSuggestion
+    ? (selectedSuggestion.photoUrl && selectedSuggestion.photoUrl.trim() !== ''
+        ? selectedSuggestion.photoUrl
+        : (staticMapUrl({ lat: selectedSuggestion.lat, lng: selectedSuggestion.lng }) || ""))
+    : null;
 
   return (
-    <div className="relative">
+    <div className="address-autocomplete relative">
       <input
-        value={q}
-        onChange={(e) => { 
-          setQ(e.target.value); 
-          handleChange(e.target.value); 
-        }}
-        placeholder="Dirección / Cancha o club"
-        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+        type="text"
+        value={inputValue}
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        onFocus={() => { if (suggestions.length > 0 && !selectedSuggestion) setIsOpen(true); }}
+        placeholder="Buscar dirección, lugar, comuna o punto de referencia..."
+        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200 ${
+          selectedSuggestion ? 'border-green-500 bg-green-50' : 'border-gray-300'
+        }`}
       />
-      {open && suggestions.length > 0 && (
+
+      {isOpen && (
         <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-64 overflow-auto">
-          {suggestions.map((s, i) => (
-            <button
-              type="button"
-              key={i}
-              className="w-full text-left px-3 py-2 hover:bg-gray-50"
-              onClick={() => handleSelect(s)}
-            >
-              <div className="text-sm font-medium">{s.label}</div>
-              <div className="text-xs text-gray-500">{s.address}</div>
-            </button>
-          ))}
+          {isLoading ? (
+            <div className="px-3 py-2 text-sm text-gray-500">🔍 Buscando lugares...</div>
+          ) : suggestions.length > 0 ? (
+            suggestions.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                onClick={() => selectSuggestion(s)}
+              >
+                <div className="text-sm font-medium text-black truncate">{s.label}</div>
+                <div className="text-xs text-gray-600 truncate">{s.address}</div>
+                {s.comuna && (
+                  <div className="text-xs text-blue-600 font-medium flex items-center gap-1">
+                    <span>📍</span><span>{s.comuna}</span>
+                  </div>
+                )}
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-gray-500">
+              No se encontraron lugares. Intenta con otros términos.
+            </div>
+          )}
         </div>
       )}
+
+      {mustSelectHint && !selectedSuggestion && (
+        <p className="mt-2 text-xs text-red-600">Selecciona una dirección de la lista para continuar.</p>
+      )}
+
       {mapUrl && (
         <div className="mt-3">
-          <img src={mapUrl} alt="Mapa del lugar" className="w-full h-40 object-cover rounded-lg" />
+          <img
+            src={mapUrl}
+            alt="Vista previa del lugar"
+            className="w-full h-40 object-cover rounded-lg"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
         </div>
       )}
     </div>

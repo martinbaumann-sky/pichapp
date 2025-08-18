@@ -31,6 +31,11 @@ export default function Header() {
     </Link>
   );
 
+  // Cerrar menú al cambiar de ruta
+  useEffect(() => {
+    if (menuOpen) setMenuOpen(false);
+  }, [pathname]);
+
   return (
     <header className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
       <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -71,8 +76,8 @@ export default function Header() {
               <div className="px-3 py-2 text-sm text-gray-500 border-b">
                 {user.name}
               </div>
-              <Link href="/dashboard" className="block px-3 py-2 text-sm hover:bg-gray-100">Dashboard</Link>
-              <Link href="/perfil" className="block px-3 py-2 text-sm hover:bg-gray-100">Perfil</Link>
+              <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm hover:bg-gray-100">Dashboard</Link>
+              <Link href="/perfil" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm hover:bg-gray-100">Perfil</Link>
               <button onClick={async () => { await signOut(); setMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100">Cerrar sesión</button>
             </div>
           )}

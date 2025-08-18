@@ -27,6 +27,7 @@ export async function GET(_req: NextRequest, { params }: any) {
         level: match.level,
         pricePerSpot: match.pricePerSpot,
         totalSpots: match.totalSpots,
+        organizerId: match.organizerId,
         paid,
         available,
         coverImageUrl: (match as any).coverImageUrl ?? null,

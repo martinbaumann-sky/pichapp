@@ -84,7 +84,12 @@ model Profile {
   phone     String
   comuna    String
   position  Position?
+  // Legacy single rating kept for compatibility; new detailed ratings below
   rating    Float    @default(5.0)
+  organizerRatingAvg Decimal  @default(0)
+  organizerRatingCount Int    @default(0)
+  playerRatingAvg     Decimal  @default(0)
+  playerRatingCount   Int      @default(0)
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id])
@@ -159,6 +164,46 @@ model Spot {
 
   @@index([matchId, status])
   @@unique([matchId, userId])
+}
+
+model OrganizerRating {
+  id           String   @id @default(cuid())
+  matchId      String
+  raterId      String   // jugador
+  organizerId  String
+  comms        Int      // 0..10
+  punctual     Int
+  fairness     Int
+  overall      Decimal
+  createdAt    DateTime @default(now())
+
+  @@unique([matchId, raterId])
+  @@index([organizerId, createdAt])
+}
+
+model PlayerRating {
+  id           String   @id @default(cuid())
+  matchId      String
+  raterId      String   // organizador
+  playerId     String
+  skill        Int
+  behavior     Int
+  teamwork     Int
+  overall      Decimal
+  createdAt    DateTime @default(now())
+
+  @@unique([matchId, playerId])
+  @@index([playerId, createdAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  matchId   String
+  senderId  String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([matchId, createdAt])
 }
 
 model WaitlistEntry {
