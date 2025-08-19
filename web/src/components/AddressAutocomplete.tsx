@@ -204,4 +204,14 @@ export default function AddressAutocomplete({ value, onChange }: Props) {
   );
 }
 
+// Exportar lista de posiciones para reuso
+export const AVAILABLE_POSITIONS = [
+  { key: "ARQUERO", label: "Arquero" },
+  { key: "DEFENSA", label: "Defensa" },
+  { key: "LATERAL", label: "Lateral" },
+  { key: "MEDIOCAMPISTA", label: "Mediocampista" },
+  { key: "EXTREMO", label: "Extremo" },
+  { key: "DELANTERO", label: "Delantero" },
+];
+
 

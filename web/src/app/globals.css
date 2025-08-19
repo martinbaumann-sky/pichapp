@@ -12,10 +12,19 @@
 }
 
 @layer base {
+  :root {
+    --brand-1: #06b6d4; /* cyan-500 */
+    --brand-2: #0b8f3d; /* verde cancha */
+    --muted: #6b7280;
+    --glass: rgba(255,255,255,0.7);
+  }
+
   body {
     font-family: 'Inter', system-ui, sans-serif;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 60%);
+    color: #0f172a;
   }
-  
+
   html {
     scroll-behavior: smooth;
   }
@@ -23,15 +32,22 @@
 
 @layer components {
   .btn-primary {
-    @apply px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl;
+    /* Nuevo estilo primario: degradado, borde sutil, sombra más suave */
+    @apply px-6 py-3 text-white rounded-full font-semibold transform hover:scale-105 transition-all duration-200 shadow-lg;
+    background-image: linear-gradient(90deg, var(--brand-1), var(--brand-2));
+    box-shadow: 0 8px 24px rgba(11,143,61,0.12);
   }
   
   .btn-secondary {
-    @apply px-6 py-3 border-2 border-black text-black rounded-lg font-semibold hover:bg-black hover:text-white transform hover:scale-105 transition-all duration-200;
+    @apply px-5 py-2 border-2 border-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-900 hover:text-white transform hover:scale-105 transition-all duration-200;
   }
   
   .card {
     @apply bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300;
+  }
+
+  .glass-card {
+    @apply bg-white/60 backdrop-blur-md rounded-xl border border-white/40 p-4 shadow-md;
   }
   
   .input-field {

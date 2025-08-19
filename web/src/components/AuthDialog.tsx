@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X as CloseIcon } from "lucide-react";
 import { comunasRM } from "@/lib/comunas-rm";
+import FrostedAuthCard from "./FrostedAuthCard";
 
 type AuthTab = "login" | "signup";
 
@@ -25,6 +26,7 @@ export default function AuthDialog({ open, onOpenChange, initialTab, next }: Pro
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [name, setName] = useState("");
+	const [lastName, setLastName] = useState("");
 	const [comuna, setComuna] = useState("");
 	const [position, setPosition] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -72,8 +74,8 @@ export default function AuthDialog({ open, onOpenChange, initialTab, next }: Pro
         console.log("[AUTH] signin result", data);
 
         if (!response.ok) {
-          setError(data.error || "Error al iniciar sesión");
-          setToast({ type: "error", message: data.error || "Error al iniciar sesión" });
+          setError(data.error || "Correo o contraseña inválidos");
+          setToast({ type: "error", message: data.error || "Correo o contraseña inválidos" });
           return;
         }
 
@@ -101,6 +103,7 @@ export default function AuthDialog({ open, onOpenChange, initialTab, next }: Pro
         // Convertir posición a mayúsculas para el enum
         const normalizedPosition = position ? position.toUpperCase() : null;
 
+        // Nota: el campo Apellido se maneja en el formulario principal (AuthDialog simplificado aquí).
         const response = await fetch("/api/auth/local/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -108,6 +111,7 @@ export default function AuthDialog({ open, onOpenChange, initialTab, next }: Pro
             email, 
             password, 
             name, 
+            lastName,
             comuna, 
             position: normalizedPosition 
           })
@@ -142,85 +146,36 @@ export default function AuthDialog({ open, onOpenChange, initialTab, next }: Pro
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out transition-opacity" />
+                <Dialog.Overlay onClick={() => onOpenChange(false)} className="fixed inset-0 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out transition-opacity z-50" />
 				<Dialog.Content
-          className="fixed inset-0 flex items-center justify-center p-4"
+          className="fixed inset-0 flex items-center justify-center p-4 z-[60]"
 				>
-          <div className="sm:max-w-md w-[92vw] max-w-md p-6 bg-white shadow-2xl sm:rounded-2xl rounded-none max-h-[90vh] overflow-auto focus:outline-none animate-[fadeIn_150ms_ease-out]">
-					<div className="flex items-center justify-between mb-4">
-						<Dialog.Title className="text-lg font-semibold">
-							{tab === "login" ? "Iniciar sesión" : "Crear cuenta"}
-						</Dialog.Title>
-						<Dialog.Close asChild>
-							<button aria-label="Cerrar" className="p-2 rounded-lg hover:bg-gray-100">
-								<CloseIcon className="w-5 h-5" />
-							</button>
-						</Dialog.Close>
-					</div>
-
-					<div className="flex mb-4 rounded-lg overflow-hidden border">
-						<button
-							onClick={() => setTab("login")}
-							className={`flex-1 px-4 py-2 text-sm font-medium ${tab === "login" ? "bg-gray-100" : ""}`}
-						>
-							Iniciar sesión
-						</button>
-						<button
-							onClick={() => setTab("signup")}
-							className={`flex-1 px-4 py-2 text-sm font-medium ${tab === "signup" ? "bg-gray-100" : ""}`}
-						>
-							Crear cuenta
-						</button>
-					</div>
-
-						<form onSubmit={onSubmit} className="space-y-4">
-						<div>
-							<label className="block text-sm font-medium mb-1">Correo electrónico</label>
-              <input ref={emailRef} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-3 py-2 border rounded-lg" placeholder="tu@email.com" autoFocus />
-						</div>
-						{tab === "signup" && (
-							<>
-								<div>
-									<label className="block text-sm font-medium mb-1">Nombre</label>
-									<input value={name} onChange={(e) => setName(e.target.value)} required className="w-full px-3 py-2 border rounded-lg" placeholder="Tu nombre" />
-								</div>
-								<div>
-									<label className="block text-sm font-medium mb-1">Comuna</label>
-									<select value={comuna} onChange={(e) => setComuna(e.target.value)} required className="w-full px-3 py-2 border rounded-lg">
-										<option value="">Selecciona tu comuna</option>
-										{comunasRM.map((c) => (
-											<option key={c} value={c}>{c}</option>
-										))}
-									</select>
-								</div>
-								<div>
-									<label className="block text-sm font-medium mb-1">Posición</label>
-									<select value={position} onChange={(e) => setPosition(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
-										<option value="">Selecciona tu posición (opcional)</option>
-										<option value="ARQUERO">Arquero</option>
-										<option value="DEFENSA">Defensa</option>
-										<option value="LATERAL">Lateral</option>
-										<option value="VOLANTE">Volante</option>
-										<option value="DELANTERO">Delantero</option>
-									</select>
-								</div>
-							</>
-						)}
-						<div>
-							<label className="block text-sm font-medium mb-1">Contraseña</label>
-							<div className="relative">
-								<input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-lg pr-10" placeholder="••••••••" />
-								<button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute inset-y-0 right-2 text-sm text-gray-600">
-									{showPassword ? "Ocultar" : "Mostrar"}
-								</button>
-							</div>
-						</div>
-            {error && <div className="text-sm text-red-600">{error}</div>}
-            <button type="submit" disabled={loading} className="w-full px-4 py-2 bg-black text-white rounded-lg">
-							{loading ? "Procesando..." : tab === "login" ? "Iniciar sesión" : "Crear cuenta"}
-						</button>
-					</form>
-					</div>
+          <div className="sm:max-w-md w-[92vw] max-w-md p-6 bg-transparent sm:rounded-2xl rounded-none max-h-[90vh] overflow-auto focus:outline-none animate-[fadeIn_150ms_ease-out]">
+            <Dialog.Title className="sr-only">{tab === "login" ? "Iniciar sesión" : "Crear cuenta"}</Dialog.Title>
+            <FrostedAuthCard
+              tab={tab}
+              setTab={(t) => setTab(t)}
+              email={email}
+              setEmail={setEmail}
+              password={password}
+              setPassword={setPassword}
+              name={name}
+              setName={setName}
+              lastName={lastName}
+              setLastName={setLastName}
+              comuna={comuna}
+              setComuna={setComuna}
+              position={position}
+              setPosition={setPosition}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+              loading={loading}
+              error={error}
+              onSubmit={onSubmit}
+              onForgotPassword={() => {}}
+              onClose={() => onOpenChange(false)}
+            />
+          </div>
 				</Dialog.Content>
 			</Dialog.Portal>
       {toast && (

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getBrowserSupabase } from "@/lib/supabase";
+import FrostedAuthCard from "./FrostedAuthCard";
 
 type Props = { open: boolean; onClose: () => void; initialTab?: "login" | "signup" };
 
@@ -56,48 +57,32 @@ export default function AuthModal({ open, onClose, initialTab }: Props) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
-        <div className="flex">
-          <button onClick={() => setTab("login")} className={`flex-1 px-4 py-3 text-sm font-medium ${tab === "login" ? "bg-gray-100" : ""}`}>Iniciar sesión</button>
-          <button onClick={() => setTab("signup")} className={`flex-1 px-4 py-3 text-sm font-medium ${tab === "signup" ? "bg-gray-100" : ""}`}>Crear cuenta</button>
+      <div className="w-full max-w-md p-6">
+        <div className="bg-transparent">
+          <FrostedAuthCard
+            tab={tab}
+            setTab={(t) => setTab(t)}
+            email={email}
+            setEmail={setEmail}
+            password={password}
+            setPassword={setPassword}
+            name={name}
+            setName={setName}
+            comuna={comuna}
+            setComuna={setComuna}
+            position={position}
+            setPosition={setPosition}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            loading={loading}
+            error={error}
+            onSubmit={handleSubmit}
+            onForgotPassword={() => {}}
+          />
+          <div className="mt-3">
+            <button type="button" onClick={onClose} className="w-full px-4 py-2 text-sm text-gray-500">Cerrar</button>
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-auto">
-          <div>
-            <label className="block text-sm font-medium mb-1">Correo electrónico</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-3 py-2 border rounded-lg" placeholder="tu@email.com" />
-          </div>
-          {tab === "signup" && (
-            <>
-              <div>
-                <label className="block text-sm font-medium mb-1">Nombre</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border rounded-lg" placeholder="Tu nombre" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Comuna</label>
-                <input value={comuna} onChange={(e) => setComuna(e.target.value)} className="w-full px-3 py-2 border rounded-lg" placeholder="Tu comuna" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Posición</label>
-                <input value={position} onChange={(e) => setPosition(e.target.value)} className="w-full px-3 py-2 border rounded-lg" placeholder="Tu posición (opcional)" />
-              </div>
-            </>
-          )}
-          <div>
-            <label className="block text-sm font-medium mb-1">Contraseña</label>
-            <div className="relative">
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-lg pr-10" placeholder="••••••••" />
-              <button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute inset-y-0 right-2 text-sm text-gray-600">
-                {showPassword ? "Ocultar" : "Mostrar"}
-              </button>
-            </div>
-          </div>
-          {error && <div className="text-sm text-red-600">{error}</div>}
-          <button disabled={loading} className="w-full px-4 py-2 bg-black text-white rounded-lg">
-            {loading ? "Procesando..." : tab === "login" ? "Iniciar sesión" : "Crear cuenta"}
-          </button>
-          
-          <button type="button" onClick={onClose} className="w-full px-4 py-2 text-sm text-gray-500">Cerrar</button>
-        </form>
       </div>
     </div>
   );

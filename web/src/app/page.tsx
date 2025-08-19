@@ -66,21 +66,21 @@ export default function Home() {
       <section id="como-funciona" className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid md:grid-cols-3 gap-6">
           <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-            <div className="text-6xl font-black leading-none text-neutral-200">1</div>
+            <div className="text-6xl font-black leading-none text-black">1</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Explora partidos</h3>
               <p className="text-gray-600 text-sm">Encuentra tu pichanga ideal por ubicación y nivel.</p>
             </div>
           </div>
           <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-            <div className="text-6xl font-black leading-none text-neutral-200">2</div>
+            <div className="text-6xl font-black leading-none text-black">2</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Reserva y paga</h3>
               <p className="text-gray-600 text-sm">Asegura tu cupo en segundos.</p>
             </div>
           </div>
           <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-            <div className="text-6xl font-black leading-none text-neutral-200">3</div>
+            <div className="text-6xl font-black leading-none text-black">3</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Juega y disfruta</h3>
               <p className="text-gray-600 text-sm">Te recordamos antes. Solo llega y juega.</p>

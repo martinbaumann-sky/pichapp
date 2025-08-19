@@ -20,8 +20,16 @@ export async function POST(req: NextRequest) {
 
     if (status === "approved" || status === "APPROVED") {
       await prisma.$transaction(async (tx: any) => {
-        await tx.payment.update({ where: { id: payment.id }, data: { status: "APPROVED" } });
-        await tx.spot.update({ where: { id: payment.spotId! }, data: { status: "PAID", holdUntil: null } });
+        // Intentar asignar un spot AVAILABLE al pago aprobado
+        const availableSpot = await tx.spot.findFirst({ where: { matchId: payment.matchId, status: 'AVAILABLE' }, orderBy: { createdAt: 'asc' } });
+        if (!availableSpot) {
+          // No hay cupos disponibles al momento de confirmar pago -> marcar pago como REJECTED
+          await tx.payment.update({ where: { id: payment.id }, data: { status: 'REJECTED' } });
+          return;
+        }
+
+        await tx.payment.update({ where: { id: payment.id }, data: { status: 'APPROVED', spotId: availableSpot.id } });
+        await tx.spot.update({ where: { id: availableSpot.id }, data: { status: 'PAID', userId: payment.userId, holdUntil: null } });
 
         // Si el match quedó lleno, marcar FULL
         const counts = await tx.spot.groupBy({

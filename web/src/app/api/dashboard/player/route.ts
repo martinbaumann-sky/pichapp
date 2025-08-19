@@ -30,8 +30,9 @@ export async function GET() {
           }
         : null,
       metrics: {
-        playedCount: playedSpots.length,
-        totalSpent: playedSpots.reduce((sum, s) => sum + (s.match?.pricePerSpot ?? 0), 0),
+        // Devolver datos reales: cantidad de partidos jugados y total gastado
+        playedCount: playedSpots ? playedSpots.length : 0,
+        totalSpent: playedSpots ? playedSpots.reduce((sum, s) => sum + (s.match?.pricePerSpot ?? 0), 0) : 0,
       },
     };
 

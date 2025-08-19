@@ -3,8 +3,8 @@ import { prisma } from "@/lib/db";
 import { createMatchSchema, listMatchesSchema } from "@/lib/validator";
 import { sampleMatches as sampleMatchesLib } from "@/lib/samples";
 import { requireUserId } from "@/lib/auth";
-import { streetViewUrl } from "@/lib/places";
-import { extractComunaFromText } from "@/lib/places";
+import { streetViewUrl, searchPlace, extractComunaFromText } from "@/lib/places";
+import { staticMapUrl, buildStaticMapUrl } from "@/lib/maps";
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,13 +48,30 @@ export async function POST(req: NextRequest) {
     }
     const data = parsed.data as any;
 
-    // Generar coverImageUrl con Google Places/Street View si hay lat/lng
+    // Generar coverImageUrl con Google Street View si hay lat/lng.
+    // Si no hay API key o Street View no está disponible, usar un mapa estático gratuito de OpenStreetMap.
     let coverImageUrl = data.coverImageUrl as string | undefined;
     if (!coverImageUrl && typeof data.lat === "number" && typeof data.lng === "number") {
-      // Intentar usar Street View primero
+      // Intentar usar Street View primero (requiere NEXT_PUBLIC_GOOGLE_MAPS_API_KEY).
       const svUrl = streetViewUrl(data.lat, data.lng);
       if (svUrl && /^https?:\/\//i.test(svUrl)) {
         coverImageUrl = svUrl;
+      } else {
+        // Fallback gratuito: staticmap de OpenStreetMap
+        coverImageUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${data.lat},${data.lng}&zoom=17&size=800x400&markers=${data.lat},${data.lng},red`;
+      }
+    }
+
+    // Último recurso: Unsplash Source (sin clave) para siempre tener alguna imagen representativa.
+    if (!coverImageUrl) {
+      try {
+        const parts = [data.venueName || data.title || "cancha", data.comuna || "santiago", "soccer field"]
+          .filter(Boolean)
+          .map((s: any) => String(s).replace(/\s+/g, "+"))
+          .join(",");
+        coverImageUrl = `https://source.unsplash.com/800x400/?${parts}`;
+      } catch (err) {
+        // silence
       }
     }
 
@@ -96,9 +113,18 @@ export async function POST(req: NextRequest) {
       const occupied = typeof data.occupiedSpots === "number" ? Math.max(0, Math.min(data.occupiedSpots, data.totalSpots)) : 0;
       if (occupied > 0) {
         const spots = await tx.spot.findMany({ where: { matchId: created.id }, orderBy: { createdAt: "asc" }, take: occupied });
-        for (const s of spots) {
-          // No asignar userId para evitar violar la restricción única (matchId,userId)
-          await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: null } });
+        // Si vienen jugadores ocupados, crear perfiles y asignarlos
+        const occupiedPlayers = Array.isArray(data.occupiedPlayers) ? data.occupiedPlayers : [];
+        for (let i = 0; i < spots.length; i++) {
+          const s = spots[i];
+          const player = occupiedPlayers[i];
+          if (player && player.phone) {
+            // Crear user/profile temporal (sin credenciales) y asociar
+            const u = await tx.user.create({ data: { id: crypto.randomUUID(), email: null, isAdmin: false, profile: { create: { name: player.name || `Jugador ${i + 1}`, phone: player.phone, comuna: comuna || "" } } }, include: { profile: true } });
+            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: u.id } });
+          } else {
+            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: null } });
+          }
         }
       }
 
@@ -165,16 +191,52 @@ export async function GET(req: NextRequest) {
       })
       .catch(() => null);
 
-    const items = (matches ?? []).map((m: any) => {
+    const items = await Promise.all((matches ?? []).map(async (m: any) => {
       const paid = m.spots.filter((s: any) => s.status === "PAID").length;
       const available = m.spots.filter((s: any) => s.status === "AVAILABLE").length;
-      
-      // Generar imagen si no existe pero hay coordenadas
-      let coverImageUrl = m.coverImageUrl;
-      if (!coverImageUrl && m.lat && m.lng) {
-        coverImageUrl = streetViewUrl(m.lat, m.lng);
+
+      // Si no tenemos lat/lng en DB, intentar geocodificar desde venueAddress/venueName usando Nominatim
+      let lat = typeof m.lat === "number" ? m.lat : null;
+      let lng = typeof m.lng === "number" ? m.lng : null;
+      if ((lat == null || lng == null) && (m.venueAddress || m.venueName || m.title)) {
+        try {
+          const q = `${m.venueAddress ?? ""} ${m.venueName ?? m.title ?? ""}`.trim();
+          if (q.length > 0) {
+            const places = await searchPlace(q);
+            if (places && places.length > 0) {
+              lat = places[0].lat;
+              lng = places[0].lng;
+            }
+          }
+        } catch (err) {
+          // ignore geocode errors
+        }
       }
-      
+
+      // Generar imagen: Street View > Mapbox/OSM static > Unsplash
+      let coverImageUrl = m.coverImageUrl;
+      if (!coverImageUrl && lat != null && lng != null) {
+        const sv = streetViewUrl(lat, lng);
+        if (sv && /^https?:\/\//i.test(sv)) {
+          coverImageUrl = sv;
+        } else {
+          // use helper to prefer Mapbox if token available, else OSM static
+          const sm = buildStaticMapUrl({ lat, lng, width: 800, height: 400, pixelRatio: 1 });
+          if (sm) coverImageUrl = sm;
+          else coverImageUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=800x400&markers=${lat},${lng},red`;
+        }
+      }
+
+      if (!coverImageUrl) {
+        try {
+          const parts = [(m.venueName ?? m.title ?? "cancha"), (m.comuna ?? "santiago"), "soccer field"]
+            .filter(Boolean)
+            .map((s: any) => String(s).replace(/\s+/g, "+"))
+            .join(",");
+          coverImageUrl = `https://source.unsplash.com/800x400/?${parts}`;
+        } catch (err) {}
+      }
+
       return {
         id: m.id,
         title: m.title,
@@ -186,9 +248,11 @@ export async function GET(req: NextRequest) {
         paid,
         available,
         coverImageUrl: coverImageUrl ?? null,
+        lat: typeof lat === "number" ? lat : null,
+        lng: typeof lng === "number" ? lng : null,
         venueName: m.venueName ?? null,
       };
-    });
+    }));
 
     return new NextResponse(JSON.stringify({ items }), { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (err) {

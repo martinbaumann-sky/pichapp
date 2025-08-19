@@ -3,13 +3,69 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
 import { getMpPreferenceClient } from "@/lib/mp";
 
-export async function POST(_req: NextRequest, { params }: any) {
+export async function POST(req: NextRequest, { params }: any) {
   try {
     const userId = await requireUserId();
     const matchId = params.id as string;
 
-    const prefClient = getMpPreferenceClient();
+    // soportar provider en body para elegir MP (MercadoPago) o TB (Transbank)
+    const body = await req.json().catch(() => ({}));
+    const provider = (body?.provider ?? "MP") as string;
+
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!;
+
+    if (provider === "TB") {
+      // Transbank sandbox flow (simulado si no hay credenciales)
+      const { createTbTransaction } = await import("@/lib/tb_sandbox");
+
+      const result = await prisma.$transaction(async (tx: any) => {
+        const existing = await tx.spot.findFirst({ where: { matchId, userId } });
+        if (existing && (existing.status === "PAID" || (existing.status === "RESERVED" && existing.holdUntil && existing.holdUntil > new Date()))) {
+          throw new Response("Ya tienes un cupo reservado", { status: 409 });
+        }
+
+        const holdUntil = new Date(Date.now() + 10 * 60 * 1000);
+
+        const updated = (await (tx as any).$queryRawUnsafe(
+          `WITH cte AS (
+            SELECT id FROM "Spot"
+            WHERE "matchId" = $1 AND status = 'AVAILABLE'
+            ORDER BY "createdAt" ASC
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+          )
+          UPDATE "Spot" s
+          SET status='RESERVED', "userId"=$2, "holdUntil"=$3
+          FROM cte
+          WHERE s.id = cte.id
+          RETURNING s.*;`,
+          matchId,
+          userId,
+          holdUntil
+        )) as any;
+
+        const spot = Array.isArray(updated) ? updated[0] : updated;
+        if (!spot) {
+          throw new Response("Sin cupos disponibles", { status: 409 });
+        }
+
+        const payment = await tx.payment.create({
+          data: { amountCLP: spot.priceCLP, userId, matchId, spotId: spot.id, provider: "TB" },
+        });
+
+        const tbResp = await createTbTransaction({ paymentId: payment.id, amount: spot.priceCLP, matchId, spotId: spot.id, baseUrl });
+
+        await tx.payment.update({ where: { id: payment.id }, data: { providerRef: tbResp.providerRef ?? String(payment.id) } as any });
+
+        return { checkoutUrl: tbResp.checkoutUrl };
+      });
+
+      return NextResponse.json(result, { status: 201 });
+    }
+
+    // Default: MercadoPago flow (existente)
+    const { getMpPreferenceClient } = await import("@/lib/mp");
+    const prefClient = getMpPreferenceClient();
 
     const result = await prisma.$transaction(async (tx: any) => {
       // Evitar duplicidad por usuario/partido
@@ -20,26 +76,16 @@ export async function POST(_req: NextRequest, { params }: any) {
 
       // Intentar tomar un spot disponible con lock
       const holdUntil = new Date(Date.now() + 10 * 60 * 1000);
-
-      const updated = (await (tx as any).$queryRawUnsafe(
-        `WITH cte AS (
-          SELECT id FROM "Spot"
-          WHERE "matchId" = $1 AND status = 'AVAILABLE'
-          ORDER BY "createdAt" ASC
-          FOR UPDATE SKIP LOCKED
-          LIMIT 1
-        )
-        UPDATE "Spot" s
-        SET status='RESERVED', "userId"=$2, "holdUntil"=$3
-        FROM cte
-        WHERE s.id = cte.id
-        RETURNING s.*;`,
-        matchId,
-        userId,
-        holdUntil
-      )) as any;
-
-      const spot = Array.isArray(updated) ? updated[0] : updated;
+      let spot: any = null;
+      for (let i = 0; i < 3; i++) {
+        const candidate = await tx.spot.findFirst({ where: { matchId, status: 'AVAILABLE' }, orderBy: { createdAt: 'asc' } });
+        if (!candidate) break;
+        const updated = await tx.spot.updateMany({ where: { id: candidate.id, status: 'AVAILABLE' }, data: { status: 'RESERVED', userId, holdUntil } });
+        if (updated.count && updated.count > 0) {
+          spot = await tx.spot.findUnique({ where: { id: candidate.id } });
+          break;
+        }
+      }
       if (!spot) {
         throw new Response("Sin cupos disponibles", { status: 409 });
       }
@@ -51,6 +97,7 @@ export async function POST(_req: NextRequest, { params }: any) {
           userId,
           matchId,
           spotId: spot.id,
+          provider: "MP",
         },
       });
 
@@ -68,7 +115,8 @@ export async function POST(_req: NextRequest, { params }: any) {
           ],
           notification_url: `${baseUrl}/api/mp/webhook`,
           back_urls: {
-            success: `${baseUrl}/match/${matchId}?paid=1`,
+            // Al completar el pago, redirigir al chat del partido
+            success: `${baseUrl}/match/${matchId}/chat?paid=1`,
             failure: `${baseUrl}/match/${matchId}?paid=0`,
             pending: `${baseUrl}/match/${matchId}?paid=0`,
           },

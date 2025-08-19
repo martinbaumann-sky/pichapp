@@ -3,16 +3,19 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Calendar, MapPin, Users, DollarSign, Filter, ImageIcon } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Filter, ImageIcon } from "lucide-react";
 import { comunasRM } from "@/lib/comunas-rm";
+import dynamic from "next/dynamic";
 import { nivelES } from "@/lib/i18n";
 
 export default function ExplorePage() {
+  const FALLBACK_IMG = "https://images.unsplash.com/photo-1505842465776-3d7a1ee1a8b7?q=80&w=1200&auto=format&fit=crop";
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [filters, setFilters] = useState({ comuna: "", from: "", level: "", maxPrice: 9000, page: 1, pageSize: 24 });
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const MiniMap = dynamic(() => import("@/components/MatchMiniMap"), { ssr: false });
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -144,6 +147,7 @@ export default function ExplorePage() {
 
       {/* Matches Grid */}
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Mini mapa dentro de cada tarjeta: (se muestra encima del grid) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((match) => (
             <Link
@@ -151,14 +155,10 @@ export default function ExplorePage() {
               href={`/match/${match.id}`}
               className="group bg-white rounded-xl shadow-sm hover:shadow-lg border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-300"
             >
-              {/* Match Image */}
-              {match.coverImageUrl ? (
-                <img loading="lazy" src={match.coverImageUrl} alt={match.title} className="h-48 w-full object-cover rounded-b-none" />
-              ) : (
-                <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                  <ImageIcon className="w-12 h-12 text-gray-400" />
-                </div>
-              )}
+              {/* Mini mapa o imagen de ubicación */}
+              <div className="h-48 w-full">
+                <MiniMap lat={match.lat} lng={match.lng} title={match.title} id={match.id} />
+              </div>
               
               {/* Match Info */}
               <div className="p-6 space-y-4">
@@ -197,8 +197,7 @@ export default function ExplorePage() {
                 </div>
                 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                  <div className="flex items-center gap-1 text-green-600 font-semibold">
-                    <DollarSign className="w-4 h-4" />
+                  <div className="text-green-600 font-semibold">
                     <span>{new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}</span>
                   </div>
                   

@@ -17,7 +17,7 @@ export function useAuth() {
 
   const checkSession = useCallback(async () => {
     try {
-      const response = await fetch("/api/auth/local/session", { cache: "no-store" });
+      const response = await fetch("/api/auth/local/session", { cache: "no-store", credentials: "same-origin" });
       const data = await response.json();
       setUser(data.user);
     } catch (error) {
@@ -36,6 +36,10 @@ export function useAuth() {
     try {
       await fetch("/api/auth/local/signout", { method: "POST" });
       setUser(null);
+      // Redirigir a inicio tras cerrar sesión
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
     } catch (error) {
       console.error("[AUTH] Error signing out:", error);
     }

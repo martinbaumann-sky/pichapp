@@ -26,6 +26,8 @@ export const createMatchSchema = z.object({
   // Hacer opcionales lat/lng para no bloquear si el proveedor no los devuelve
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
+  // Datos opcionales para jugadores ocupados
+  occupiedPlayers: z.array(z.object({ name: z.string().min(1), phone: z.string().min(6) })).optional(),
   coverImageUrl: z.string().url().optional(),
   public: z.boolean().default(true),
   applyNoShowFee: z.boolean().optional(),

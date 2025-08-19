@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
+import FrostedPaymentCard from "@/components/FrostedPaymentCard";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, DollarSign, Clock, CheckCircle, AlertCircle, Share2, ImageIcon, MessageSquare } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, ImageIcon, MessageSquare } from "lucide-react";
+import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
 
 export default function MatchDetailPage(props: any) {
-  const params = use(props.params);
-  const { id } = params as { id: string };
+  const FALLBACK_IMG = "https://images.unsplash.com/photo-1505842465776-3d7a1ee1a8b7?q=80&w=1200&auto=format&fit=crop";
+  const routeParams = useParams() as any;
+  const id = routeParams?.id as string;
   const [match, setMatch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
@@ -59,19 +63,48 @@ export default function MatchDetailPage(props: any) {
     fetchMatch();
   }, [id]);
 
+  const [payProvider, setPayProvider] = useState<string>("MP");
+  const [reserveInfo, setReserveInfo] = useState<any>(null);
+  const [providerModalOpen, setProviderModalOpen] = useState(false);
+
   const handleJoin = async () => {
     if (!user) {
       setAuthOpen(true);
       return;
     }
     try {
-      const res = await fetch(`/api/matches/${id}/join`, { method: "POST" });
-      if (!res.ok) throw new Error("No se pudo reservar");
+      // Reservar primero (nueva ruta)
+      const res = await fetch(`/api/matches/${id}/reserve`, { method: "POST", credentials: "same-origin" });
+      if (!res.ok) {
+        const body = await res.text().catch(() => null);
+        throw new Error(body || "No se pudo reservar");
+      }
+      const data = await res.json();
+      setReserveInfo(data);
+      // En vez de abrir modal, abrir nueva pestaña de pago
+      const url = `${window.location.origin}/match/${id}/pay/${data.paymentId}`;
+      window.open(url, "_blank");
+    } catch (e) {
+      const msg = e && (e as any).message ? (e as any).message : "Error al reservar. Intenta nuevamente.";
+      setToast(msg);
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
+  const handleCheckout = async (provider: string) => {
+    if (!reserveInfo) return;
+    try {
+      const res = await fetch(`/api/matches/${id}/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentId: reserveInfo.paymentId, provider }), credentials: "same-origin" });
+      if (!res.ok) {
+        const b = await res.text().catch(() => null);
+        throw new Error(b || "No se pudo iniciar checkout");
+      }
       const data = await res.json();
       const url = data.init_point || data.checkoutUrl;
       if (url) window.location.href = url;
-    } catch (e) {
-      setToast("Error al reservar. Intenta nuevamente.");
+    } catch (err) {
+      const msg = err && (err as any).message ? (err as any).message : "Error al iniciar pago";
+      setToast(msg);
       setTimeout(() => setToast(null), 3000);
     }
   };
@@ -131,12 +164,11 @@ export default function MatchDetailPage(props: any) {
 
       <main className="max-w-4xl mx-auto px-6 py-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
-          {match.coverImageUrl ? (
-            <img src={match.coverImageUrl} alt={match.title} className="h-64 w-full object-cover" />
+          {/* Hero map: muestra la ubicación grande del partido */}
+          {match ? (
+            <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} />
           ) : (
-            <div className="h-64 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-              <ImageIcon className="w-16 h-16 text-gray-400" />
-            </div>
+            <div className="h-64 w-full bg-gray-100" />
           )}
 
           <div className="p-8">
@@ -211,7 +243,6 @@ export default function MatchDetailPage(props: any) {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <DollarSign className="w-5 h-5 text-gray-500" />
                   <div>
                     <p className="text-sm text-gray-500">Precio por cupo</p>
                     <p className="font-medium text-green-600">{new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}</p>
@@ -242,10 +273,12 @@ export default function MatchDetailPage(props: any) {
               }
               if (!isFull) {
                 return (
-                  <button onClick={handleJoin} className="w-full px-8 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
-                    <CheckCircle className="w-5 h-5" />
-                    Tomar Cupo - {new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}
-                  </button>
+                  <div className="space-y-3">
+                    <button onClick={handleJoin} className="w-full px-8 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                      <CheckCircle className="w-5 h-5" />
+                      Tomar Cupo - {new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}
+                    </button>
+                  </div>
                 );
               }
               return (
@@ -279,6 +312,36 @@ export default function MatchDetailPage(props: any) {
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded-lg shadow-lg text-sm">{toast}</div>
+      )}
+      {providerModalOpen && reserveInfo && (
+        <div className="fixed inset-0 z-[90] pointer-events-auto">
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative z-50 flex items-start justify-center h-full pt-24 px-4">
+            <div className="w-full max-w-3xl bg-white rounded-xl shadow-2xl p-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Pagar cupo</h2>
+              <p className="mb-6 text-gray-700">Precio: <strong>{new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(reserveInfo.amountCLP)}</strong></p>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="p-4 border rounded">
+                  <h3 className="font-semibold mb-2">MercadoPago</h3>
+                  <p className="text-sm text-gray-600 mb-4">Paga con tarjeta, RedCompra o transferencia según MercadoPago.</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleCheckout("MP")} className="flex-1 px-4 py-3 bg-black text-white rounded">Ir a pagar</button>
+                  </div>
+                </div>
+                <div className="p-4 border rounded">
+                  <h3 className="font-semibold mb-2">Transbank</h3>
+                  <p className="text-sm text-gray-600 mb-4">Paga con Webpay (tarjeta de débito/crédito).</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleCheckout("TB")} className="flex-1 px-4 py-3 bg-black text-white rounded">Ir a pagar</button>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button onClick={() => setProviderModalOpen(false)} className="px-4 py-2 text-sm text-gray-600">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next={`/match/${id}`}/>
     </div>

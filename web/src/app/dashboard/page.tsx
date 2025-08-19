@@ -117,17 +117,7 @@ function DashboardContent() {
                 </div>
               </div>
               
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-green-100 rounded-lg">
-                    <Users className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Ocupación promedio</p>
-                    <p className="text-2xl font-bold text-black">{Math.round(organizerData.metrics.occupancy * 100)}%</p>
-                  </div>
-                </div>
-              </div>
+              {/* Ocupación promedio eliminada por petición */}
               
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center gap-3">
@@ -148,7 +138,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Rating</p>
-                    <p className="text-2xl font-bold text-black">0.0</p>
+                    <p className="text-2xl font-bold text-black">{organizerData.metrics.rating?.toFixed ? (organizerData.metrics.rating ?? 0).toFixed(1) : "0.0"}</p>
                   </div>
                 </div>
               </div>
@@ -194,7 +184,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Reservas Activas</p>
-                    <p className="text-2xl font-bold text-black">{playerData.nextMatch ? 1 : 0}</p>
+                    <p className="text-2xl font-bold text-black">{typeof playerData.metrics.playedCount !== 'undefined' ? playerData.metrics.playedCount : (playerData.nextMatch ? 1 : 0)}</p>
                   </div>
                 </div>
               </div>

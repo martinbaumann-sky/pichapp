@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import SupabaseProvider from "../components/SupabaseProvider";
 import RouteTransition from "../components/RouteTransition";
+import ChunkErrorHandler from "../components/ChunkErrorHandler";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -33,6 +34,7 @@ export default function RootLayout({
     <html lang="es-CL" className="scroll-smooth">
       <body className={`${inter.variable} antialiased font-sans text-gray-900 bg-white min-h-screen flex flex-col`}>
         <SupabaseProvider>
+          <ChunkErrorHandler />
           <Header />
           <RouteTransition>{children}</RouteTransition>
           <Footer />

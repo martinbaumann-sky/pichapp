@@ -32,6 +32,9 @@ export async function GET() {
     }
     const occupancy = totalSpots > 0 ? totalPaid / totalSpots : 0;
 
+    // obtener rating del perfil si existe
+    const profile = await prisma.profile.findUnique({ where: { userId: organizerId } });
+
     const response = {
       nextMatch: nextMatch
         ? {
@@ -47,6 +50,7 @@ export async function GET() {
         totalOrganized,
         occupancy,
         estimatedRevenue,
+        rating: profile?.rating ?? 0,
       },
     };
 

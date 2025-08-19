@@ -16,6 +16,8 @@ export default function Header() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authNext, setAuthNext] = useState<string | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [authInitialTab, setAuthInitialTab] = useState<"login" | "signup">("login");
 
   const navLink = (href: string, label: string) => (
     <Link
@@ -34,29 +36,30 @@ export default function Header() {
   // Cerrar menú al cambiar de ruta
   useEffect(() => {
     if (menuOpen) setMenuOpen(false);
+    if (mobileOpen) setMobileOpen(false);
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
-      <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-        <Link href="/" className="font-bold text-lg tracking-tight">PichApp</Link>
-        <nav className="hidden md:flex items-center gap-2">
+    <header className="sticky top-0 z-40 bg-white/60 backdrop-blur supports-[backdrop-filter]:bg-white/50 border-b">
+      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+              <rect width="24" height="24" rx="6" fill="var(--brand-2)" />
+              <path d="M6 12h12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="12" cy="12" r="2" fill="white" />
+            </svg>
+            <span className="font-bold text-lg tracking-tight">PichApp</span>
+          </Link>
+        </div>
+
+        <nav className="hidden md:flex items-center gap-4">
           {navLink("/explorar", "Explorar")}
-          <button
-            onClick={() => {
-              if (!user) { setAuthNext("/organizar"); setAuthOpen(true); } else router.push("/organizar");
-            }}
-            className={cn(
-              "px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors",
-              pathname === "/organizar" ? "bg-gray-100 text-black" : "text-gray-700"
-            )}
-          >
-            Organizar
-          </button>
+          <button onClick={() => { if (!user) { setAuthOpen(true); setAuthNext('/crear'); setAuthInitialTab('signup'); } else router.push('/crear'); }} className="btn-primary">Crear partido</button>
         </nav>
 
         {/* Perfil / Auth */}
-        <div className="relative">
+        <div className="relative flex items-center gap-2">
           <button
             aria-label="perfil"
             onClick={() => {
@@ -64,6 +67,7 @@ export default function Header() {
                 setMenuOpen((v) => !v);
               } else {
                 setAuthNext(undefined);
+                setAuthInitialTab('login');
                 setAuthOpen(true);
               }
             }}
@@ -82,12 +86,27 @@ export default function Header() {
             </div>
           )}
         </div>
-        <AuthDialog open={authOpen} onOpenChange={(o)=>{ setAuthOpen(o); if(!o) setAuthNext(undefined); }} initialTab="login" next={authNext} />
 
-        <div className="md:hidden">
-          <Link href="/explorar" className="px-3 py-2 rounded-lg text-sm bg-black text-white">Explorar</Link>
+        <AuthDialog open={authOpen} onOpenChange={(o)=>{ setAuthOpen(o); if(!o) setAuthNext(undefined); }} initialTab={authInitialTab} next={authNext} />
+
+        {/* Mobile */}
+        <div className="md:hidden flex items-center">
+          <button onClick={() => setMobileOpen((v)=>!v)} className="p-2 rounded-md">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+              <path d="M3 6h18M3 12h18M3 18h18" stroke="#0f172a" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         </div>
       </div>
+
+      {mobileOpen && (
+        <div className="md:hidden px-4 pb-4">
+          <div className="flex flex-col gap-2">
+            <Link href="/explorar" className="px-4 py-2 rounded-lg text-sm bg-white/90">Explorar</Link>
+            <button onClick={() => { if (!user) { setAuthOpen(true); setAuthNext('/crear'); setAuthInitialTab('signup'); } else router.push('/crear'); }} className="btn-primary">Crear partido</button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

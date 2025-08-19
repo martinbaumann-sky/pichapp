@@ -3,9 +3,9 @@ import { createLocalUser, createSession } from "@/lib/auth-local";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, name, comuna, position } = await req.json();
+    const { email, password, name, lastName, comuna, position, phone, birthday, gender, level } = await req.json();
 
-    if (!email || !password || !name) {
+    if (!email || !password || !name || !phone) {
       return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
     }
 
@@ -29,8 +29,13 @@ export async function POST(req: NextRequest) {
 
     const user = await createLocalUser(email, password, { 
       name, 
+      lastName,
       comuna, 
-      position: normalizedPosition 
+      position: normalizedPosition,
+      phone,
+      birthday: birthday || null,
+      gender: gender || null,
+      level: level || null,
     });
     const sessionId = createSession(user);
 

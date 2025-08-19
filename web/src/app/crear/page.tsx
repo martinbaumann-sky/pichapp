@@ -28,6 +28,7 @@ export default function CreateMatchPage() {
     displayAddress: "",
     occupiedSpots: 0,
   });
+  const [occupiedPlayers, setOccupiedPlayers] = useState<Array<{ name: string; phone: string }>>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -288,6 +289,39 @@ export default function CreateMatchPage() {
                   />
                   <p className="text-xs text-gray-500">Estos cupos quedarán como pagados desde el inicio.</p>
                 </div>
+
+                {Number(formData.occupiedSpots) > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-gray-700">Inscribir jugadores ocupados</h3>
+                    <p className="text-xs text-gray-500">Ingresa nombre y celular de cada jugador (uno por cupo ocupado).</p>
+                    {Array.from({ length: Number(formData.occupiedSpots) }).map((_, idx) => (
+                      <div key={idx} className="grid grid-cols-2 gap-3 items-center">
+                        <input
+                          type="text"
+                          placeholder={`Nombre jugador ${idx + 1}`}
+                          value={occupiedPlayers[idx]?.name || ""}
+                          onChange={(e) => {
+                            const next = [...occupiedPlayers];
+                            next[idx] = { ...(next[idx] || { name: "", phone: "" }), name: e.target.value };
+                            setOccupiedPlayers(next);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <input
+                          type="tel"
+                          placeholder={`+56 9 XXXXXXXX`}
+                          value={occupiedPlayers[idx]?.phone || ""}
+                          onChange={(e) => {
+                            const next = [...occupiedPlayers];
+                            next[idx] = { ...(next[idx] || { name: "", phone: "" }), phone: e.target.value };
+                            setOccupiedPlayers(next);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">

@@ -1,0 +1,20 @@
+# Node/Next
+node_modules/
+web/node_modules/
+.next/
+web/.next/
+.out/
+.vercel/
+.turbo/
+dist/
+build/
+
+# Env, DB y logs
+.env
+.env.*
+web/prisma/dev.db
+*.log
+logs/
+
+# Editor
+.vscode/
