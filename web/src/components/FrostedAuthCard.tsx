@@ -22,6 +22,7 @@ type Props = {
   showPassword: boolean;
   setShowPassword: (v: boolean) => void;
   onClose?: () => void;
+  next?: string;
 };
 
 export default function FrostedAuthCard({
@@ -42,6 +43,7 @@ export default function FrostedAuthCard({
   showPassword,
   setShowPassword,
   onClose,
+  next,
 }: Props) {
   const [step, setStep] = React.useState(0);
   const [phone, setPhone] = React.useState("+569");
@@ -86,10 +88,14 @@ export default function FrostedAuthCard({
         setStep(2);
         return;
       }
-      // Si el endpoint devolvió usuario (login completo), cerrar modal y recargar
+      // Si el endpoint devolvió usuario (login completo)
       if (d?.user) {
         onClose && onClose();
-        window.location.reload();
+        if (next) {
+          window.location.href = next;
+        } else {
+          window.location.reload();
+        }
         return;
       }
       // Fallback: avanzar al siguiente paso
@@ -119,9 +125,13 @@ export default function FrostedAuthCard({
       const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Error al crear cuenta");
-      // Cerrar modal y recargar para reflejar sesión
+      // Cerrar modal y redirigir si corresponde
       onClose && onClose();
-      window.location.reload();
+      if (next) {
+        window.location.href = next;
+      } else {
+        window.location.reload();
+      }
     } catch (e: any) {
       alert(e.message || "Error al crear cuenta");
     } finally {
