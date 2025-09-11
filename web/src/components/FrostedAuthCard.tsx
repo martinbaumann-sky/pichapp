@@ -21,10 +21,6 @@ type Props = {
   setPosition: (v: string) => void;
   showPassword: boolean;
   setShowPassword: (v: boolean) => void;
-  loading: boolean;
-  error: string | null;
-  onSubmit: (e: React.FormEvent) => void;
-  onForgotPassword?: () => void;
   onClose?: () => void;
 };
 
@@ -45,10 +41,6 @@ export default function FrostedAuthCard({
   setPosition,
   showPassword,
   setShowPassword,
-  loading,
-  error,
-  onSubmit,
-  onForgotPassword,
   onClose,
 }: Props) {
   const [step, setStep] = React.useState(0);

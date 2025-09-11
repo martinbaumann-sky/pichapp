@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getBrowserSupabase } from "@/lib/supabase";
 
 interface User {
   id: string;
@@ -43,8 +44,13 @@ export function useAuth() {
   const signOut = useCallback(async () => {
     try {
       await fetch("/api/auth/local/signout", { method: "POST" });
+      try {
+        const supa = getBrowserSupabase();
+        await supa?.auth.signOut();
+      } catch (e) {
+        // ignore
+      }
       setUser(null);
-      // Redirigir a inicio tras cerrar sesión
       if (typeof window !== "undefined") {
         window.location.href = "/";
       }
