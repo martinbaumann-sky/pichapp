@@ -1,28 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getServerSession } from "@/lib/supabase-server";
+import { requireUserId } from "@/lib/auth";
 import { ensureUserInDatabase } from "@/lib/user";
 
 export async function POST(req: NextRequest) {
-	try {
-		const { user } = await getServerSession();
-		if (!user) return NextResponse.json({ error: "No auth" }, { status: 401 });
-		await ensureUserInDatabase({ id: user.id, email: user.email });
-		const body = await req.json();
-		const name = (body?.name ?? "").toString();
-		const comuna = body?.comuna ? String(body.comuna) : "";
-		const position = body?.position ? String(body.position) : null;
+  try {
+    const uid = await requireUserId();
+    const body = await req.json();
+    const name = (body?.name ?? "").toString();
+    const comuna = body?.comuna ? String(body.comuna) : "";
+    const position = body?.position ? String(body.position) : null;
 
-		const profile = await prisma.profile.upsert({
-			where: { userId: user.id },
-			update: { name, comuna, position },
-			create: { userId: user.id, name, comuna, position },
-		});
+    const profile = await prisma.profile.upsert({
+      where: { userId: uid },
+      update: { name, comuna, position },
+      create: { userId: uid, name, comuna, position },
+    });
 
-		return NextResponse.json({ profile }, { status: 201 });
-	} catch (err) {
-		return NextResponse.json({ error: "Error al inicializar perfil" }, { status: 500 });
-	}
+    return NextResponse.json({ profile }, { status: 201 });
+  } catch (err) {
+    if (err instanceof Response) return err as any;
+    return NextResponse.json({ error: "Error al inicializar perfil" }, { status: 500 });
+  }
 }
 
 

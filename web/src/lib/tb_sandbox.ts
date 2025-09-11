@@ -12,8 +12,10 @@ export async function createTbTransaction(opts: CreateTbOpts) {
       // Intento de import dinámico; si falla, caer al sandbox.
       // Nota: para soporte real, instala `transbank-sdk` o el paquete oficial requerido.
       // Aquí devolvemos un error instructivo si no está disponible.
-      // @ts-ignore
-      const sdk = await import("transbank-sdk");
+      // Use require via eval to avoid bundler static analysis
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      const req: any = (0, eval)("require");
+      const sdk = req("transbank-sdk");
       if (sdk && sdk.Webpay) {
         // Integración mínima (requiere ajustar según la versión del SDK instalado).
         try {
