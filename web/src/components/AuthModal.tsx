@@ -3,9 +3,9 @@
 import { useState } from "react";
 import FrostedAuthCard from "./FrostedAuthCard";
 
-type Props = { open: boolean; onClose: () => void; initialTab?: "login" | "signup" };
+type Props = { open: boolean; onClose: () => void; initialTab?: "login" | "signup"; next?: string };
 
-export default function AuthModal({ open, onClose, initialTab }: Props) {
+export default function AuthModal({ open, onClose, initialTab, next }: Props) {
   const [tab, setTab] = useState<"login" | "signup">(initialTab ?? "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,6 +38,7 @@ export default function AuthModal({ open, onClose, initialTab }: Props) {
             showPassword={showPassword}
             setShowPassword={setShowPassword}
             onClose={onClose}
+            next={next}
           />
           <div className="mt-3">
             <button type="button" onClick={onClose} className="w-full px-4 py-2 text-sm text-gray-500">Cerrar</button>
