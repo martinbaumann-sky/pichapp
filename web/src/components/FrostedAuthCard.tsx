@@ -57,11 +57,13 @@ export default function FrostedAuthCard({
   const [smsCode, setSmsCode] = React.useState("");
   const [devCode, setDevCode] = React.useState<string | null>(null);
   const [localLoading, setLocalLoading] = React.useState(false);
+  const [gender, setGender] = React.useState<string | null>(null);
+  const [birthday, setBirthday] = React.useState<string | null>(null);
 
   const sendSms = async () => {
     try {
       setLocalLoading(true);
-      const r = await fetch("/api/auth/local/send-sms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone }) });
+      const r = await fetch("/api/auth/send-sms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d?.error || "Error enviando SMS");
       setSmsSent(true);
@@ -80,9 +82,25 @@ export default function FrostedAuthCard({
   const verifySms = async () => {
     try {
       setLocalLoading(true);
-      const r = await fetch("/api/auth/local/verify-sms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, code: smsCode }) });
-      const d = await r.json();
+      const r = await fetch("/api/auth/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, code: smsCode }) });
+      const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) throw new Error(d?.error || "Código inválido");
+      // Si el endpoint indica que el usuario necesita completar perfil, mostrar pasos de signup
+      if (d?.needsSignup) {
+        // Asegurar que el nombre mínimo venga en user
+        if (d?.user?.name) {
+          try { setName(d.user.name); } catch {}
+        }
+        setStep(2);
+        return;
+      }
+      // Si el endpoint devolvió usuario (login completo), cerrar modal y recargar
+      if (d?.user) {
+        onClose && onClose();
+        window.location.reload();
+        return;
+      }
+      // Fallback: avanzar al siguiente paso
       setStep(2);
     } catch (e: any) {
       alert(e.message || "Código inválido");
@@ -103,8 +121,10 @@ export default function FrostedAuthCard({
         comuna,
         position,
         phone,
+        birthday: birthday || null,
+        gender: gender || null,
       };
-      const r = await fetch("/api/auth/local/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Error al crear cuenta");
       // Cerrar modal y recargar para reflejar sesión
@@ -135,109 +155,89 @@ export default function FrostedAuthCard({
             </div>
           </div>
 
-          <h3 className="text-2xl font-semibold text-white mb-4">{tab === "signup" ? "Únete a PichApp" : "Bienvenido"}</h3>
+          <h3 className="text-2xl font-semibold text-white mb-4">{tab === "signup" ? "Únete a PichangApp" : "Bienvenido"}</h3>
 
-          {tab === "login" ? (
-            <form onSubmit={onSubmit} className="space-y-4">
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo electrónico" required className="input-field pl-12 bg-white text-black" />
+          <div className="space-y-4">
+            {/* Phone-based flow used for both login and signup: start with phone -> code -> optional signup steps */}
+            {step === 0 && (
+              <div className="space-y-3">
+                <label className="text-sm text-white/80">Celular</label>
+                <div className="flex gap-2">
+                  <input value={phone} onChange={(e) => setPhone(e.target.value)} className="input-field bg-white text-black" />
+                  <button disabled={localLoading || !phone} onClick={sendSms} className="btn-primary">Verificar</button>
+                </div>
               </div>
+            )}
 
-              <div className="relative">
-                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" required className="input-field pr-12 bg-white text-black" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+            {step === 1 && (
+              <div className="space-y-3">
+                <label className="text-sm text-white/80">Código de verificación</label>
+                <input value={smsCode} onChange={(e) => setSmsCode(e.target.value)} placeholder="123456" className="input-field bg-white text-black" />
+                <div className="flex justify-between">
+                  <button onClick={() => setStep(0)} className="text-sm text-white/70">Atrás</button>
+                  <button disabled={localLoading || !smsCode} onClick={verifySms} className="btn-primary">Continuar</button>
+                </div>
               </div>
+            )}
 
-              <div className="grid gap-3">
-                <button type="submit" disabled={loading} className="btn-primary w-full">
-                  {loading ? "Procesando..." : "Iniciar sesión"}
-                </button>
-                <button type="button" onClick={onForgotPassword} className="text-sm text-white/70">¿Olvidaste tu contraseña?</button>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-4">
-              {/* Step 1: phone */}
-              {step === 0 && (
-                <div className="space-y-3">
-                  <label className="text-sm text-white/80">Celular</label>
-                  <div className="flex gap-2">
-                    <input value={phone} onChange={(e) => setPhone(e.target.value)} className="input-field bg-white text-black" />
-                    <button disabled={localLoading || !phone} onClick={sendSms} className="btn-primary">Verificar</button>
-                  </div>
+            {/* Si el código no corresponde a un usuario existente, continuar con la creación (pasos 2..4) */}
+            {step === 2 && (
+              <div className="space-y-3">
+                <label className="text-sm text-white/80">Nombre y Apellido</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" className="input-field bg-white text-black" />
+                  <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Apellido" className="input-field bg-white text-black" />
                 </div>
-              )}
 
-              {/* Step 2: code */}
-              {step === 1 && (
-                <div className="space-y-3">
-                  <label className="text-sm text-white/80">Código de verificación</label>
-                  <input value={smsCode} onChange={(e) => setSmsCode(e.target.value)} placeholder="123456" className="input-field bg-white text-black" />
-                  <div className="flex justify-between">
-                    <button onClick={() => setStep(0)} className="text-sm text-white/70">Atrás</button>
-                    <button disabled={localLoading || !smsCode} onClick={verifySms} className="btn-primary">Continuar</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: name */}
-              {step === 2 && (
-                <div className="space-y-3">
-                  <label className="text-sm text-white/80">Nombre y Apellido</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" className="input-field bg-white text-black" />
-                    <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Apellido" className="input-field bg-white text-black" />
-                  </div>
-                  <div className="flex justify-between">
-                    <button onClick={() => setStep(1)} className="text-sm text-white/70">Atrás</button>
-                    <button disabled={!name || !lastName} onClick={() => setStep(3)} className="btn-primary">Continuar</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 4: email + password */}
-              {step === 3 && (
-                <div className="space-y-3">
-                  <label className="text-sm text-white/80">Correo y contraseña</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo electrónico" className="input-field pl-12 bg-white text-black" />
-                  </div>
-                  <div className="relative">
-                    <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" className="input-field pr-12 bg-white text-black" />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                  <div className="flex justify-between">
-                    <button onClick={() => setStep(2)} className="text-sm text-white/70">Atrás</button>
-                    <button disabled={!email || !password} onClick={() => setStep(4)} className="btn-primary">Continuar</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 5: birthday + gender */}
-              {step === 4 && (
-                <div className="space-y-3">
-                  <label className="text-sm text-white/80">Cumpleaños y Género</label>
-                  <input type="date" onChange={(e) => { /* store in comuna? keep simple: use comuna as placeholder */ setComuna(comuna); }} className="input-field bg-white text-black" />
-                  <select onChange={(e) => { /* reuse position for gender to avoid changing props */ setPosition(e.target.value); }} className="input-field bg-white text-black">
-                    <option value="">Selecciona género</option>
-                    <option value="MALE">Masculino</option>
-                    <option value="FEMALE">Femenino</option>
-                    <option value="OTHER">Otro</option>
+                <div>
+                  <label className="text-sm text-white/80">Comuna</label>
+                  <select value={comuna} onChange={(e) => setComuna(e.target.value)} className="input-field bg-white text-black">
+                    <option value="">Selecciona tu comuna</option>
+                    {comunasRM.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
-                  <div className="flex justify-between">
-                    <button onClick={() => setStep(3)} className="text-sm text-white/70">Atrás</button>
-                    <button disabled={localLoading} onClick={finishSignup} className="btn-primary">Crear cuenta</button>
-                  </div>
                 </div>
-              )}
-            </div>
-          )}
+
+                <div>
+                  <label className="text-sm text-white/80">Posición</label>
+                  <select value={position} onChange={(e) => setPosition(e.target.value)} className="input-field bg-white text-black">
+                    <option value="">Selecciona tu posición</option>
+                    <option value="ARQUERO">Arquero</option>
+                    <option value="DEFENSA">Defensa</option>
+                    <option value="LATERAL">Lateral</option>
+                    <option value="VOLANTE">Volante</option>
+                    <option value="DELANTERO">Delantero</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-between">
+                  <button onClick={() => setStep(1)} className="text-sm text-white/70">Atrás</button>
+                  <button disabled={!name || !lastName || !comuna || !position} onClick={() => setStep(3)} className="btn-primary">Continuar</button>
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-3">
+                <label className="text-sm text-white/80">Correo y contraseña (opcional)</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo electrónico (opcional)" className="input-field pl-12 bg-white text-black" />
+                </div>
+                <div className="relative">
+                  <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña (opcional)" className="input-field pr-12 bg-white text-black" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                <div className="flex justify-between">
+                  <button onClick={() => setStep(2)} className="text-sm text-white/70">Atrás</button>
+                  <button disabled={localLoading} onClick={finishSignup} className="btn-primary">Crear cuenta</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

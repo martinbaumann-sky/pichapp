@@ -68,7 +68,7 @@ export async function GET(_req: NextRequest, { params }: any) {
         organizer: match.organizer?.profile ?? null,
         players: match.spots
           .filter((s: any) => s.status === "PAID" || s.status === "RESERVED")
-          .map((s: any) => ({ status: s.status, user: s.user?.profile ?? null })),
+          .map((s: any) => ({ status: s.status, user: s.user?.profile ?? null, team: s.team ?? null, position: s.position ?? null })),
         lat: typeof lat === "number" ? lat : null,
         lng: typeof lng === "number" ? lng : null,
       });

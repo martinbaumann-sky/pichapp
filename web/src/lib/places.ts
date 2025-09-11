@@ -126,7 +126,7 @@ export async function searchPlace(text: string): Promise<PlaceResult[]> {
     console.log("[PLACES] Buscando en OpenStreetMap:", osmUrl);
     
     const osmRes = await fetch(osmUrl, { 
-      headers: { "User-Agent": "PichApp/1.0" }, 
+      headers: { "User-Agent": "PichangApp/1.0" }, 
       cache: "no-store" 
     });
     
@@ -174,7 +174,7 @@ export async function searchPlace(text: string): Promise<PlaceResult[]> {
       console.log("[PLACES] Búsqueda deportiva:", sportsUrl);
       
       const sportsRes = await fetch(sportsUrl, { 
-        headers: { "User-Agent": "PichApp/1.0" }, 
+        headers: { "User-Agent": "PichangApp/1.0" }, 
         cache: "no-store" 
       });
       

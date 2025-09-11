@@ -120,8 +120,8 @@ export async function POST(req: NextRequest) {
           const player = occupiedPlayers[i];
           if (player && player.phone) {
             // Crear user/profile temporal (sin credenciales) y asociar
-            const u = await tx.user.create({ data: { id: crypto.randomUUID(), email: null, isAdmin: false, profile: { create: { name: player.name || `Jugador ${i + 1}`, phone: player.phone, comuna: comuna || "" } } }, include: { profile: true } });
-            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: u.id } });
+            const u = await tx.user.create({ data: { id: crypto.randomUUID(), email: null, isAdmin: false, profile: { create: { name: player.name || `Jugador ${i + 1}`, phone: player.phone, comuna: comuna || "", position: player.position ?? null } } }, include: { profile: true } });
+            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: u.id, team: player.team ?? null, position: player.position ?? null } });
           } else {
             await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: null } });
           }

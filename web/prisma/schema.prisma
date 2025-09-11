@@ -154,6 +154,10 @@ model Spot {
   matchId    String
   userId     String?
   status     SpotStatus  @default(AVAILABLE)
+  // Nuevo: equipo asignado por organizador o jugador (ej: "A", "B")
+  team       String?
+  // Nuevo: posición preferida/registrada para este spot
+  position   Position?
   holdUntil  DateTime?
   priceCLP   Int
   createdAt  DateTime    @default(now())
@@ -232,6 +236,10 @@ model Payment {
   amountCLP    Int
   userId       String
   matchId      String
+  // Equipo seleccionado por el pagador al reservar/inscribirse ("CLARO" | "OSCuro")
+  team         String?
+  // Posición (opcional) enviada junto al pago
+  position     Position?
   spotId       String?         @unique
   createdAt    DateTime        @default(now())
 

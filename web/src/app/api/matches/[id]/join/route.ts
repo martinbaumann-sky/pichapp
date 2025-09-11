@@ -11,6 +11,8 @@ export async function POST(req: NextRequest, { params }: any) {
     // soportar provider en body para elegir MP (MercadoPago) o TB (Transbank)
     const body = await req.json().catch(() => ({}));
     const provider = (body?.provider ?? "MP") as string;
+    const team = body?.team ?? null;
+    const position = body?.position ?? null;
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!;
 
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest, { params }: any) {
         }
 
         const payment = await tx.payment.create({
-          data: { amountCLP: spot.priceCLP, userId, matchId, spotId: spot.id, provider: "TB" },
+          data: { amountCLP: spot.priceCLP, userId, matchId, spotId: spot.id, provider: "TB", team: team ?? null, position: position ?? null },
         });
 
         const tbResp = await createTbTransaction({ paymentId: payment.id, amount: spot.priceCLP, matchId, spotId: spot.id, baseUrl });
@@ -98,6 +100,8 @@ export async function POST(req: NextRequest, { params }: any) {
           matchId,
           spotId: spot.id,
           provider: "MP",
+          team: team ?? null,
+          position: position ?? null,
         },
       });
 

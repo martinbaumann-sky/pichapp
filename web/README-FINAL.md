@@ -8,7 +8,7 @@ npm run seed:reset
 
 Esto borra pagos, lista de espera, spots y partidos; mantiene usuarios/perfiles. Crea un usuario organizador `organizer@demo.cl` y ~12 partidos con lugar, comuna y foto automática.
 
-# 🏈 PichApp - Plataforma de Partidos de Fútbol
+# 🏈 PichangApp - Plataforma de Partidos de Fútbol
 
 ## ✅ **FUNCIONALIDADES IMPLEMENTADAS**
 

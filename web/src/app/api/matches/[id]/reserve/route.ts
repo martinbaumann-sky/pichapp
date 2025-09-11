@@ -6,6 +6,8 @@ export async function POST(_req: NextRequest, { params }: any) {
   try {
     const userId = await requireUserId();
     const matchId = params.id as string;
+    const body = await _req.json().catch(() => ({}));
+    const team = body?.team ?? null;
 
     const result = await prisma.$transaction(async (tx: any) => {
       // Evitar duplicidad por usuario/partido
@@ -22,7 +24,7 @@ export async function POST(_req: NextRequest, { params }: any) {
       }
 
       const payment = await tx.payment.create({
-        data: { amountCLP: anyAvailable.priceCLP, userId, matchId },
+        data: { amountCLP: anyAvailable.priceCLP, userId, matchId, team: team ?? null, position: null },
       });
 
       return { paymentId: payment.id, amountCLP: payment.amountCLP };

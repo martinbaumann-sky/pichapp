@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
         }
 
         await tx.payment.update({ where: { id: payment.id }, data: { status: 'APPROVED', spotId: availableSpot.id } });
-        await tx.spot.update({ where: { id: availableSpot.id }, data: { status: 'PAID', userId: payment.userId, holdUntil: null } });
+        await tx.spot.update({ where: { id: availableSpot.id }, data: { status: 'PAID', userId: payment.userId, holdUntil: null, team: payment.team ?? null, position: payment.position ?? null } });
 
         const counts = await tx.spot.groupBy({ by: ["status"], where: { matchId: payment.matchId }, _count: { _all: true } });
         const available = counts.find((c: any) => c.status === "AVAILABLE")?._count._all ?? 0;

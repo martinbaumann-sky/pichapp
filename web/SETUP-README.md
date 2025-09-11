@@ -1,4 +1,4 @@
-# 🚀 CONFIGURACIÓN RÁPIDA PICHANGA
+# 🚀 CONFIGURACIÓN RÁPIDA PICHANGAPP
 
 ## ❌ PROBLEMA ACTUAL
 - **Base de datos no conecta**: `Can't reach database server at 'localhost:5432'`

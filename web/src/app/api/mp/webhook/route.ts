@@ -29,7 +29,9 @@ export async function POST(req: NextRequest) {
         }
 
         await tx.payment.update({ where: { id: payment.id }, data: { status: 'APPROVED', spotId: availableSpot.id } });
-        await tx.spot.update({ where: { id: availableSpot.id }, data: { status: 'PAID', userId: payment.userId, holdUntil: null } });
+        // Mantener team/position si vinieron en metadata del pago (si aplica)
+        // Copiar team/position desde payment si existen
+        await tx.spot.update({ where: { id: availableSpot.id }, data: { status: 'PAID', userId: payment.userId, holdUntil: null, team: payment.team ?? null, position: payment.position ?? null } });
 
         // Si el match quedó lleno, marcar FULL
         const counts = await tx.spot.groupBy({

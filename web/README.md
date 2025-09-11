@@ -1,4 +1,4 @@
-Pichanga Cupos – MVP
+PichangApp – MVP
 
 Configuración rápida
 

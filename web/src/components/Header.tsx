@@ -49,7 +49,7 @@ export default function Header() {
               <path d="M6 12h12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
               <circle cx="12" cy="12" r="2" fill="white" />
             </svg>
-            <span className="font-bold text-lg tracking-tight">PichApp</span>
+            <span className="font-bold text-lg tracking-tight">PichangApp</span>
           </Link>
         </div>
 

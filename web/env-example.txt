@@ -15,7 +15,7 @@ MP_ACCESS_TOKEN=""
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 
 # Admin configuration
-ADMIN_EMAIL="admin@pichanga.com"
+ADMIN_EMAIL="admin@pichangapp.com"
 ADMIN_PASSWORD="admin123"
 ADMIN_USER_ID="admin-user-id"
-ADMIN_EMAILS="admin@pichanga.com"
+ADMIN_EMAILS="admin@pichangapp.com"

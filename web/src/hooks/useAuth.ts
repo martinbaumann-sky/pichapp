@@ -17,9 +17,17 @@ export function useAuth() {
 
   const checkSession = useCallback(async () => {
     try {
-      const response = await fetch("/api/auth/local/session", { cache: "no-store", credentials: "same-origin" });
-      const data = await response.json();
-      setUser(data.user);
+      const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+      // Proteger contra respuestas HTML u otras no-JSON
+      const text = await response.text();
+      try {
+        const data = text ? JSON.parse(text) : { user: null };
+        setUser(data.user ?? null);
+      } catch (e) {
+        // Si viene HTML (p. ej. página de error), evitar JSON.parse y setear null
+        console.warn('[AUTH] /api/auth/session returned non-json response');
+        setUser(null);
+      }
     } catch (error) {
       console.error("[AUTH] Error checking session:", error);
       setUser(null);

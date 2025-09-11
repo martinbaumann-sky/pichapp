@@ -28,7 +28,7 @@ export default function CreateMatchPage() {
     displayAddress: "",
     occupiedSpots: 0,
   });
-  const [occupiedPlayers, setOccupiedPlayers] = useState<Array<{ name: string; phone: string }>>([]);
+  const [occupiedPlayers, setOccupiedPlayers] = useState<Array<{ name: string; phone: string; position?: string; team?: string }>>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +59,8 @@ export default function CreateMatchPage() {
          venueAddress: formData.venueAddress || formData.displayAddress || "",
          comuna: formData.comuna || "",
          coverImageUrl,
+         // Enviar jugadores ocupados con posición y equipo
+         occupiedPlayers: occupiedPlayers.map((p) => ({ name: p.name, phone: p.phone, position: p.position || null, team: p.team || null })),
        } as any;
       const res = await fetch("/api/matches", {
         method: "POST",
@@ -295,14 +297,14 @@ export default function CreateMatchPage() {
                     <h3 className="text-sm font-medium text-gray-700">Inscribir jugadores ocupados</h3>
                     <p className="text-xs text-gray-500">Ingresa nombre y celular de cada jugador (uno por cupo ocupado).</p>
                     {Array.from({ length: Number(formData.occupiedSpots) }).map((_, idx) => (
-                      <div key={idx} className="grid grid-cols-2 gap-3 items-center">
+                      <div key={idx} className="grid grid-cols-4 gap-3 items-center">
                         <input
                           type="text"
                           placeholder={`Nombre jugador ${idx + 1}`}
                           value={occupiedPlayers[idx]?.name || ""}
                           onChange={(e) => {
                             const next = [...occupiedPlayers];
-                            next[idx] = { ...(next[idx] || { name: "", phone: "" }), name: e.target.value };
+                            next[idx] = { ...(next[idx] || { name: "", phone: "", position: "", team: "" }), name: e.target.value };
                             setOccupiedPlayers(next);
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
@@ -313,11 +315,57 @@ export default function CreateMatchPage() {
                           value={occupiedPlayers[idx]?.phone || ""}
                           onChange={(e) => {
                             const next = [...occupiedPlayers];
-                            next[idx] = { ...(next[idx] || { name: "", phone: "" }), phone: e.target.value };
+                            next[idx] = { ...(next[idx] || { name: "", phone: "", position: "", team: "" }), phone: e.target.value };
                             setOccupiedPlayers(next);
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         />
+                        <select
+                          value={occupiedPlayers[idx]?.position || ""}
+                          onChange={(e) => {
+                            const next = [...occupiedPlayers];
+                            next[idx] = { ...(next[idx] || { name: "", phone: "", position: "", team: "" }), position: e.target.value };
+                            setOccupiedPlayers(next);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        >
+                          <option value="">Posición</option>
+                          <option value="ARQUERO">Arquero</option>
+                          <option value="DEFENSA">Defensa</option>
+                          <option value="LATERAL">Lateral</option>
+                          <option value="VOLANTE">Volante</option>
+                          <option value="DELANTERO">Delantero</option>
+                        </select>
+                        <div className="flex gap-2">
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name={`team-${idx}`}
+                              value="CLARO"
+                              checked={occupiedPlayers[idx]?.team === "CLARO"}
+                              onChange={(e) => {
+                                const next = [...occupiedPlayers];
+                                next[idx] = { ...(next[idx] || { name: "", phone: "", position: "", team: "" }), team: e.target.value };
+                                setOccupiedPlayers(next);
+                              }}
+                            />
+                            <span className="text-sm">Equipo Claro</span>
+                          </label>
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name={`team-${idx}`}
+                              value="OSCURA"
+                              checked={occupiedPlayers[idx]?.team === "OSCURA"}
+                              onChange={(e) => {
+                                const next = [...occupiedPlayers];
+                                next[idx] = { ...(next[idx] || { name: "", phone: "", position: "", team: "" }), team: e.target.value };
+                                setOccupiedPlayers(next);
+                              }}
+                            />
+                            <span className="text-sm">Equipo Oscuro</span>
+                          </label>
+                        </div>
                       </div>
                     ))}
                   </div>

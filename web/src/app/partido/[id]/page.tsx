@@ -113,7 +113,7 @@ export default function MatchDetailPage(props: any) {
     const url = window.location.href;
     if (navigator.share) {
       try {
-        await navigator.share({ title: match?.title ?? "PichApp", url });
+        await navigator.share({ title: match?.title ?? "PichangApp", url });
       } catch {}
     } else {
       await navigator.clipboard.writeText(url);
@@ -301,8 +301,17 @@ export default function MatchDetailPage(props: any) {
             <ul className="space-y-2">
               {(match.players ?? []).map((p: any, idx: number) => (
                 <li key={idx} className="text-sm text-gray-700 flex items-center justify-between">
-                  <span>{p.user?.name ?? "Jugador"}</span>
-                  <span className="text-gray-500">{p.status === "PAID" ? (p.user?.position ? posicionES[p.user.position as keyof typeof posicionES] : "") : "Reservado"}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium">{p.user?.name ?? "Jugador"}</span>
+                    {/* Mostrar posición preferida: si viene en user.profile usar eso, sino usar spot.position si existe */}
+                    {((p.user && p.user.position) || p.position) && (
+                      <span className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600">{posicionES[(p.user?.position ?? p.position) as keyof typeof posicionES]}</span>
+                    )}
+                    {p.team && (
+                      <span className={`text-xs px-2 py-1 rounded ${p.team === 'CLARO' ? 'bg-yellow-50 text-yellow-800' : 'bg-slate-800 text-white'}`}> {p.team === 'CLARO' ? 'Claro' : 'Oscuro'}</span>
+                    )}
+                  </div>
+                  <div className="text-gray-500">{p.status === "PAID" ? "Confirmado" : "Reservado"}</div>
                 </li>
               ))}
             </ul>
