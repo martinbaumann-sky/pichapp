@@ -87,7 +87,7 @@ export default function CreateMatchPage() {
           // Si es un error de autenticación, redirigir al login
           if (res.status === 401) {
             alert("Necesitas iniciar sesión para crear un partido. Serás redirigido al login.");
-            window.location.href = "/auth/sign-in";
+            // Redirect handled by /organizar wrapper; no hard redirect here.
             return;
           }
         } catch (e) {

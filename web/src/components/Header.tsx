@@ -55,7 +55,7 @@ export default function Header() {
 
         <nav className="hidden md:flex items-center gap-4">
           {navLink("/explorar", "Explorar")}
-          <button onClick={() => { if (!user) { setAuthOpen(true); setAuthNext('/crear'); setAuthInitialTab('signup'); } else router.push('/crear'); }} className="btn-primary">Crear partido</button>
+          <button onClick={() => { if (!user) { setAuthOpen(true); setAuthNext('/organizar'); setAuthInitialTab('signup'); } else router.push('/organizar'); }} className="btn-primary">Crear partido</button>
         </nav>
 
         {/* Perfil / Auth */}
@@ -103,12 +103,11 @@ export default function Header() {
         <div className="md:hidden px-4 pb-4">
           <div className="flex flex-col gap-2">
             <Link href="/explorar" className="px-4 py-2 rounded-lg text-sm bg-white/90">Explorar</Link>
-            <button onClick={() => { if (!user) { setAuthOpen(true); setAuthNext('/crear'); setAuthInitialTab('signup'); } else router.push('/crear'); }} className="btn-primary">Crear partido</button>
+            <button onClick={() => { if (!user) { setAuthOpen(true); setAuthNext('/organizar'); setAuthInitialTab('signup'); } else router.push('/organizar'); }} className="btn-primary">Crear partido</button>
           </div>
         </div>
       )}
     </header>
   );
 }
-
 

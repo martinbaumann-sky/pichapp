@@ -3,10 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import dynamic from "next/dynamic";
 import AuthDialog from "@/components/AuthDialog";
-
-const CreateMatchPage = dynamic(() => import("../crear/page"), { ssr: false });
+import CreateMatchWizard from "@/components/CreateMatchWizard";
 
 export default function OrganizarPage() {
   const { user, loading } = useAuth();
@@ -31,7 +29,6 @@ export default function OrganizarPage() {
     </div>
   );
 
-  return <CreateMatchPage />;
+  return <CreateMatchWizard />;
 }
-
 

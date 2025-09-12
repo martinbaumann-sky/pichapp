@@ -26,13 +26,15 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
+    const fullName = [name, lastName].filter(Boolean).join(" ");
+
     const user = await prisma.user.create({
       data: {
         email,
         isAdmin: false,
         profile: {
           create: {
-            name,
+            name: fullName || name,
             phone,
             comuna,
             position: position as any,
