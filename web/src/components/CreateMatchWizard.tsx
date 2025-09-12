@@ -3,13 +3,14 @@
 import { useState, useCallback, useMemo } from "react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DateTimePicker from "@/components/DateTimePicker";
+import dynamic from "next/dynamic";
 import { nivelES } from "@/lib/i18n";
 import { staticMapUrl } from "@/lib/maps";
 import { streetViewUrl } from "@/lib/places";
 
 type Form = {
   title: string;
-  comuna: string;
+  comuna?: string;
   level: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
   venueName: string;
   venueAddress: string;
@@ -35,24 +36,25 @@ const stepTitles = [
 ];
 
 export default function CreateMatchWizard() {
+  const MiniMap = dynamic(() => import("@/components/MatchMiniMap"), { ssr: false });
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [occupiedDetails, setOccupiedDetails] = useState<Array<{ name: string; email: string; position: string }>>([]);
   const [form, setForm] = useState<Form>({
     title: "",
-    comuna: "",
     level: "INTERMEDIATE",
     venueName: "",
     venueAddress: "",
     fieldNumber: "",
     startsAt: "",
     durationMins: 90,
-    pricePerSpot: "",
+    pricePerSpot: "3000",
     totalSpots: 10,
     occupiedSpots: 0,
   } as any);
 
   const allowNext = useMemo(() => {
-    if (step === 0) return !!form.title && !!form.comuna && !!form.level;
+    if (step === 0) return !!form.title && !!form.level;
     if (step === 1) return !!(form.displayAddress || form.venueAddress || form.venueName);
     if (step === 2) return !!form.startsAt && form.durationMins >= 30;
     if (step === 3) return Number(form.pricePerSpot) >= 500 && form.totalSpots >= 6;
@@ -69,6 +71,7 @@ export default function CreateMatchWizard() {
       lng: v.lng ?? prev.lng,
       place_id: v.place_id ?? prev.place_id,
       photoUrl: v.photoUrl ?? prev.photoUrl,
+      comuna: v.comuna ?? prev.comuna,
     }));
   }, []);
 
@@ -92,8 +95,9 @@ export default function CreateMatchWizard() {
         occupiedSpots: Number(form.occupiedSpots || 0) || 0,
         venueName: form.venueName || "",
         venueAddress: form.venueAddress || form.displayAddress || "",
-        comuna: form.comuna || "",
+        // let backend derive comuna from address if missing
         coverImageUrl,
+        occupiedOrganizerDetails: occupiedDetails,
       };
 
       const res = await fetch("/api/matches", {
@@ -145,8 +149,7 @@ export default function CreateMatchWizard() {
             <input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} placeholder="Pichanga en ..." className="w-full border px-3 py-2 rounded" />
           </div>
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Comuna</label>
-            <input value={form.comuna} onChange={(e)=>setForm({...form,comuna:e.target.value})} placeholder="Ej. Providencia" className="w-full border px-3 py-2 rounded" />
+            {/* Comuna is now derived from address selection (Step 1) */}
           </div>
           <div>
             <label className="block text-sm text-gray-700 mb-1">Nivel</label>
@@ -161,7 +164,7 @@ export default function CreateMatchWizard() {
 
       {step === 1 && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
-          <AddressAutocomplete onSelect={onAddress} />
+          <AddressAutocomplete value={form.displayAddress || ""} onChange={onAddress} />
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-gray-700 mb-1">Nombre del recinto</label>
@@ -173,8 +176,13 @@ export default function CreateMatchWizard() {
             </div>
           </div>
 
-          {/* Preview de mapa/foto */}
-          <PreviewCard lat={form.lat} lng={form.lng} photoUrl={form.photoUrl} />
+          {/* Vista previa con el mismo mapa de "Explorar" */}
+          <div className="mt-2">
+            <label className="block text-sm text-gray-700 mb-2">Vista previa</label>
+            <div className="relative overflow-hidden rounded-xl border bg-gray-50">
+              <MiniMap lat={form.lat} lng={form.lng} title={form.venueName || form.displayAddress || form.title} />
+            </div>
+          </div>
         </div>
       )}
 
@@ -196,7 +204,8 @@ export default function CreateMatchWizard() {
           <div className="grid md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm text-gray-700 mb-1">Precio por cupo (CLP)</label>
-              <input type="number" min={500} step={500} value={form.pricePerSpot as any} onChange={(e)=>setForm({...form, pricePerSpot: e.target.value})} className="w-full border px-3 py-2 rounded" />
+              <input type="number" min={500} step={500} placeholder="3000" value={form.pricePerSpot as any} onChange={(e)=>setForm({...form, pricePerSpot: e.target.value})} className="w-full border px-3 py-2 rounded" />
+              <p className="mt-1 text-xs text-gray-500">Pichangapp retiene el 5% por servicio.</p>
             </div>
             <div>
               <label className="block text-sm text-gray-700 mb-1">Total de cupos</label>
@@ -204,9 +213,77 @@ export default function CreateMatchWizard() {
             </div>
             <div>
               <label className="block text-sm text-gray-700 mb-1">Ocupados por el organizador</label>
-              <input type="number" min={0} max={form.totalSpots} value={form.occupiedSpots} onChange={(e)=>setForm({...form, occupiedSpots: Number(e.target.value)})} className="w-full border px-3 py-2 rounded" />
+              <input
+                type="number"
+                min={0}
+                max={form.totalSpots}
+                value={form.occupiedSpots}
+                onChange={(e)=>{
+                  const v = Math.max(0, Math.min(Number(e.target.value || 0), form.totalSpots));
+                  setForm({...form, occupiedSpots: v});
+                  setOccupiedDetails((prev)=>{
+                    const next = [...prev];
+                    if (v > next.length) {
+                      while(next.length < v) next.push({ name: "", email: "", position: "" });
+                    } else if (v < next.length) {
+                      next.length = v;
+                    }
+                    return next;
+                  });
+                }}
+                className="w-full border px-3 py-2 rounded"
+              />
             </div>
           </div>
+          {form.occupiedSpots > 0 && (
+            <div className="mt-2 space-y-3">
+              <div className="text-sm text-gray-700 font-medium">Datos de jugadores ocupados por el organizador</div>
+              {Array.from({ length: form.occupiedSpots }).map((_, idx) => (
+                <div key={idx} className="grid md:grid-cols-3 gap-3 border rounded p-3">
+                  <input
+                    type="text"
+                    placeholder={`Nombre jugador ${idx+1}`}
+                    value={occupiedDetails[idx]?.name || ""}
+                    onChange={(e)=>{
+                      const next = [...occupiedDetails];
+                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"" }), name: e.target.value };
+                      setOccupiedDetails(next);
+                    }}
+                    className="w-full border px-3 py-2 rounded"
+                  />
+                  <input
+                    type="email"
+                    placeholder="email@ejemplo.com"
+                    value={occupiedDetails[idx]?.email || ""}
+                    onChange={(e)=>{
+                      const next = [...occupiedDetails];
+                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"" }), email: e.target.value };
+                      setOccupiedDetails(next);
+                    }}
+                    className="w-full border px-3 py-2 rounded"
+                  />
+                  <select
+                    value={occupiedDetails[idx]?.position || ""}
+                    onChange={(e)=>{
+                      const next = [...occupiedDetails];
+                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"" }), position: e.target.value };
+                      setOccupiedDetails(next);
+                    }}
+                    className="w-full border px-3 py-2 rounded"
+                  >
+                    <option value="">Posicion</option>
+                    <option value="ARQUERO">Arquero</option>
+                    <option value="DEFENSA">Defensa</option>
+                    <option value="LATERAL">Lateral</option>
+                    <option value="MEDIOCAMPISTA">Mediocampista</option>
+                    <option value="EXTREMO">Extremo</option>
+                    <option value="DELANTERO">Delantero</option>
+                  </select>
+                </div>
+              ))}
+              <p className="text-xs text-gray-500">Estos datos no son obligatorios en esta etapa.</p>
+            </div>
+          )}
         </div>
       )}
 

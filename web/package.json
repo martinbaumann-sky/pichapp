@@ -14,6 +14,7 @@
     "seed:dev": "tsx scripts/seed-dev-user.ts",
     "seed:reset": "tsx scripts/reset-and-seed.ts",
     "clear:matches": "tsx scripts/clear-matches.ts",
+    "seed:examples": "tsx scripts/seed-examples.ts",
     "test": "vitest run"
   },
   "dependencies": {

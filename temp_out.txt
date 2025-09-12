@@ -1,0 +1,49 @@
+
+type Form = {
+  title: string;
+  comuna: string;
+  level: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+  venueName: string;
+  venueAddress: string;
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState<Form>({
+    title: "",
+    comuna: "",
+    level: "INTERMEDIATE",
+    venueName: "",
+    venueAddress: "",
+  } as any);
+
+  const allowNext = useMemo(() => {
+    if (step === 0) return !!form.title && !!form.comuna && !!form.level;
+    if (step === 1) return !!(form.displayAddress || form.venueAddress || form.venueName);
+    if (step === 2) return !!form.startsAt && form.durationMins >= 30;
+    if (step === 3) return Number(form.pricePerSpot) >= 500 && form.totalSpots >= 6;
+        occupiedSpots: Number(form.occupiedSpots || 0) || 0,
+        venueName: form.venueName || "",
+        venueAddress: form.venueAddress || form.displayAddress || "",
+        comuna: form.comuna || "",
+        coverImageUrl,
+      };
+
+            <input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} placeholder="Pichanga en ..." className="w-full border px-3 py-2 rounded" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Comuna</label>
+            <input value={form.comuna} onChange={(e)=>setForm({...form,comuna:e.target.value})} placeholder="Ej. Providencia" className="w-full border px-3 py-2 rounded" />
+          </div>
+          <div>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Comuna</label>
+            <input value={form.comuna} onChange={(e)=>setForm({...form,comuna:e.target.value})} placeholder="Ej. Providencia" className="w-full border px-3 py-2 rounded" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Nivel</label>
+        <div className="space-y-4 bg-white border rounded-xl p-6">
+          <div className="text-sm text-gray-700">
+            <p><span className="font-medium">Título:</span> {form.title}</p>
+            <p><span className="font-medium">Comuna:</span> {form.comuna}</p>
+            <p><span className="font-medium">Nivel:</span> {nivelES[form.level]}</p>
+            <p><span className="font-medium">Recinto:</span> {form.venueName || "-"}</p>
+            <p><span className="font-medium">Dirección:</span> {form.venueAddress || form.displayAddress || "-"}</p>

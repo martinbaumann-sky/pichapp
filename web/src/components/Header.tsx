@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authNext, setAuthNext] = useState<string | undefined>(undefined);
@@ -63,6 +63,7 @@ export default function Header() {
           <button
             aria-label="perfil"
             onClick={() => {
+              if (loading) return;
               if (user) {
                 setMenuOpen((v) => !v);
               } else {
@@ -75,7 +76,7 @@ export default function Header() {
           >
             <UserIcon className="w-5 h-5" />
           </button>
-          {user && menuOpen && (
+          {user && !loading && menuOpen && (
             <div className="absolute right-0 mt-2 w-44 bg-white border rounded-lg shadow-lg py-1 z-50 origin-top-right transform transition-all duration-150">
               <div className="px-3 py-2 text-sm text-gray-500 border-b">
                 {user.name}
@@ -110,4 +111,3 @@ export default function Header() {
     </header>
   );
 }
-

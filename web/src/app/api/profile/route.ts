@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+export const runtime = 'nodejs';
 import { requireUserId } from "@/lib/auth";
 import { ensureUserInDatabase } from "@/lib/user";
 

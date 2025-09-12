@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+export const runtime = 'nodejs';
 import { prisma } from "@/lib/db";
 import { createMatchSchema, listMatchesSchema } from "@/lib/validator";
 import { sampleMatches as sampleMatchesLib } from "@/lib/samples";
