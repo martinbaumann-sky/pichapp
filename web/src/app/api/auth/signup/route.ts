@@ -3,9 +3,15 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { setPasswordHash } from "@/lib/auth-password";
+import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
+
+const rl = createRateLimiter({ name: "auth_signup", limit: 5, windowSec: 300 });
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req as any);
+    const probe = await rl.check(`ip:${ip}`);
+    if (!probe.allowed) return NextResponse.json({ ok: false, error: "Límite de registros alcanzado. Intenta más tarde." }, { status: 429 });
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
     const password = String(body?.password || "");

@@ -2,68 +2,74 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = 'nodejs';
 import { prisma } from "@/lib/db";
 import { createMatchSchema, listMatchesSchema } from "@/lib/validator";
-import { sampleMatches as sampleMatchesLib } from "@/lib/samples";
 import { requireUserId } from "@/lib/auth";
 import { streetViewUrl, searchPlace, extractComunaFromText } from "@/lib/places";
-import { staticMapUrl, buildStaticMapUrl } from "@/lib/maps";
+import { buildStaticMapUrl } from "@/lib/maps";
 
 export async function POST(req: NextRequest) {
   try {
     const organizerId = await requireUserId();
-    const json = await req.json();
-    // Rellenar defaults defensivos antes de validar para evitar "Invalid input"
+    const json = await req.json().catch(() => ({}));
+
+    // Defaults defensivos para evitar "invalid input"
     const derivedComuna = json?.comuna ?? extractComunaFromText(String(json?.venueAddress ?? json?.venueName ?? "")) ?? undefined;
     const safeStartsAt = (() => {
       const raw = json?.startsAt;
       const d = raw ? new Date(raw) : null;
       if (d && !isNaN(d.getTime())) return raw;
-      // fallback: mañana 19:00 local
       const now = new Date();
       const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 19, 0, 0);
       return tomorrow.toISOString();
     })();
+
+    // Sanitizar jugadores ocupados del organizador
+    const allowedPositions = new Set(["ARQUERO", "DEFENSA", "LATERAL", "VOLANTE", "DELANTERO"]);
+    const rawPlayers = Array.isArray(json?.occupiedPlayers) ? json.occupiedPlayers : [];
+    const sanitizedPlayers = rawPlayers
+      .filter((p: any) => p && typeof p === 'object' && String(p.name || '').trim().length > 0)
+      .map((p: any) => {
+        const pos = String(p.position || '').trim().toUpperCase();
+        return {
+          name: String(p.name).trim(),
+          phone: p.phone ? String(p.phone).trim() : undefined,
+          email: p.email ? String(p.email).trim() : undefined,
+          position: allowedPositions.has(pos) ? pos : undefined,
+          team: p.team ? String(p.team).trim() : undefined,
+        };
+      });
+
     const defensivelyFilled = {
+      ...json,
       title: (json?.title?.trim?.() || json?.venueName?.trim?.() || "Partido"),
       venueName: json?.venueName ?? json?.displayAddress ?? "",
       venueAddress: json?.venueAddress ?? json?.displayAddress ?? "",
       startsAt: safeStartsAt,
-      level: ["BEGINNER","INTERMEDIATE","ADVANCED"].includes(json?.level) ? json.level : "INTERMEDIATE",
-      ...(derivedComuna ? { comuna: derivedComuna } : {}),
-      ...json,
+      level: ["BEGINNER", "INTERMEDIATE", "ADVANCED"].includes(json?.level) ? json.level : "INTERMEDIATE",
+      ...(derivedComuna && (!json?.comuna || String(json.comuna).trim().length < 2) ? { comuna: derivedComuna } : {}),
       pricePerSpot: Number(json?.pricePerSpot ?? 0),
       totalSpots: Number(json?.totalSpots ?? 0),
       durationMins: Number(json?.durationMins ?? 0),
       occupiedSpots: Number(json?.occupiedSpots ?? 0),
-    };
+      ...(sanitizedPlayers.length > 0 ? { occupiedPlayers: sanitizedPlayers } : {}),
+    } as any;
+
     const parsed = createMatchSchema.safeParse(defensivelyFilled);
     if (!parsed.success) {
-      console.error("[POST /api/matches] validation error", {
-        issues: parsed.error.issues,
-        flatten: parsed.error.flatten(),
-        received: defensivelyFilled,
-      });
       return NextResponse.json(
         { error: "Datos inválidos", message: parsed.error.issues[0]?.message ?? "Validación fallida", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
+
     const data = parsed.data as any;
 
-    // Generar coverImageUrl con Google Street View si hay lat/lng.
-    // Si no hay API key o Street View no está disponible, usar un mapa estático gratuito de OpenStreetMap.
+    // Generar coverImageUrl: Street View (si hay KEY) > OSM estático > Unsplash
     let coverImageUrl = data.coverImageUrl as string | undefined;
     if (!coverImageUrl && typeof data.lat === "number" && typeof data.lng === "number") {
-      // Intentar usar Street View primero (requiere NEXT_PUBLIC_GOOGLE_MAPS_API_KEY).
       const svUrl = streetViewUrl(data.lat, data.lng);
-      if (svUrl && /^https?:\/\//i.test(svUrl)) {
-        coverImageUrl = svUrl;
-      } else {
-        // Fallback gratuito: staticmap de OpenStreetMap
-        coverImageUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${data.lat},${data.lng}&zoom=17&size=800x400&markers=${data.lat},${data.lng},red`;
-      }
+      if (svUrl && /^https?:\/\//i.test(svUrl)) coverImageUrl = svUrl;
+      else coverImageUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${data.lat},${data.lng}&zoom=17&size=800x400&markers=${data.lat},${data.lng},red`;
     }
-
-    // Último recurso: Unsplash Source (sin clave) para siempre tener alguna imagen representativa.
     if (!coverImageUrl) {
       try {
         const parts = [data.venueName || data.title || "cancha", data.comuna || "santiago", "soccer field"]
@@ -71,9 +77,7 @@ export async function POST(req: NextRequest) {
           .map((s: any) => String(s).replace(/\s+/g, "+"))
           .join(",");
         coverImageUrl = `https://source.unsplash.com/800x400/?${parts}`;
-      } catch (err) {
-        // silence
-      }
+      } catch {}
     }
 
     const match = await prisma.$transaction(async (tx: any) => {
@@ -82,10 +86,11 @@ export async function POST(req: NextRequest) {
         extractComunaFromText(String(data.venueAddress ?? "")) ||
         extractComunaFromText(String(data.venueName ?? "")) ||
         "Santiago";
+
       const created = await tx.match.create({
         data: {
           title: data.title,
-          comuna: comuna,
+          comuna,
           startsAt: data.startsAt as unknown as Date,
           durationMins: data.durationMins,
           pricePerSpot: data.pricePerSpot,
@@ -114,17 +119,33 @@ export async function POST(req: NextRequest) {
       const occupied = typeof data.occupiedSpots === "number" ? Math.max(0, Math.min(data.occupiedSpots, data.totalSpots)) : 0;
       if (occupied > 0) {
         const spots = await tx.spot.findMany({ where: { matchId: created.id }, orderBy: { createdAt: "asc" }, take: occupied });
-        // Si vienen jugadores ocupados, crear perfiles y asignarlos
         const occupiedPlayers = Array.isArray(data.occupiedPlayers) ? data.occupiedPlayers : [];
         for (let i = 0; i < spots.length; i++) {
           const s = spots[i];
           const player = occupiedPlayers[i];
-          if (player && player.phone) {
-            // Crear user/profile temporal (sin credenciales) y asociar
-            const u = await tx.user.create({ data: { id: crypto.randomUUID(), email: null, isAdmin: false, profile: { create: { name: player.name || `Jugador ${i + 1}`, phone: player.phone, comuna: comuna || "", position: player.position ?? null } } }, include: { profile: true } });
+          if (player) {
+            const u = await tx.user.create({
+              data: {
+                id: crypto.randomUUID(),
+                email: null,
+                isAdmin: false,
+                profile: { create: { name: player.name || `Jugador ${i + 1}`, phone: player.phone ?? "", comuna: comuna || "", position: player.position ?? null } },
+              },
+              include: { profile: true },
+            });
             await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: u.id, team: player.team ?? null, position: player.position ?? null } });
           } else {
-            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: null } });
+            // Crear un jugador placeholder para que siempre haya nombre visible
+            const u = await tx.user.create({
+              data: {
+                id: crypto.randomUUID(),
+                email: null,
+                isAdmin: false,
+                profile: { create: { name: `Jugador ${i + 1}`, phone: "", comuna: comuna || "", position: null } },
+              },
+              include: { profile: true },
+            });
+            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: u.id } });
           }
         }
       }
@@ -140,7 +161,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ match }, { status: 201 });
   } catch (err: any) {
     if (err instanceof Response) return err;
-    console.error("[POST /api/matches] unhandled error", err);
     return NextResponse.json({ error: "Error al crear partido" }, { status: 500 });
   }
 }
@@ -196,35 +216,31 @@ export async function GET(req: NextRequest) {
       const paid = m.spots.filter((s: any) => s.status === "PAID").length;
       const available = m.spots.filter((s: any) => s.status === "AVAILABLE").length;
 
-      // Si no tenemos lat/lng en DB, intentar geocodificar desde venueAddress/venueName usando Nominatim
+      // Si no tenemos lat/lng en DB, intentar geocodificar desde venueAddress/venueName
       let lat = typeof m.lat === "number" ? m.lat : null;
       let lng = typeof m.lng === "number" ? m.lng : null;
       if ((lat == null || lng == null) && (m.venueAddress || m.venueName || m.title)) {
         try {
-          const q = `${m.venueAddress ?? ""} ${m.venueName ?? m.title ?? ""}`.trim();
-          if (q.length > 0) {
-            const places = await searchPlace(q);
+          const query = `${m.venueAddress ?? ""} ${m.venueName ?? m.title ?? ""}`.trim();
+          if (query.length > 0) {
+            const places = await searchPlace(query);
             if (places && places.length > 0) {
               lat = places[0].lat;
               lng = places[0].lng;
             }
           }
-        } catch (err) {
-          // ignore geocode errors
-        }
+        } catch {}
       }
 
       // Generar imagen: Street View > Mapbox/OSM static > Unsplash
-      let coverImageUrl = m.coverImageUrl;
+      let coverImageUrl = m.coverImageUrl as string | null | undefined;
       if (!coverImageUrl && lat != null && lng != null) {
         const sv = streetViewUrl(lat, lng);
         if (sv && /^https?:\/\//i.test(sv)) {
           coverImageUrl = sv;
         } else {
-          // use helper to prefer Mapbox if token available, else OSM static
           const sm = buildStaticMapUrl({ lat, lng, width: 800, height: 400, pixelRatio: 1 });
-          if (sm) coverImageUrl = sm;
-          else coverImageUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=800x400&markers=${lat},${lng},red`;
+          coverImageUrl = sm || `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=800x400&markers=${lat},${lng},red`;
         }
       }
 
@@ -235,7 +251,7 @@ export async function GET(req: NextRequest) {
             .map((s: any) => String(s).replace(/\s+/g, "+"))
             .join(",");
           coverImageUrl = `https://source.unsplash.com/800x400/?${parts}`;
-        } catch (err) {}
+        } catch {}
       }
 
       return {
@@ -260,5 +276,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Error al listar partidos" }, { status: 500 });
   }
 }
-
-// old sample generator removed

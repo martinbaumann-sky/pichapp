@@ -6,13 +6,15 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
   binaryTargets = ["native"]
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  // Uses DATABASE_URL from your environment (.env)
+  url       = env("DATABASE_URL")
+  // Optional: direct connection for migrations (recommended when using Accelerate/Data Proxy)
+  directUrl = env("DIRECT_URL")
 }
 
 /// Enums
@@ -63,6 +65,14 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// Friend system
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
 /// Models
 model User {
   id        String    @id @default(uuid())
@@ -77,6 +87,12 @@ model User {
   payments  Payment[]
   waitlist  WaitlistEntry[]
   sessions  Session[]
+
+  localPassword LocalPassword?
+
+  // Friend relations
+  friendsRequested Friend[] @relation("FriendRequester")
+  friendsReceived  Friend[] @relation("FriendAddressee")
 }
 
 model Profile {
@@ -260,4 +276,32 @@ model Payment {
   spot         Spot?           @relation("SpotPayment", fields: [spotId], references: [id])
 
   @@index([providerRef])
+}
+
+// Local auth password storage to persist credentials across runs/migrations
+model LocalPassword {
+  userId String @id
+  hash   String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("LocalPassword")
+}
+
+// Directed friend relationship (requester -> addressee)
+// We treat ACCEPTED as mutual friendship.
+model Friend {
+  id           String       @id @default(cuid())
+  requesterId  String
+  addresseeId  String
+  status       FriendStatus @default(PENDING)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  requester    User         @relation("FriendRequester", fields: [requesterId], references: [id])
+  addressee    User         @relation("FriendAddressee", fields: [addresseeId], references: [id])
+
+  @@unique([requesterId, addresseeId])
+  @@index([requesterId, status])
+  @@index([addresseeId, status])
 }

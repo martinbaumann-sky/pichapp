@@ -3,9 +3,15 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { getPasswordHash } from "@/lib/auth-password";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
+import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
+
+const rl = createRateLimiter({ name: "auth_login", limit: 10, windowSec: 60 });
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req as any);
+    const probe = await rl.check(`ip:${ip}`);
+    if (!probe.allowed) return NextResponse.json({ ok: false, error: "Demasiados intentos. Intenta más tarde." }, { status: 429 });
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
     const password = String(body?.password || "");

@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         lat: true,
         lng: true,
         coverImageUrl: true,
-        spots: { select: { status: true } },
+        spots: { select: { id: true, status: true, userId: true, position: true, team: true } },
       },
     });
     if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -36,6 +36,23 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
     // organizer name
     const profile = await prisma.profile.findUnique({ where: { userId: m.organizerId } }).catch(() => null);
+
+    // Build confirmed players list (spots PAID): name + position
+    const paidSpots = m.spots.filter((s: any) => s.status === "PAID");
+    const userIds = Array.from(new Set(paidSpots.map((s: any) => s.userId).filter(Boolean)));
+    let profiles: any[] = [];
+    if (userIds.length > 0) {
+      profiles = await prisma.profile.findMany({ where: { userId: { in: userIds as any } } }).catch(() => []);
+    }
+    const profById: Record<string, any> = {};
+    for (const p of profiles) profById[p.userId] = p;
+    const players = paidSpots.map((s: any, idx: number) => {
+      const prof = s.userId ? profById[s.userId] : null;
+      const user = prof ? { id: s.userId, name: prof.name, position: prof.position ?? null } : null;
+      const position = s.position ?? (user ? user.position : null);
+      const displayName = user?.name ?? `Jugador ${idx + 1}`;
+      return { user, displayName, position, team: s.team ?? null, status: s.status };
+    });
 
     // cover image fallback
     let cover = m.coverImageUrl as string | null | undefined;
@@ -63,6 +80,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       paid,
       available,
       organizer: profile ? { id: m.organizerId, name: profile.name } : null,
+      players,
     };
 
     return NextResponse.json(out);
@@ -70,4 +88,3 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "error" }, { status: 500 });
   }
 }
-

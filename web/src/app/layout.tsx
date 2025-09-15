@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import RouteTransition from "../components/RouteTransition";
 import ChunkErrorHandler from "../components/ChunkErrorHandler";
+import HelpWidget from "../components/HelpWidget";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -35,8 +36,10 @@ export default function RootLayout({
         <ChunkErrorHandler />
         <Header />
         <RouteTransition>{children}</RouteTransition>
+        <HelpWidget />
         <Footer />
       </body>
     </html>
   );
 }
+

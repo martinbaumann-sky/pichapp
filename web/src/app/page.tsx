@@ -24,7 +24,7 @@ export default function Home() {
   return (
     <motion.div className="bg-white" initial={{ x: 0, opacity: 1 }} animate={{ x: 0, opacity: 1 }}>
       {/* Hero Section */}
-      <section className="flex flex-col md:flex-row items-center justify-between px-6 py-12 max-w-7xl mx-auto gap-10">
+      <section className="flex flex-col md:flex-row items-center justify-between container container-px py-12 gap-10">
         {/* Left Content */}
         <div className="flex-1 max-w-2xl space-y-8">
           <h1 className="text-6xl font-bold text-black leading-tight tracking-tight">
@@ -39,7 +39,7 @@ export default function Home() {
           <div className="flex flex-wrap gap-4 pt-4">
             <Link
               href="/explorar"
-              className="px-8 py-4 bg-black text-white rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+              className="btn-primary px-8 py-4"
             >
               Explorar partidos
             </Link>
@@ -47,7 +47,7 @@ export default function Home() {
             <a
               href="/organizar"
               onClick={handleOrganizeClick}
-              className="px-8 py-4 border-2 border-black text-black rounded-lg font-semibold transition-all duration-200 hover:bg-black hover:text-white hover:-translate-y-0.5"
+              className="btn-outline px-8 py-4"
             >
               Organizar partido
             </a>
@@ -65,21 +65,21 @@ export default function Home() {
       {/* Cómo funciona */}
       <section id="como-funciona" className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid md:grid-cols-3 gap-6">
-          <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+          <div className="card card-hover flex items-start gap-4 p-6">
             <div className="text-6xl font-black leading-none text-black">1</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Explora partidos</h3>
               <p className="text-gray-600 text-sm">Encuentra tu pichanga ideal por ubicación y nivel.</p>
             </div>
           </div>
-          <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+          <div className="card card-hover flex items-start gap-4 p-6">
             <div className="text-6xl font-black leading-none text-black">2</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Reserva y paga</h3>
               <p className="text-gray-600 text-sm">Asegura tu cupo en segundos.</p>
             </div>
           </div>
-          <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+          <div className="card card-hover flex items-start gap-4 p-6">
             <div className="text-6xl font-black leading-none text-black">3</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Juega y disfruta</h3>
@@ -92,3 +92,8 @@ export default function Home() {
     </motion.div>
   );
 }
+
+
+
+
+

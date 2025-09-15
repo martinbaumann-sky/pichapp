@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DateTimePicker from "@/components/DateTimePicker";
 import dynamic from "next/dynamic";
 import { nivelES } from "@/lib/i18n";
 import { staticMapUrl } from "@/lib/maps";
 import { streetViewUrl } from "@/lib/places";
+import { AnimatePresence, motion } from "framer-motion";
+import LevelBadge from "@/components/LevelBadge";
 
 type Form = {
   title: string;
@@ -38,8 +40,11 @@ const stepTitles = [
 export default function CreateMatchWizard() {
   const MiniMap = dynamic(() => import("@/components/MatchMiniMap"), { ssr: false });
   const [step, setStep] = useState(0);
+  const [prevStep, setPrevStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [occupiedDetails, setOccupiedDetails] = useState<Array<{ name: string; email: string; position: string }>>([]);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+  const [friends, setFriends] = useState<any[]>([]);
   const [form, setForm] = useState<Form>({
     title: "",
     level: "INTERMEDIATE",
@@ -97,7 +102,7 @@ export default function CreateMatchWizard() {
         venueAddress: form.venueAddress || form.displayAddress || "",
         // let backend derive comuna from address if missing
         coverImageUrl,
-        occupiedOrganizerDetails: occupiedDetails,
+        occupiedPlayers: occupiedDetails,
       };
 
       const res = await fetch("/api/matches", {
@@ -122,6 +127,17 @@ export default function CreateMatchWizard() {
       setBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (!friendsOpen) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/friends?status=ACCEPTED', { cache: 'no-store' });
+        const data = await res.json().catch(() => null);
+        setFriends(Array.isArray(data?.items) ? data.items : []);
+      } catch {}
+    })();
+  }, [friendsOpen]);
 
   const stepper = (
     <div className="flex items-center gap-2 mb-6">
@@ -153,7 +169,25 @@ export default function CreateMatchWizard() {
           </div>
           <div>
             <label className="block text-sm text-gray-700 mb-1">Nivel</label>
-            <select value={form.level} onChange={(e)=>setForm({...form,level:e.target.value as any})} className="w-full border px-3 py-2 rounded">
+            <div className="flex flex-wrap gap-2">
+              {(["BEGINNER","INTERMEDIATE","ADVANCED"] as const).map((lv) => {
+                const active = form.level === lv;
+                return (
+                  <button
+                    key={lv}
+                    type="button"
+                    onClick={() => setForm({ ...form, level: lv })}
+                    className={
+                      "rounded-xl border px-3 py-2 transition-all " +
+                      (active ? "ring-2 ring-black/20 shadow-sm" : "hover:bg-gray-50")
+                    }
+                  >
+                    <LevelBadge level={lv as any} withDot size="md" />
+                  </button>
+                );
+              })}
+            </div>
+            <select aria-label="Nivel" value={form.level} onChange={(e)=>setForm({...form,level:e.target.value as any})} className="sr-only">
               <option value="BEGINNER">{nivelES.BEGINNER}</option>
               <option value="INTERMEDIATE">{nivelES.INTERMEDIATE}</option>
               <option value="ADVANCED">{nivelES.ADVANCED}</option>
@@ -235,6 +269,35 @@ export default function CreateMatchWizard() {
               />
             </div>
           </div>
+          <div className="pt-2 border-t">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-gray-700 font-medium">Agregar desde amigos</div>
+              <button type="button" className="px-3 py-1.5 text-sm rounded-lg border" onClick={()=>setFriendsOpen((v)=>!v)}>{friendsOpen? 'Ocultar' : 'Ver amigos'}</button>
+            </div>
+            {friendsOpen && (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {friends.map((f:any)=> (
+                  <button key={f.id} type="button" onClick={()=>{
+                    const name = f.user?.name || 'Amigo';
+                    const email = '';
+                    const position = f.user?.position || '';
+                    setOccupiedDetails((prev)=>[...prev, { name, email, position }]);
+                    setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
+                  }} className="flex items-center justify-between p-3 rounded-xl border hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">⚽</div>
+                      <div>
+                        <div className="text-sm font-medium">{f.user?.name}</div>
+                        <div className="text-xs text-gray-500">{f.user?.comuna || '—'}{f.user?.position ? ` • ${f.user.position}`: ''}</div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-600">Agregar</div>
+                  </button>
+                ))}
+                {friends.length === 0 && <div className="text-xs text-gray-500">Aún no tienes amigos. Agrégalos por su número en la pestaña “Amigos”.</div>}
+              </div>
+            )}
+          </div>
           {form.occupiedSpots > 0 && (
             <div className="mt-2 space-y-3">
               <div className="text-sm text-gray-700 font-medium">Datos de jugadores ocupados por el organizador</div>
@@ -271,12 +334,11 @@ export default function CreateMatchWizard() {
                     }}
                     className="w-full border px-3 py-2 rounded"
                   >
-                    <option value="">Posicion</option>
+                    <option value="">Posición</option>
                     <option value="ARQUERO">Arquero</option>
                     <option value="DEFENSA">Defensa</option>
                     <option value="LATERAL">Lateral</option>
-                    <option value="MEDIOCAMPISTA">Mediocampista</option>
-                    <option value="EXTREMO">Extremo</option>
+                    <option value="VOLANTE">Volante</option>
                     <option value="DELANTERO">Delantero</option>
                   </select>
                 </div>
@@ -292,7 +354,7 @@ export default function CreateMatchWizard() {
           <div className="text-sm text-gray-700">
             <p><span className="font-medium">Título:</span> {form.title}</p>
             <p><span className="font-medium">Comuna:</span> {form.comuna}</p>
-            <p><span className="font-medium">Nivel:</span> {nivelES[form.level]}</p>
+            <p className="flex items-center gap-2"><span className="font-medium">Nivel:</span> <LevelBadge level={form.level as any} /></p>
             <p><span className="font-medium">Recinto:</span> {form.venueName || "-"}</p>
             <p><span className="font-medium">Dirección:</span> {form.venueAddress || form.displayAddress || "-"}</p>
             <p><span className="font-medium">Fecha:</span> {form.startsAt ? new Date(form.startsAt).toLocaleString() : "-"}</p>

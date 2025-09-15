@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, MapPin, Users, Filter, ImageIcon } from "lucide-re
 import { comunasRM } from "@/lib/comunas-rm";
 import dynamic from "next/dynamic";
 import { nivelES } from "@/lib/i18n";
+import LevelBadge from "@/components/LevelBadge";
 
 export default function ExplorePage() {
   const FALLBACK_IMG = "https://images.unsplash.com/photo-1505842465776-3d7a1ee1a8b7?q=80&w=1200&auto=format&fit=crop";
@@ -166,9 +167,7 @@ export default function ExplorePage() {
                   <h3 className="text-xl font-semibold text-black group-hover:text-gray-700 transition-colors duration-200">
                     {match.venueName ? `${match.title} — ${match.venueName}` : match.title}
                   </h3>
-                  <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
-                    {nivelES[match.level as keyof typeof nivelES]}
-                  </span>
+                  <LevelBadge level={match.level as keyof typeof nivelES} />
                 </div>
                 
                 <div className="space-y-2">

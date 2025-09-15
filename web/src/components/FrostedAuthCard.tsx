@@ -112,11 +112,11 @@ export default function FrostedAuthCard({
                 <label className="text-sm text-white/80">Correo</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.com" className="input-field pl-12 bg-white text-black" />
+                  <input type="email" name="signup_email" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.com" className="input-field pl-12 bg-white text-black" />
                 </div>
                 <label className="text-sm text-white/80">Contraseña</label>
                 <div className="relative">
-                  <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="input-field pr-12 bg-white text-black" />
+                  <input type={showPassword ? "text" : "password"} name="new-password" autoComplete="new-password" readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="input-field pr-12 bg-white text-black" />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -158,10 +158,10 @@ export default function FrostedAuthCard({
                 </div>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.com" className="input-field pl-12 bg-white text-black" />
+                  <input type="email" name="signup_email" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.com" className="input-field pl-12 bg-white text-black" />
                 </div>
                 <div className="relative">
-                  <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crea una contraseña" className="input-field pr-12 bg-white text-black" />
+                  <input type={showPassword ? "text" : "password"} name="new-password" autoComplete="new-password" readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crea una contraseña" className="input-field pr-12 bg-white text-black" />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -175,4 +175,3 @@ export default function FrostedAuthCard({
     </div>
   );
 }
-

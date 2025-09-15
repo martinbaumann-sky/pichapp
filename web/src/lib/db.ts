@@ -1,4 +1,4 @@
-import { PrismaClient } from "../generated/prisma";
+import { PrismaClient } from "@prisma/client";
 
 // Evitar pasar opciones al constructor para que no haya validación
 // sobre "datasources" (que dispara P2022 si alguien sobrecarga mal).
