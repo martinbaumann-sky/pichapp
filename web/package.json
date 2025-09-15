@@ -7,7 +7,7 @@
         "build": "next build",
         "start": "next start",
         "lint": "next lint",
-        "vercel-build": "sh -c 'prisma generate && if [ -z "$DATABASE_URL" ] || [ "${DATABASE_URL#file:}" != "$DATABASE_URL" ]; then echo "Skipping prisma migrate deploy"; else prisma migrate deploy; fi && next build'",
+        "vercel-build": "node ./scripts/vercel-build.cjs",
         "prisma:generate": "prisma generate",
         "prisma:migrate": "prisma migrate dev",
         "prisma:studio": "prisma studio",
@@ -61,3 +61,4 @@
         "vitest": "^3.2.4"
     }
 }
+
