@@ -3,10 +3,13 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
 import { getMpPreferenceClient } from "@/lib/mp";
 
-export async function POST(req: NextRequest, { params }: any) {
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest, ctx: { params: { id: string } } | { params: Promise<{ id: string }> }) {
   try {
     const userId = await requireUserId();
-    const matchId = params.id as string;
+    const p: any = (ctx as any)?.params;
+    const { id: matchId } = (p && typeof p.then === 'function') ? await p : p;
 
     // soportar provider en body para elegir MP (MercadoPago) o TB (Transbank)
     const body = await req.json().catch(() => ({}));
@@ -21,7 +24,7 @@ export async function POST(req: NextRequest, { params }: any) {
       const { createTbTransaction } = await import("@/lib/tb_sandbox");
 
       const result = await prisma.$transaction(async (tx: any) => {
-        const existing = await tx.spot.findFirst({ where: { matchId, userId } });
+        const existing = await tx.spot.findFirst({ where: { matchId, userId }, select: { id: true, status: true, holdUntil: true } });
         if (existing && (existing.status === "PAID" || (existing.status === "RESERVED" && existing.holdUntil && existing.holdUntil > new Date()))) {
           throw new Response("Ya tienes un cupo reservado", { status: 409 });
         }
@@ -69,9 +72,9 @@ export async function POST(req: NextRequest, { params }: any) {
     const { getMpPreferenceClient } = await import("@/lib/mp");
     const prefClient = getMpPreferenceClient();
 
-    const result = await prisma.$transaction(async (tx: any) => {
-      // Evitar duplicidad por usuario/partido
-      const existing = await tx.spot.findFirst({ where: { matchId, userId } });
+      const result = await prisma.$transaction(async (tx: any) => {
+        // Evitar duplicidad por usuario/partido
+      const existing = await tx.spot.findFirst({ where: { matchId, userId }, select: { id: true, status: true, holdUntil: true } });
       if (existing && (existing.status === "PAID" || (existing.status === "RESERVED" && existing.holdUntil && existing.holdUntil > new Date()))) {
         throw new Response("Ya tienes un cupo reservado", { status: 409 });
       }
@@ -80,11 +83,11 @@ export async function POST(req: NextRequest, { params }: any) {
       const holdUntil = new Date(Date.now() + 10 * 60 * 1000);
       let spot: any = null;
       for (let i = 0; i < 3; i++) {
-        const candidate = await tx.spot.findFirst({ where: { matchId, status: 'AVAILABLE' }, orderBy: { createdAt: 'asc' } });
+        const candidate = await tx.spot.findFirst({ where: { matchId, status: 'AVAILABLE' }, orderBy: { createdAt: 'asc' }, select: { id: true } });
         if (!candidate) break;
         const updated = await tx.spot.updateMany({ where: { id: candidate.id, status: 'AVAILABLE' }, data: { status: 'RESERVED', userId, holdUntil } });
         if (updated.count && updated.count > 0) {
-          spot = await tx.spot.findUnique({ where: { id: candidate.id } });
+          spot = await tx.spot.findUnique({ where: { id: candidate.id }, select: { id: true, priceCLP: true } });
           break;
         }
       }

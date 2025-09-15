@@ -302,7 +302,7 @@ export default function MatchDetailPage(props: any) {
               {(match.players ?? []).map((p: any, idx: number) => (
                 <li key={idx} className="text-sm text-gray-700 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="font-medium">{p.user?.name ?? "Jugador"}</span>
+                    <span className="font-medium">{p.displayName ?? p.user?.name ?? `Jugador ${idx+1}`}</span>
                     {/* Mostrar posición preferida: si viene en user.profile usar eso, sino usar spot.position si existe */}
                     {((p.user && p.user.position) || p.position) && (
                       <span className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600">{posicionES[(p.user?.position ?? p.position) as keyof typeof posicionES]}</span>

@@ -70,7 +70,7 @@ export default function AuthCard({
 
         <h3 className="text-2xl font-semibold text-white mb-4">{tab === "signup" ? "Comienza tu Pichanga" : "Bienvenido de nuevo"}</h3>
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} autoComplete="off" className="space-y-4">
           {tab === "signup" && (
             <div className="grid grid-cols-2 gap-3">
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" className="input-field bg-white/5 text-white" />

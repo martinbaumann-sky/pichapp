@@ -21,11 +21,8 @@ type Props = {
   setPosition: (v: string) => void;
   showPassword: boolean;
   setShowPassword: (v: boolean) => void;
-  loading: boolean;
-  error: string | null;
-  onSubmit: (e: React.FormEvent) => void;
-  onForgotPassword?: () => void;
   onClose?: () => void;
+  next?: string;
 };
 
 export default function FrostedAuthCard({
@@ -45,93 +42,46 @@ export default function FrostedAuthCard({
   setPosition,
   showPassword,
   setShowPassword,
-  loading,
-  error,
-  onSubmit,
-  onForgotPassword,
   onClose,
+  next,
 }: Props) {
-  const [step, setStep] = React.useState(0);
-  const [phone, setPhone] = React.useState("+569");
-  const [smsSent, setSmsSent] = React.useState(false);
-  const [smsCode, setSmsCode] = React.useState("");
-  const [devCode, setDevCode] = React.useState<string | null>(null);
   const [localLoading, setLocalLoading] = React.useState(false);
-  const [gender, setGender] = React.useState<string | null>(null);
-  const [birthday, setBirthday] = React.useState<string | null>(null);
+  const [phone, setPhone] = React.useState("");
 
-  const sendSms = async () => {
+  const doSignup = async () => {
     try {
       setLocalLoading(true);
-      const r = await fetch("/api/auth/send-sms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone }) });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d?.error || "Error enviando SMS");
-      setSmsSent(true);
-      // Mostrar código en UI si el endpoint lo retorna (modo dev)
-      if (d?.dev && d?.code) {
-        setDevCode(String(d.code));
-      }
-      setStep(1);
-    } catch (e) {
-      alert("No se pudo enviar el código");
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-
-  const verifySms = async () => {
-    try {
-      setLocalLoading(true);
-      const r = await fetch("/api/auth/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, code: smsCode }) });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok || !d.ok) throw new Error(d?.error || "Código inválido");
-      // Si el endpoint indica que el usuario necesita completar perfil, mostrar pasos de signup
-      if (d?.needsSignup) {
-        // Asegurar que el nombre mínimo venga en user
-        if (d?.user?.name) {
-          try { setName(d.user.name); } catch {}
-        }
-        setStep(2);
-        return;
-      }
-      // Si el endpoint devolvió usuario (login completo), cerrar modal y recargar
-      if (d?.user) {
-        onClose && onClose();
-        window.location.reload();
-        return;
-      }
-      // Fallback: avanzar al siguiente paso
-      setStep(2);
-    } catch (e: any) {
-      alert(e.message || "Código inválido");
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-
-  const finishSignup = async () => {
-    try {
-      setLocalLoading(true);
-      // Llamar al endpoint de signup con todos los datos
-      const payload: any = {
-        email,
-        password,
-        name,
-        lastName,
-        comuna,
-        position,
-        phone,
-        birthday: birthday || null,
-        gender: gender || null,
-      };
+      const payload: any = { email, password, name, lastName, comuna, position, phone };
       const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Error al crear cuenta");
-      // Cerrar modal y recargar para reflejar sesión
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error || "Error al crear cuenta");
       onClose && onClose();
-      window.location.reload();
+      if (next) {
+        window.location.href = next;
+      } else {
+        window.location.reload();
+      }
     } catch (e: any) {
-      alert(e.message || "Error al crear cuenta");
+      alert(e?.message || "No se pudo crear la cuenta");
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
+  const doLogin = async () => {
+    try {
+      setLocalLoading(true);
+      const r = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error || "Credenciales inválidas");
+      onClose && onClose();
+      if (next) {
+        window.location.href = next;
+      } else {
+        window.location.reload();
+      }
+    } catch (e: any) {
+      alert(e?.message || "Credenciales inválidas");
     } finally {
       setLocalLoading(false);
     }
@@ -142,7 +92,6 @@ export default function FrostedAuthCard({
       <div className="relative overflow-hidden rounded-3xl p-6" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="absolute -inset-1 blur-lg opacity-30 pointer-events-none" style={{ background: 'linear-gradient(90deg, rgba(6,182,212,0.08), rgba(11,143,61,0.06))' }} />
         <div className="relative z-10">
-          {/* Back button */}
           <div className="mb-3">
             <button type="button" onClick={onClose} className="p-2 rounded-md bg-white/10 hover:bg-white/20 text-white">
               <ChevronLeft className="w-4 h-4" />
@@ -158,37 +107,31 @@ export default function FrostedAuthCard({
           <h3 className="text-2xl font-semibold text-white mb-4">{tab === "signup" ? "Únete a PichangApp" : "Bienvenido"}</h3>
 
           <div className="space-y-4">
-            {/* Phone-based flow used for both login and signup: start with phone -> code -> optional signup steps */}
-            {step === 0 && (
+            {tab === "login" && (
               <div className="space-y-3">
-                <label className="text-sm text-white/80">Celular</label>
-                <div className="flex gap-2">
-                  <input value={phone} onChange={(e) => setPhone(e.target.value)} className="input-field bg-white text-black" />
-                  <button disabled={localLoading || !phone} onClick={sendSms} className="btn-primary">Verificar</button>
+                <label className="text-sm text-white/80">Correo</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input type="email" name="signup_email" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.com" className="input-field pl-12 bg-white text-black" />
                 </div>
+                <label className="text-sm text-white/80">Contraseña</label>
+                <div className="relative">
+                  <input type={showPassword ? "text" : "password"} name="new-password" autoComplete="new-password" readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="input-field pr-12 bg-white text-black" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                <button disabled={localLoading || !email || !password} onClick={doLogin} className="btn-primary w-full">Iniciar sesión</button>
               </div>
             )}
 
-            {step === 1 && (
-              <div className="space-y-3">
-                <label className="text-sm text-white/80">Código de verificación</label>
-                <input value={smsCode} onChange={(e) => setSmsCode(e.target.value)} placeholder="123456" className="input-field bg-white text-black" />
-                <div className="flex justify-between">
-                  <button onClick={() => setStep(0)} className="text-sm text-white/70">Atrás</button>
-                  <button disabled={localLoading || !smsCode} onClick={verifySms} className="btn-primary">Continuar</button>
-                </div>
-              </div>
-            )}
-
-            {/* Si el código no corresponde a un usuario existente, continuar con la creación (pasos 2..4) */}
-            {step === 2 && (
+            {tab === "signup" && (
               <div className="space-y-3">
                 <label className="text-sm text-white/80">Nombre y Apellido</label>
                 <div className="grid grid-cols-2 gap-3">
                   <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" className="input-field bg-white text-black" />
                   <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Apellido" className="input-field bg-white text-black" />
                 </div>
-
                 <div>
                   <label className="text-sm text-white/80">Comuna</label>
                   <select value={comuna} onChange={(e) => setComuna(e.target.value)} className="input-field bg-white text-black">
@@ -198,7 +141,6 @@ export default function FrostedAuthCard({
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="text-sm text-white/80">Posición</label>
                   <select value={position} onChange={(e) => setPosition(e.target.value)} className="input-field bg-white text-black">
@@ -210,31 +152,21 @@ export default function FrostedAuthCard({
                     <option value="DELANTERO">Delantero</option>
                   </select>
                 </div>
-
-                <div className="flex justify-between">
-                  <button onClick={() => setStep(1)} className="text-sm text-white/70">Atrás</button>
-                  <button disabled={!name || !lastName || !comuna || !position} onClick={() => setStep(3)} className="btn-primary">Continuar</button>
+                <div>
+                  <label className="text-sm text-white/80">Celular</label>
+                  <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+569..." className="input-field bg-white text-black" />
                 </div>
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="space-y-3">
-                <label className="text-sm text-white/80">Correo y contraseña (opcional)</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo electrónico (opcional)" className="input-field pl-12 bg-white text-black" />
+                  <input type="email" name="signup_email" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.com" className="input-field pl-12 bg-white text-black" />
                 </div>
                 <div className="relative">
-                  <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña (opcional)" className="input-field pr-12 bg-white text-black" />
+                  <input type={showPassword ? "text" : "password"} name="new-password" autoComplete="new-password" readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crea una contraseña" className="input-field pr-12 bg-white text-black" />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-                <div className="flex justify-between">
-                  <button onClick={() => setStep(2)} className="text-sm text-white/70">Atrás</button>
-                  <button disabled={localLoading} onClick={finishSignup} className="btn-primary">Crear cuenta</button>
-                </div>
+                <button disabled={localLoading || !name || !comuna || !position || !email || !password} onClick={doSignup} className="btn-primary w-full">Crear cuenta</button>
               </div>
             )}
           </div>
@@ -243,5 +175,3 @@ export default function FrostedAuthCard({
     </div>
   );
 }
-
-

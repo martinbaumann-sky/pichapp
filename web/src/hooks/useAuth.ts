@@ -44,7 +44,6 @@ export function useAuth() {
     try {
       await fetch("/api/auth/local/signout", { method: "POST" });
       setUser(null);
-      // Redirigir a inicio tras cerrar sesión
       if (typeof window !== "undefined") {
         window.location.href = "/";
       }

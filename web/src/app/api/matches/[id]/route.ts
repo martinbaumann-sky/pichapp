@@ -1,99 +1,90 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { sampleMatches } from "@/lib/samples";
-import { streetViewUrl, searchPlace } from "@/lib/places";
-import { staticMapUrl } from "@/lib/maps";
+import { streetViewUrl } from "@/lib/places";
+import { buildStaticMapUrl } from "@/lib/maps";
 
-export async function GET(_req: NextRequest, { params }: any) {
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = params as { id: string };
+    const id = params.id;
+    if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
-    const match = await prisma.match.findUnique({
+    const m = await prisma.match.findUnique({
       where: { id },
-      include: {
-        organizer: { include: { profile: true } },
-        spots: {
-          include: { user: { include: { profile: true } } },
-        },
+      select: {
+        id: true,
+        title: true,
+        organizerId: true,
+        comuna: true,
+        startsAt: true,
+        durationMins: true,
+        pricePerSpot: true,
+        totalSpots: true,
+        level: true,
+        venueName: true,
+        venueAddress: true,
+        lat: true,
+        lng: true,
+        coverImageUrl: true,
+        spots: { select: { id: true, status: true, userId: true, position: true, team: true } },
       },
     });
+    if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-    if (match) {
-      const paid = match.spots.filter((s: any) => s.status === "PAID").length;
-      const available = match.spots.filter((s: any) => s.status === "AVAILABLE").length;
+    // counts
+    const paid = m.spots.filter((s: any) => s.status === "PAID").length;
+    const available = m.spots.filter((s: any) => s.status === "AVAILABLE").length;
 
-      // Ensure we have coordinates: use stored lat/lng or attempt geocoding
-      let lat: number | null = typeof (match as any).lat === "number" ? (match as any).lat : null;
-      let lng: number | null = typeof (match as any).lng === "number" ? (match as any).lng : null;
-      if ((lat == null || lng == null) && (match.venueAddress || (match as any).venueName || match.title)) {
-        try {
-          const q = `${match.venueAddress ?? ""} ${((match as any).venueName ?? match.title ?? "").trim()}`.trim();
-          if (q.length > 0) {
-            const places = await searchPlace(q);
-            if (places && places.length > 0) {
-              lat = places[0].lat;
-              lng = places[0].lng;
-            }
-          }
-        } catch (err) {
-          // ignore
-        }
+    // organizer name
+    const profile = await prisma.profile.findUnique({ where: { userId: m.organizerId } }).catch(() => null);
+
+    // Build confirmed players list (spots PAID): name + position
+    const paidSpots = m.spots.filter((s: any) => s.status === "PAID");
+    const userIds = Array.from(new Set(paidSpots.map((s: any) => s.userId).filter(Boolean)));
+    let profiles: any[] = [];
+    if (userIds.length > 0) {
+      profiles = await prisma.profile.findMany({ where: { userId: { in: userIds as any } } }).catch(() => []);
+    }
+    const profById: Record<string, any> = {};
+    for (const p of profiles) profById[p.userId] = p;
+    const players = paidSpots.map((s: any, idx: number) => {
+      const prof = s.userId ? profById[s.userId] : null;
+      const user = prof ? { id: s.userId, name: prof.name, position: prof.position ?? null } : null;
+      const position = s.position ?? (user ? user.position : null);
+      const displayName = user?.name ?? `Jugador ${idx + 1}`;
+      return { user, displayName, position, team: s.team ?? null, status: s.status };
+    });
+
+    // cover image fallback
+    let cover = m.coverImageUrl as string | null | undefined;
+    if (!cover) {
+      if (typeof m.lat === "number" && typeof m.lng === "number") {
+        const sv = streetViewUrl(m.lat, m.lng);
+        cover = sv || buildStaticMapUrl({ lat: m.lat, lng: m.lng, width: 800, height: 400, pixelRatio: 1 }) || null;
       }
-
-      // Prepare cover image if not present
-      let coverImageUrl = (match as any).coverImageUrl ?? null;
-      if (!coverImageUrl && lat != null && lng != null) {
-        const sv = streetViewUrl(lat, lng);
-        if (sv && /^https?:\/\//i.test(sv)) {
-          coverImageUrl = sv;
-        } else {
-          const sm = staticMapUrl({ lat, lng, width: 1200, height: 600, pixelRatio: 2 });
-          coverImageUrl = sm ?? `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=1200x600&markers=${lat},${lng},red`;
-        }
-      }
-
-      return NextResponse.json({
-        id: match.id,
-        title: match.title,
-        comuna: match.comuna,
-        startsAt: match.startsAt,
-        level: match.level,
-        pricePerSpot: match.pricePerSpot,
-        totalSpots: match.totalSpots,
-        organizerId: match.organizerId,
-        paid,
-        available,
-        coverImageUrl: coverImageUrl ?? null,
-        venueName: (match as any).venueName ?? null,
-        organizer: match.organizer?.profile ?? null,
-        players: match.spots
-          .filter((s: any) => s.status === "PAID" || s.status === "RESERVED")
-          .map((s: any) => ({ status: s.status, user: s.user?.profile ?? null, team: s.team ?? null, position: s.position ?? null })),
-        lat: typeof lat === "number" ? lat : null,
-        lng: typeof lng === "number" ? lng : null,
-      });
     }
 
-    const fallback = sampleMatches().find((m: any) => m.id === id);
-    if (!fallback) {
-      return NextResponse.json({ error: "Partido no encontrado" }, { status: 404 });
-    }
-
-    const paid = fallback.spots.filter((s: any) => s.status === "PAID").length;
-    const available = fallback.spots.filter((s: any) => s.status === "AVAILABLE").length;
-
-    return NextResponse.json({
-      id: fallback.id,
-      title: fallback.title,
-      comuna: fallback.comuna,
-      startsAt: fallback.startsAt,
-      level: fallback.level,
-      pricePerSpot: fallback.pricePerSpot,
-      totalSpots: fallback.totalSpots,
+    const out = {
+      id: m.id,
+      title: m.title,
+      comuna: m.comuna,
+      startsAt: m.startsAt,
+      durationMins: m.durationMins,
+      pricePerSpot: m.pricePerSpot,
+      totalSpots: m.totalSpots,
+      level: m.level,
+      venueName: m.venueName,
+      venueAddress: m.venueAddress,
+      lat: m.lat,
+      lng: m.lng,
+      coverImageUrl: cover ?? null,
       paid,
       available,
-    });
+      organizer: profile ? { id: m.organizerId, name: profile.name } : null,
+      players,
+    };
+
+    return NextResponse.json(out);
   } catch (err) {
-    return NextResponse.json({ error: "Error al obtener partido" }, { status: 500 });
+    return NextResponse.json({ error: "error" }, { status: 500 });
   }
 }

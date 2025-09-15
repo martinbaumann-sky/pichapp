@@ -15,7 +15,18 @@ type Suggestion = {
 
 type Props = {
   value: string;
-  onChange: (v: { 
+  onChange?: (v: { 
+    venueName?: string; 
+    venueAddress?: string; 
+    lat?: number; 
+    lng?: number; 
+    display?: string; 
+    place_id?: string; 
+    photoUrl?: string; 
+    comuna?: string 
+  }) => void;
+  // Backward-compat alias used by older code
+  onSelect?: (v: { 
     venueName?: string; 
     venueAddress?: string; 
     lat?: number; 
@@ -27,7 +38,7 @@ type Props = {
   }) => void;
 };
 
-export default function AddressAutocomplete({ value, onChange }: Props) {
+export default function AddressAutocomplete({ value, onChange, onSelect }: Props) {
   const [inputValue, setInputValue] = useState(value);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -85,7 +96,7 @@ export default function AddressAutocomplete({ value, onChange }: Props) {
     if (selectedSuggestion) {
       setSelectedSuggestion(null);
     }
-    onChange({ display: newValue });
+    (onChange ?? onSelect)?.({ display: newValue });
   };
 
   const selectSuggestion = (s: Suggestion) => {
@@ -93,7 +104,7 @@ export default function AddressAutocomplete({ value, onChange }: Props) {
     setInputValue(s.label);
     setIsOpen(false);
     setMustSelectHint(false);
-    onChange({
+    (onChange ?? onSelect)?.({
       venueName: s.label,
       venueAddress: s.address,
       lat: s.lat,

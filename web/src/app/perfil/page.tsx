@@ -13,16 +13,34 @@ export default function PerfilPage() {
   useEffect(() => {
     async function load() {
       if (!user) return;
-      const res = await fetch("/api/profile", { cache: "no-store" });
+
+      // Prefill immediately from session user (fast UI feedback)
+      try {
+        const partsFromUser = (user.name ?? "").split(" ");
+        const firstNameUser = partsFromUser.slice(0, -1).join(" ") || partsFromUser[0] || "";
+        const lastNameUser = partsFromUser.length > 1 ? partsFromUser.slice(-1).join(" ") : "";
+        setForm((prev) => ({
+          ...prev,
+          firstName: firstNameUser,
+          lastName: lastNameUser,
+          comuna: user.comuna ?? "",
+          position: user.position ?? "",
+        }));
+      } catch {}
+
+      // Then load canonical data from the database
+      const res = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
       if (res.ok) {
         const { profile } = await res.json();
         const parts = (profile?.name ?? user.name ?? "").split(" ");
         const firstName = parts.slice(0, -1).join(" ") || parts[0] || "";
         const lastName = parts.length > 1 ? parts.slice(-1).join(" ") : "";
+        const digits = String(profile?.phone ?? "").replace(/\D/g, "");
+        const phone8 = digits.slice(-8);
         setForm({
           firstName,
           lastName,
-          phone: profile?.phone ?? "",
+          phone: phone8,
           comuna: profile?.comuna ?? user.comuna ?? "",
           position: profile?.position ?? "",
         });

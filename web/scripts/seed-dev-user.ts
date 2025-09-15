@@ -11,7 +11,7 @@ async function main() {
   const supa = createClient(url, service);
   const { data, error } = await supa.auth.admin.createUser({
     email: "martin@pichapp.dev",
-    password: "Maika",
+    password: "devpass",
     email_confirm: true,
     user_metadata: { name: "Martin" },
   });
@@ -27,7 +27,7 @@ async function main() {
     update: { name: "Martin", comuna: "Ñuñoa", phone: "+56 9 0000 0000", position: "DELANTERO" as any },
     create: { userId: user.id, name: "Martin", comuna: "Ñuñoa", phone: "+56 9 0000 0000", position: "DELANTERO" as any },
   });
-  console.log("Usuario de desarrollo creado: martin@pichapp.dev / Maika");
+  console.log("Usuario de desarrollo creado: martin@pichapp.dev / devpass");
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

@@ -65,20 +65,29 @@ export default function CreateMatchPage() {
       const res = await fetch("/api/matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
         let msg = "Error al crear partido";
         try {
-          const j = await res.json();
-          if (j?.message) msg = j.message;
-          else if (j?.error) msg = j.error;
-          console.error("/api/matches error", j);
-          
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            const j = await res.json();
+            if (j?.message) msg = j.message;
+            else if (j?.error) msg = j.error;
+            console.error("/api/matches error", j);
+          } else {
+            // Si no viene JSON, leer texto para debugging
+            const txt = await res.text();
+            console.error("/api/matches error (text)", txt);
+            msg = txt || msg;
+          }
+
           // Si es un error de autenticación, redirigir al login
           if (res.status === 401) {
             alert("Necesitas iniciar sesión para crear un partido. Serás redirigido al login.");
-            window.location.href = "/auth/sign-in";
+            // Redirect handled by /organizar wrapper; no hard redirect here.
             return;
           }
         } catch (e) {

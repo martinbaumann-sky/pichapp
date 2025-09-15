@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
 
-export async function POST(req: NextRequest, { params }: any) {
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest, ctx: { params: { id: string } } | { params: Promise<{ id: string }> }) {
   try {
     const userId = await requireUserId();
-    const matchId = params.id as string;
+    const p: any = (ctx as any)?.params;
+    const { id: matchId } = (p && typeof p.then === 'function') ? await p : p;
     const body = await req.json().catch(() => ({}));
     const paymentId = body.paymentId as string | undefined;
     const provider = (body.provider ?? "MP") as string;

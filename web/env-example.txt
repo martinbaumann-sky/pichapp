@@ -11,8 +11,16 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="tu-api-key-de-google-maps"
 # Mercado Pago (opcional)
 MP_ACCESS_TOKEN=""
 
+# Mapas estáticos (opcional)
+# Si defines este token, se preferirá Mapbox Static; si no, se usará OpenStreetMap estático.
+NEXT_PUBLIC_MAPBOX_TOKEN=""
+
 # Base URL
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+
+# Auth
+# Define un secreto fuerte en producción para firmar sesiones (JWT HS256)
+AUTH_SECRET="cambia-esta-clave-en-produccion"
 
 # Admin configuration
 ADMIN_EMAIL="admin@pichangapp.com"

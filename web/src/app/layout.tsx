@@ -3,9 +3,9 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import SupabaseProvider from "../components/SupabaseProvider";
 import RouteTransition from "../components/RouteTransition";
 import ChunkErrorHandler from "../components/ChunkErrorHandler";
+import HelpWidget from "../components/HelpWidget";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -33,13 +33,13 @@ export default function RootLayout({
   return (
     <html lang="es-CL" className="scroll-smooth">
       <body className={`${inter.variable} antialiased font-sans text-gray-900 bg-white min-h-screen flex flex-col`}>
-        <SupabaseProvider>
-          <ChunkErrorHandler />
-          <Header />
-          <RouteTransition>{children}</RouteTransition>
-          <Footer />
-        </SupabaseProvider>
+        <ChunkErrorHandler />
+        <Header />
+        <RouteTransition>{children}</RouteTransition>
+        <HelpWidget />
+        <Footer />
       </body>
     </html>
   );
 }
+

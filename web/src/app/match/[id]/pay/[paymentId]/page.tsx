@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 
-export default function PaymentPage(props: any) {
+export default function PaymentPage() {
   const routeParams = useParams() as any;
   const id = routeParams?.id as string;
   const paymentId = routeParams?.paymentId as string;
@@ -12,16 +12,22 @@ export default function PaymentPage(props: any) {
   const [match, setMatch] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [mpEnabled, setMpEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [pRes, mRes] = await Promise.all([
+        const [pRes, mRes, cfgRes] = await Promise.all([
           fetch(`/api/payments/${paymentId}`),
           fetch(`/api/matches/${id}`),
+          fetch(`/api/config`, { cache: 'no-store' }),
         ]);
         if (pRes.ok) setPayment(await pRes.json());
         if (mRes.ok) setMatch(await mRes.json());
+        if (cfgRes.ok) {
+          const cfg = await cfgRes.json();
+          setMpEnabled(Boolean(cfg?.features?.payments?.mpEnabled));
+        }
       } catch (err) {
         setError("Error cargando datos");
       } finally {
@@ -43,7 +49,6 @@ export default function PaymentPage(props: any) {
       const data = await res.json();
       const url = data.init_point || data.checkoutUrl;
       if (!url) throw new Error("No se obtuvo URL de pago");
-      // redirigir en esta pestaña (es la pestaña de pago)
       window.location.href = url;
     } catch (err: any) {
       setError(err?.message ?? "Error al iniciar checkout");
@@ -62,22 +67,24 @@ export default function PaymentPage(props: any) {
         <p className="text-lg font-semibold mb-6">Precio: {new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format((payment?.payment?.amountCLP ?? payment?.payment?.amount ?? 0))}</p>
 
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="p-4 border rounded">
-            <h3 className="font-semibold mb-2">MercadoPago</h3>
-            <p className="text-sm text-gray-600 mb-4">Paga con tarjeta, RedCompra o transferencia.</p>
-            <button disabled={processing} onClick={() => startCheckout("MP")} className="w-full px-4 py-3 bg-black text-white rounded">Pagar con MercadoPago</button>
-          </div>
+          {mpEnabled && (
+            <div className="p-4 border rounded">
+              <h3 className="font-semibold mb-2">MercadoPago</h3>
+              <p className="text-sm text-gray-600 mb-4">Paga con tarjeta, RedCompra o transferencia.</p>
+              <button disabled={processing} onClick={() => startCheckout("MP")} className="w-full px-4 py-3 bg-black text-white rounded">Pagar con MercadoPago</button>
+            </div>
+          )}
           <div className="p-4 border rounded">
             <h3 className="font-semibold mb-2">Transbank</h3>
-            <p className="text-sm text-gray-600 mb-4">Paga con Webpay (tarjeta de débito/crédito).</p>
+            <p className="text-sm text-gray-600 mb-4">Paga con Webpay (sandbox).</p>
             <button disabled={processing} onClick={() => startCheckout("TB")} className="w-full px-4 py-3 bg-black text-white rounded">Pagar con Transbank</button>
           </div>
         </div>
+        {!mpEnabled && <div className="mt-4 text-sm text-amber-600">Mercado Pago no está configurado, usando sólo Transbank (sandbox).</div>}
 
         <div className="mt-6 text-sm text-gray-500">Al completar el pago serás redirigido de vuelta.</div>
       </div>
     </div>
   );
 }
-
 

@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
 
+export const dynamic = 'force-dynamic';
+
 function round1(n: number) {
   return Math.round(n * 10) / 10;
 }
 
-export async function POST(req: NextRequest, { params }: any) {
+export async function POST(req: NextRequest, ctx: { params: { id: string } } | { params: Promise<{ id: string }> }) {
   try {
     const raterId = await requireUserId();
-    const { id: matchId } = params as { id: string };
+    const p: any = (ctx as any)?.params;
+    const { id: matchId } = (p && typeof p.then === 'function') ? await p : p;
     const json = await req.json();
     const comms = Number(json?.comms ?? NaN);
     const punctual = Number(json?.punctual ?? NaN);
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest, { params }: any) {
     if (match.startsAt > now) return NextResponse.json({ error: "Aún no puedes calificar" }, { status: 400 });
     const deadline = new Date(match.startsAt.getTime() + 72 * 60 * 60 * 1000);
     if (now > deadline) return NextResponse.json({ error: "Ventana de calificación expirada" }, { status: 400 });
-    const participated = await prisma.spot.findFirst({ where: { matchId, userId: raterId, status: "PAID" } });
+    const participated = await prisma.spot.findFirst({ where: { matchId, userId: raterId, status: "PAID" }, select: { id: true } });
     if (!participated) return NextResponse.json({ error: "No participaste en este partido" }, { status: 403 });
 
     const organizerId = match.organizerId;

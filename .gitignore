@@ -10,8 +10,11 @@ dist/
 build/
 
 # Env, DB y logs
+# Ignora archivos .env en cualquier carpeta
+**/.env
 .env
 .env.*
+web/.env
 web/prisma/dev.db
 *.log
 logs/

@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { getBrowserSupabase } from "@/lib/supabase";
 import Avatar from "@/components/Avatar";
 
 export default function MatchChatPage(props: any) {
@@ -57,20 +56,7 @@ export default function MatchChatPage(props: any) {
     })();
   }, [id]);
 
-  useEffect(() => {
-    const supabase = getBrowserSupabase();
-    if (!supabase) return;
-    const channel = (supabase as any).channel(`match:${id}`);
-    channel.on("broadcast", { event: "msg" }, (payload: any) => {
-      const m = payload?.payload?.message;
-      if (m) {
-        setMessages((prev) => [...prev, m]);
-        setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: "smooth" }), 20);
-      }
-    });
-    channel.subscribe();
-    return () => { channel.unsubscribe(); };
-  }, [id]);
+  // realtime removed in simple auth implementation
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -138,11 +124,7 @@ export default function MatchChatPage(props: any) {
       // Replace optimistic message with server-created message
       setMessages((prev) => prev.map((m) => (m.id === optimisticId ? data.message : m)));
 
-      // Try to broadcast to Supabase channel (best-effort)
-      const supabase = getBrowserSupabase();
-      try {
-        (supabase as any)?.channel(`match:${id}`)?.send({ type: "broadcast", event: "msg", payload: { message: data.message } });
-      } catch {}
+      // Realtime broadcast omitido en este flujo simplificado
     } catch (err: any) {
       // Mark optimistic message as failed and show error
       setMessages((prev) => prev.map((m) => (m.id === optimisticId ? { ...m, status: "failed" } : m)));
@@ -226,5 +208,4 @@ export default function MatchChatPage(props: any) {
     </div>
   );
 }
-
 

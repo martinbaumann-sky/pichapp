@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
 
+export const dynamic = 'force-dynamic';
+
 function round1(n: number) {
   return Math.round(n * 10) / 10;
 }
 
-export async function POST(req: NextRequest, { params }: any) {
+export async function POST(req: NextRequest, ctx: { params: { id: string } } | { params: Promise<{ id: string }> }) {
   try {
     const raterId = await requireUserId();
-    const { id: matchId } = params as { id: string };
+    const p: any = (ctx as any)?.params;
+    const { id: matchId } = (p && typeof p.then === 'function') ? await p : p;
     const json = await req.json();
     const playerId = String(json?.playerId || "");
     const skill = Number(json?.skill ?? NaN);
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest, { params }: any) {
     const deadline = new Date(match.startsAt.getTime() + 72 * 60 * 60 * 1000);
     if (now > deadline) return NextResponse.json({ error: "Ventana de calificación expirada" }, { status: 400 });
     if (match.organizerId !== raterId) return NextResponse.json({ error: "Solo el organizador puede calificar jugadores" }, { status: 403 });
-    const playerSpot = await prisma.spot.findFirst({ where: { matchId, userId: playerId, status: "PAID" } });
+    const playerSpot = await prisma.spot.findFirst({ where: { matchId, userId: playerId, status: "PAID" }, select: { id: true } });
     if (!playerSpot) return NextResponse.json({ error: "Jugador no participó" }, { status: 400 });
 
     const overall = round1(skill * 0.6 + behavior * 0.2 + teamwork * 0.2);

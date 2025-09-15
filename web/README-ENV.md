@@ -11,8 +11,8 @@ DATABASE_URL="file:./dev.db"
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 NEXT_PUBLIC_SUPABASE_URL=https://TU_PROYECTO.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...TU_SERVICE_ROLE_KEY...
-ADMIN_EMAIL=martin@gmail.com
-ADMIN_PASSWORD=Maika1010
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change_me
 TEXTBELT_KEY=textbelt
 # Opcionales:
 TWILIO_ACCOUNT_SID=
@@ -32,6 +32,11 @@ RESEND_API_KEY=
 
 5) Rotación y seguridad
 - Cambia las claves si crees que se filtraron. No uses la misma clave para desarrollo y producción.
+
+
+
+
+
 
 
 
