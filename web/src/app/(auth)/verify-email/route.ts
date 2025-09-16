@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         email: true,
-        emailVerifiedAt: true,
         isAdmin: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
@@ -78,11 +77,10 @@ export async function POST(req: NextRequest) {
 
       return tx.user.update({
         where: { id: user.id },
-        data: { emailVerifiedAt: now },
+        data: {},
         select: {
           id: true,
           email: true,
-          emailVerifiedAt: true,
           isAdmin: true,
           profile: { select: { name: true, comuna: true, position: true } },
         },

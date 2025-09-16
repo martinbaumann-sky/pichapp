@@ -30,7 +30,7 @@ async function main() {
       comuna: "Nunoa",
       startsAt: thursday20,
       durationMins: 90,
-      pricePerSpot: 3000,
+      pricePerSpot: 0,
       totalSpots: 12,
       level: "INTERMEDIATE" as const,
       venueName: "Club Los Maitenes",
@@ -44,7 +44,7 @@ async function main() {
       comuna: "Santiago",
       startsAt: saturday17,
       durationMins: 90,
-      pricePerSpot: 3000,
+      pricePerSpot: 0,
       totalSpots: 14,
       level: "BEGINNER" as const,
       venueName: "Estadio Manuel Plaza",
@@ -81,7 +81,7 @@ async function main() {
         id: crypto.randomUUID(),
         matchId: created.id,
         status: "AVAILABLE",
-        priceCLP: m.pricePerSpot,
+        priceCLP: 0,
       })),
     });
     if (m.occupied > 0) {

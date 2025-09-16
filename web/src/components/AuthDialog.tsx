@@ -39,7 +39,7 @@ export default function AuthDialog({ open, onOpenChange, initialTab, next }: Pro
         <Dialog.Content className="fixed inset-0 flex items-center justify-center p-4 z-[60]">
           <div className="sm:max-w-md w-[92vw] max-w-md p-6 bg-transparent sm:rounded-2xl rounded-none max-h-[90vh] overflow-auto focus:outline-none">
             <Dialog.Title className="sr-only">
-              {tab === "login" ? "Iniciar sesiÃ³n" : "Crear cuenta"}
+              {tab === "login" ? "Iniciar sesión" : "Crear cuenta"}
             </Dialog.Title>
             <FrostedAuthCard
               tab={tab}

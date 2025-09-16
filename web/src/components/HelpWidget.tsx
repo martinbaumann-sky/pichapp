@@ -140,23 +140,23 @@ function HelpTab() {
         <List>
           <li>Ve a Explorar y filtra por tu comuna o fecha.</li>
           <li>Elige un partido con cupos disponibles y presiona Unirme.</li>
-          <li>Completa el pago seguro y recibe confirmación inmediata.</li>
+          <li>Confirma tu cupo gratis y recibe confirmacion inmediata.</li>
         </List>
       </div>
       <div>
         <p className="font-medium">¿Cómo creo un partido?</p>
         <List>
-          <li>Desde Crear partido, define lugar, fecha, hora y precio.</li>
+          <li>Desde Crear partido, define lugar, fecha, hora y cupos disponibles.</li>
           <li>Invita amigos o publícalo para que otros se sumen.</li>
-          <li>Administra pagos y asistentes desde tu panel.</li>
+          <li>Administra asistentes, reglas y comunicacion desde tu panel.</li>
         </List>
       </div>
       <div>
-        <p className="font-medium">Pagos y reembolsos</p>
+        <p className="font-medium">Reservas y no-show</p>
         <List>
-          <li>Los pagos se procesan en línea y se confirman al instante.</li>
-          <li>Si el partido se cancela, el organizador puede iniciar devolución.</li>
-          <li>Las reglas de no-show pueden aplicar según el organizador.</li>
+          <li>Las reservas se confirman automaticamente sin cobros.</li>
+          <li>Si el partido se cancela, avisa a los jugadores con anticipacion.</li>
+          <li>Define reglas de no-show y compartelas con los jugadores.</li>
         </List>
       </div>
       <div>
@@ -183,7 +183,7 @@ function TermsTab() {
       <List>
         <li>Al usar PichangApp aceptas nuestras reglas de uso.</li>
         <li>Los organizadores son responsables de sus eventos.</li>
-        <li>Pagos y reservas se gestionan en la plataforma.</li>
+        <li>Reservas se gestionan en la plataforma sin cobros.</li>
         <li>No-show puede ser sancionado por el organizador.</li>
         <li>Respeta la convivencia y conducta deportiva.</li>
       </List>

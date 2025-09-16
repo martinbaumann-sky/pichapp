@@ -32,7 +32,7 @@ export default function Home() {
           </h1>
           
           <p className="text-xl text-gray-600 leading-relaxed">
-            Juega donde y cuando quieras, con la mejor comunidad de fÃºtbol amateur.
+            Juega donde y cuando quieras, con la mejor comunidad de fútbol amateur.
           </p>
 
           {/* CTA Buttons */}
@@ -62,14 +62,14 @@ export default function Home() {
           <AnimatedBall />
         </div>
       </section>
-      {/* CÃ³mo funciona */}
+      {/* Cómo funciona */}
       <section id="como-funciona" className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid md:grid-cols-3 gap-6">
           <div className="card card-hover flex items-start gap-4 p-6">
             <div className="text-4xl sm:text-5xl lg:text-6xl font-black leading-none text-black">1</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Explora partidos</h3>
-              <p className="text-gray-600 text-sm">Encuentra tu pichanga ideal por ubicaciÃ³n y nivel.</p>
+              <p className="text-gray-600 text-sm">Encuentra tu pichanga ideal por ubicación y nivel.</p>
             </div>
           </div>
           <div className="card card-hover flex items-start gap-4 p-6">

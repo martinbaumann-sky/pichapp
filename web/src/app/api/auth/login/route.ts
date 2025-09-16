@@ -33,7 +33,6 @@ export async function POST(req: NextRequest) {
         id: true,
         email: true,
         isAdmin: true,
-        emailVerifiedAt: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
@@ -56,17 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
     }
 
-    if (!user.emailVerifiedAt) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Debes verificar tu correo para continuar",
-          requiresVerification: true,
-          email: user.email,
-        },
-        { status: 403 }
-      );
-    }
+    // Temporal: omitimos bloqueo por verificación de email hasta que la columna exista.
 
     const token = await createSession(user.id);
     const res = NextResponse.json({ ok: true, user: sanitizeUser(user) });

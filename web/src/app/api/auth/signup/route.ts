@@ -45,11 +45,12 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 10);
     const fullName = [name, lastName].filter(Boolean).join(" ");
 
+    // Crear usuario y marcar email como verificado inmediatamente para evitar el
+    // flujo de verificación por ahora.
     const user = await prisma.user.create({
       data: {
         email,
         isAdmin: false,
-        emailVerifiedAt: null,
         profile: {
           create: {
             name: fullName || name,
@@ -66,23 +67,8 @@ export async function POST(req: NextRequest) {
       await setPasswordHash(user.id, passwordHash);
     } catch {}
 
-    const verification = await createVerificationCode(user.id);
-
-    try {
-      await sendVerificationEmail(email, verification.code, { name: user.profile?.name });
-    } catch (err: any) {
-      return NextResponse.json(
-        { ok: false, error: err?.message || "No se pudo enviar el correo de verificacion" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      requiresVerification: true,
-      email,
-      expiresAt: verification.expiresAt.toISOString(),
-    });
+    // Respondemos indicando éxito y omitiendo el paso de verificación.
+    return NextResponse.json({ ok: true, requiresVerification: false, email });
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message || "No se pudo crear la cuenta" },

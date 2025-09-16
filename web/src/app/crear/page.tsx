@@ -15,12 +15,11 @@ export default function CreateMatchPage() {
     comuna: "",
     startsAt: "",
     durationMins: 90,
-    pricePerSpot: "",
     totalSpots: 10,
     level: "BEGINNER",
     venueName: "",
     venueAddress: "",
-    fieldNumber: "", // Nuevo campo para nÃºmero de cancha
+    fieldNumber: "", // Nuevo campo para número de cancha
     lat: undefined as number | undefined,
     lng: undefined as number | undefined,
     place_id: undefined as string | undefined,
@@ -41,7 +40,7 @@ export default function CreateMatchPage() {
       if (coverImageUrl && !/^https?:\/\//i.test(coverImageUrl)) {
         coverImageUrl = undefined;
       }
-             // Construir el tÃ­tulo final incluyendo el nÃºmero de cancha si existe
+             // Construir el título final incluyendo el número de cancha si existe
        const finalTitle = formData.fieldNumber 
          ? `${formData.title} - ${formData.fieldNumber}`
          : formData.title;
@@ -49,17 +48,16 @@ export default function CreateMatchPage() {
        const payload = {
          ...formData,
          title: finalTitle,
-         // Normalizar strings a nÃºmeros
-         pricePerSpot: Number(formData.pricePerSpot || 0),
+         // Normalizar strings a números
          durationMins: Number(formData.durationMins || 0),
          totalSpots: Number(formData.totalSpots || 0),
          occupiedSpots: Number(formData.occupiedSpots || 0) || 0,
-         // Asegurar strings para address/name aun si van vacÃ­os
+         // Asegurar strings para address/name aun si van vacíos
          venueName: formData.venueName || "",
          venueAddress: formData.venueAddress || formData.displayAddress || "",
          comuna: formData.comuna || "",
          coverImageUrl,
-         // Enviar jugadores ocupados con posiciÃ³n y equipo
+         // Enviar jugadores ocupados con posición y equipo
          occupiedPlayers: occupiedPlayers.map((p) => ({ name: p.name, phone: p.phone, position: p.position || null, team: p.team || null })),
        } as any;
       const res = await fetch("/api/matches", {
@@ -84,9 +82,9 @@ export default function CreateMatchPage() {
             msg = txt || msg;
           }
 
-          // Si es un error de autenticaciÃ³n, redirigir al login
+          // Si es un error de autenticación, redirigir al login
           if (res.status === 401) {
-            alert("Necesitas iniciar sesiÃ³n para crear un partido. SerÃ¡s redirigido al login.");
+            alert("Necesitas iniciar sesión para crear un partido. Serás redirigido al login.");
             // Redirect handled by /organizar wrapper; no hard redirect here.
             return;
           }
@@ -151,13 +149,13 @@ export default function CreateMatchPage() {
                          {/* Basic Info Section */}
              <div className="space-y-6">
                <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">
-                 InformaciÃ³n BÃ¡sica
+                Información Básica
                </h2>
                
                <div className="grid md:grid-cols-2 gap-6">
                  <div className="space-y-2">
                    <label className="block text-sm font-medium text-gray-700">
-                     TÃ­tulo del partido
+                     Título del partido
                    </label>
                    <input
                      type="text"
@@ -173,7 +171,7 @@ export default function CreateMatchPage() {
                  
                  <div className="space-y-2">
                    <label className="block text-sm font-medium text-gray-700">
-                     NÃºmero de cancha (opcional)
+                     Número de cancha (opcional)
                    </label>
                    <input
                      type="text"
@@ -183,7 +181,7 @@ export default function CreateMatchPage() {
                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
                      placeholder="Ej: Cancha 1, 2, 3..."
                    />
-                   <p className="text-xs text-gray-500">Especifica el nÃºmero o nombre de la cancha.</p>
+                   <p className="text-xs text-gray-500">Especifica el número o nombre de la cancha.</p>
                  </div>
                </div>
                
@@ -200,9 +198,9 @@ export default function CreateMatchPage() {
                  />
                  {formData.venueName && (
                    <p className="text-sm text-gray-600">
-                     ðŸ“ Lugar seleccionado: <strong>{formData.venueName}</strong>
-                     {formData.comuna && <span className="text-blue-600"> â€¢ {formData.comuna}</span>}
-                   </p>
+                    📍 Lugar seleccionado: <strong>{formData.venueName}</strong>
+                    {formData.comuna && <span className="text-blue-600"> • {formData.comuna}</span>}
+                  </p>
                  )}
                </div>
              </div>
@@ -223,7 +221,7 @@ export default function CreateMatchPage() {
                 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    DuraciÃ³n (minutos)
+                    Duración (minutos)
                   </label>
                   <input
                     type="number"
@@ -246,26 +244,7 @@ export default function CreateMatchPage() {
                 Detalles del Partido
               </h2>
               
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Precio por cupo (CLP)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
-                    <input
-                      type="number"
-                      name="pricePerSpot"
-                      value={formData.pricePerSpot}
-                      onChange={handleChange}
-                      className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
-                      placeholder="1000"
-                      min="100"
-                      step="100"
-                      required
-                    />
-                  </div>
-                </div>
+              <div className="grid md:grid-cols-2 gap-6">
                 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
@@ -279,7 +258,7 @@ export default function CreateMatchPage() {
                     step={1}
                     value={formData.totalSpots}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duraciÃ³n-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
                   />
                   <p className="text-xs text-gray-500">Entre 6 y 30 jugadores</p>
                 </div>
@@ -296,9 +275,9 @@ export default function CreateMatchPage() {
                     step={1}
                     value={formData.occupiedSpots}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duraciÃ³n-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
                   />
-                  <p className="text-xs text-gray-500">Estos cupos quedarÃ¡n como pagados desde el inicio.</p>
+                  <p className="text-xs text-gray-500">Estos cupos quedarán como pagados desde el inicio.</p>
                 </div>
 
                 {Number(formData.occupiedSpots) > 0 && (
@@ -338,7 +317,7 @@ export default function CreateMatchPage() {
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         >
-                          <option value="">PosiciÃ³n</option>
+                          <option value="">Posición</option>
                           <option value="ARQUERO">Arquero</option>
                           <option value="DEFENSA">Defensa</option>
                           <option value="LATERAL">Lateral</option>

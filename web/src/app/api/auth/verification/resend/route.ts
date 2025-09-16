@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         email: true,
-        emailVerifiedAt: true,
         profile: { select: { name: true } },
       },
     });
@@ -42,12 +41,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (user.emailVerifiedAt) {
-      return NextResponse.json(
-        { ok: false, error: "Este correo ya esta verificado" },
-        { status: 400 }
-      );
-    }
+    // Temporal: asumimos que no verificado para permitir reenvio o evitar errores por columna faltante.
 
     const verification = await createVerificationCode(user.id);
     try {

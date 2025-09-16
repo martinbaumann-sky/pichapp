@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
         spotId: result.spotId,
         alreadyJoined: result.alreadyJoined,
         remainingSpots: result.remainingSpots,
-        message: result.alreadyJoined ? "Ya estabas inscrito en este partido." : "Cupo confirmado. No necesitas pagar.",
+        message: "Reservas gratis habilitadas. Tu cupo está confirmado.",
       },
       { status: 201 }
     );

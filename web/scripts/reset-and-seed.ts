@@ -33,7 +33,7 @@ async function main() {
       comuna: "Ñuñoa",
       startsAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
       durationMins: 90,
-      pricePerSpot: 3000,
+      pricePerSpot: 0,
       totalSpots: 12,
       level: "INTERMEDIATE" as const,
       venueName: "Club Los Maitenes",
@@ -50,7 +50,7 @@ async function main() {
       comuna: "Providencia",
       startsAt: new Date(Date.now() + (2 + base.length) * 60 * 60 * 1000),
       durationMins: 90,
-      pricePerSpot: 3000 + (base.length % 4) * 500,
+      pricePerSpot: 0,
       totalSpots: 10 + (base.length % 3) * 2,
       level: ["BEGINNER", "INTERMEDIATE", "ADVANCED"][base.length % 3] as any,
       venueName: "Complejo Deportivo",
@@ -89,7 +89,7 @@ async function main() {
         id: crypto.randomUUID(),
         matchId: match.id,
         status: "AVAILABLE",
-        priceCLP: m.pricePerSpot,
+        priceCLP: 0,
       })),
     });
     if (m.occupiedSpots > 0) {

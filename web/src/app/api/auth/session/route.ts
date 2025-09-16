@@ -13,7 +13,6 @@ export async function GET() {
         id: true,
         email: true,
         isAdmin: true,
-        emailVerifiedAt: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
@@ -23,7 +22,7 @@ export async function GET() {
         id: user.id,
         email: user.email,
         isAdmin: !!user.isAdmin,
-        emailVerified: !!user.emailVerifiedAt,
+        emailVerified: false,
         name: user.profile?.name || null,
         comuna: user.profile?.comuna || null,
         position: user.profile?.position || null,

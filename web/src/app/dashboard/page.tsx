@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, DollarSign, Clock, Trophy, CheckCircle, Clock as ClockIcon } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Clock, Trophy, CheckCircle, Clock as ClockIcon } from "lucide-react";
 import { sampleMatches } from "@/lib/samples";
 import { useSearchParams, useRouter } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
@@ -31,8 +31,8 @@ function DashboardContent() {
     qp.set("tab", tab === "organizer" ? "organizador" : "jugador");
     router.replace(`/dashboard?${qp.toString()}`);
   };
-  const [organizerData, setOrganizerData] = useState<any>({ nextMatch: null, metrics: { totalOrganized: 0, occupancy: 0, estimatedRevenue: 0 } });
-  const [playerData, setPlayerData] = useState<any>({ nextMatch: null, metrics: { playedCount: 0, totalSpent: 0 } });
+  const [organizerData, setOrganizerData] = useState<any>({ nextMatch: null, metrics: { totalOrganized: 0, occupancy: 0, confirmedPlayers: 0, rating: 0 } });
+  const [playerData, setPlayerData] = useState<any>({ nextMatch: null, metrics: { playedCount: 0, upcomingCount: 0 } });
 
   useEffect(() => {
     (async () => {
@@ -104,7 +104,7 @@ function DashboardContent() {
         {activeTab === "organizer" ? (
           <div className="space-y-8">
             {/* Stats Cards */}
-            <div className="grid md:grid-cols-4 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-blue-100 rounded-lg">
@@ -121,12 +121,12 @@ function DashboardContent() {
               
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-yellow-100 rounded-lg">
-                    <DollarSign className="w-6 h-6 text-yellow-600" />
+                  <div className="p-3 bg-green-100 rounded-lg">
+                    <Users className="w-6 h-6 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Ingresos estimados</p>
-                    <p className="text-2xl font-bold text-black">${organizerData.metrics.estimatedRevenue.toLocaleString("es-CL")}</p>
+                    <p className="text-sm text-gray-500">Cupos confirmados</p>
+                    <p className="text-2xl font-bold text-black">{organizerData.metrics.confirmedPlayers}</p>
                   </div>
                 </div>
               </div>
@@ -176,15 +176,15 @@ function DashboardContent() {
         ) : (
           <div className="space-y-8">
             {/* Stats Cards */}
-            <div className="grid md:grid-cols-4 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-green-100 rounded-lg">
                     <CheckCircle className="w-6 h-6 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Reservas Activas</p>
-                    <p className="text-2xl font-bold text-black">{typeof playerData.metrics.playedCount !== 'undefined' ? playerData.metrics.playedCount : (playerData.nextMatch ? 1 : 0)}</p>
+                    <p className="text-sm text-gray-500">Reservas confirmadas</p>
+                    <p className="text-2xl font-bold text-black">{typeof playerData.metrics.upcomingCount !== 'undefined' ? playerData.metrics.upcomingCount : (playerData.nextMatch ? 1 : 0)}</p>
                   </div>
                 </div>
               </div>
@@ -203,24 +203,12 @@ function DashboardContent() {
               
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-yellow-100 rounded-lg">
-                    <DollarSign className="w-6 h-6 text-yellow-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Total Gastado</p>
-                    <p className="text-2xl font-bold text-black">${playerData.metrics.totalSpent.toLocaleString("es-CL")}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center gap-3">
                   <div className="p-3 bg-purple-100 rounded-lg">
                     <Trophy className="w-6 h-6 text-purple-600" />
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Partidos Jugados</p>
-                    <p className="text-2xl font-bold text-black">12</p>
+                    <p className="text-2xl font-bold text-black">{playerData.metrics.playedCount ?? 0}</p>
                   </div>
                 </div>
               </div>
@@ -243,8 +231,8 @@ function DashboardContent() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="text-sm text-gray-500">Precio</p>
-                        <p className="font-medium text-green-600">${/* @ts-ignore */ (playerData.nextMatch.pricePerSpot ?? 0).toLocaleString("es-CL")}</p>
+                        <p className="text-sm text-gray-500">Costo</p>
+                        <p className="font-medium text-green-600">Gratis</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-5 h-5 text-green-600" />
@@ -271,4 +259,3 @@ export default function DashboardPage() {
     </Suspense>
   );
 }
-

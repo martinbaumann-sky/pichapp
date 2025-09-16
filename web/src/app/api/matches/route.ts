@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       startsAt: safeStartsAt,
       level: ["BEGINNER", "INTERMEDIATE", "ADVANCED"].includes(json?.level) ? json.level : "INTERMEDIATE",
       ...(derivedComuna && (!json?.comuna || String(json.comuna).trim().length < 2) ? { comuna: derivedComuna } : {}),
-      pricePerSpot: Number(json?.pricePerSpot ?? 0),
+      pricePerSpot: 0,
       totalSpots: Number(json?.totalSpots ?? 0),
       durationMins: Number(json?.durationMins ?? 0),
       occupiedSpots: Number(json?.occupiedSpots ?? 0),
@@ -124,28 +124,28 @@ export async function POST(req: NextRequest) {
           const s = spots[i];
           const player = occupiedPlayers[i];
           if (player) {
-            const u = await tx.user.create({
-              data: {
-                id: crypto.randomUUID(),
-                email: null,
-                isAdmin: false,
-                profile: { create: { name: player.name || `Jugador ${i + 1}`, phone: player.phone ?? "", comuna: comuna || "", position: player.position ?? null } },
-              },
-              include: { profile: true },
-            });
-            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: u.id, team: player.team ?? null, position: player.position ?? null } });
+            // Usar SQL crudo para insertar usuario y perfil evitando que Prisma intente
+            // escribir la columna `emailVerifiedAt` si no existe en la BD.
+            const newUserId = crypto.randomUUID();
+            await tx.$executeRaw`
+              INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${null}, ${false})
+            `;
+            const newProfileId = crypto.randomUUID();
+            await tx.$executeRaw`
+              INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${player.name || `Jugador ${i + 1}`}, ${player.phone ?? ""}, ${comuna || ""}, ${player.position ?? null}::"Position")
+            `;
+            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: newUserId, team: player.team ?? null, position: player.position ?? null } });
           } else {
-            // Crear un jugador placeholder para que siempre haya nombre visible
-            const u = await tx.user.create({
-              data: {
-                id: crypto.randomUUID(),
-                email: null,
-                isAdmin: false,
-                profile: { create: { name: `Jugador ${i + 1}`, phone: "", comuna: comuna || "", position: null } },
-              },
-              include: { profile: true },
-            });
-            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: u.id } });
+            // Crear un jugador placeholder para que siempre haya nombre visible usando SQL crudo.
+            const newUserId = crypto.randomUUID();
+            await tx.$executeRaw`
+              INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${null}, ${false})
+            `;
+            const newProfileId = crypto.randomUUID();
+            await tx.$executeRaw`
+              INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${`Jugador ${i + 1}`}, ${""}, ${comuna || ""}, ${null}::"Position")
+            `;
+            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: newUserId } });
           }
         }
       }
@@ -160,8 +160,16 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ match }, { status: 201 });
   } catch (err: any) {
+    // Loguear error completo para depuración local
+    // No mostramos stack en producción, pero sí el mensaje.
+    // eslint-disable-next-line no-console
+    console.error("/api/matches POST error:", err);
     if (err instanceof Response) return err;
-    return NextResponse.json({ error: "Error al crear partido" }, { status: 500 });
+    const payload: any = { error: err?.message || "Error al crear partido" };
+    if (process.env.NODE_ENV !== "production") {
+      payload.details = err?.stack || String(err);
+    }
+    return NextResponse.json(payload, { status: 500 });
   }
 }
 
@@ -176,7 +184,7 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
-    const { comuna, from, level, maxPrice } = parsed.data as any;
+    const { comuna, from, level } = parsed.data as any;
     const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
     const pageSize = Math.min(24, Math.max(1, Number(searchParams.get("pageSize") ?? "24")));
 
@@ -186,7 +194,6 @@ export async function GET(req: NextRequest) {
       startsAt: { gte: from ? new Date(from) : new Date() },
       ...(comuna ? { comuna } : {}),
       ...(level ? { level } : {}),
-      ...(typeof maxPrice === "number" ? { pricePerSpot: { lte: maxPrice } } : {}),
     };
 
     const matches = await prisma.match

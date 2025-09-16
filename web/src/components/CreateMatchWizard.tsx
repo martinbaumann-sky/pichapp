@@ -24,7 +24,6 @@ type Form = {
   photoUrl?: string;
   startsAt: string;
   durationMins: number;
-  pricePerSpot: number | string;
   totalSpots: number;
   occupiedSpots: number;
 };
@@ -33,7 +32,7 @@ const stepTitles = [
   "Información Básica",
   "Ubicación",
   "Fecha y Hora",
-  "Precio y Cupos",
+  "Cupos",
   "Confirmar",
 ];
 
@@ -53,7 +52,6 @@ export default function CreateMatchWizard() {
     fieldNumber: "",
     startsAt: "",
     durationMins: 90,
-    pricePerSpot: "3000",
     totalSpots: 10,
     occupiedSpots: 0,
   } as any);
@@ -62,7 +60,7 @@ export default function CreateMatchWizard() {
     if (step === 0) return !!form.title && !!form.level;
     if (step === 1) return !!(form.displayAddress || form.venueAddress || form.venueName);
     if (step === 2) return !!form.startsAt && form.durationMins >= 30;
-    if (step === 3) return Number(form.pricePerSpot) >= 500 && form.totalSpots >= 6;
+    if (step === 3) return form.totalSpots >= 6;
     return true;
   }, [step, form]);
 
@@ -94,7 +92,6 @@ export default function CreateMatchWizard() {
       const payload: any = {
         ...form,
         title: finalTitle,
-        pricePerSpot: Number(form.pricePerSpot || 0),
         durationMins: Number(form.durationMins || 0),
         totalSpots: Number(form.totalSpots || 0),
         occupiedSpots: Number(form.occupiedSpots || 0) || 0,
@@ -235,12 +232,7 @@ export default function CreateMatchWizard() {
 
       {step === 3 && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
-          <div className="grid md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Precio por cupo (CLP)</label>
-              <input type="number" min={500} step={500} placeholder="3000" value={form.pricePerSpot as any} onChange={(e)=>setForm({...form, pricePerSpot: e.target.value})} className="w-full border px-3 py-2 rounded" />
-              <p className="mt-1 text-xs text-gray-500">Pichangapp retiene el 5% por servicio.</p>
-            </div>
+          <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-gray-700 mb-1">Total de cupos</label>
               <input type="number" min={6} max={30} value={form.totalSpots} onChange={(e)=>setForm({...form, totalSpots: Number(e.target.value)})} className="w-full border px-3 py-2 rounded" />
@@ -269,6 +261,7 @@ export default function CreateMatchWizard() {
               />
             </div>
           </div>
+          <p className="text-sm text-gray-500">Todas las reservas son gratuitas durante este lanzamiento.</p>
           <div className="pt-2 border-t">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm text-gray-700 font-medium">Agregar desde amigos</div>
@@ -360,7 +353,7 @@ export default function CreateMatchWizard() {
             <p><span className="font-medium">Fecha:</span> {form.startsAt ? new Date(form.startsAt).toLocaleString() : "-"}</p>
             <p><span className="font-medium">Duración:</span> {form.durationMins} min</p>
             <p><span className="font-medium">Cupos:</span> {form.totalSpots} (ocupados {form.occupiedSpots})</p>
-            <p><span className="font-medium">Precio:</span> ${Number(form.pricePerSpot||0).toLocaleString("es-CL")}</p>
+            <p><span className="font-medium">Costo:</span> Reservas gratuitas en este lanzamiento</p>
           </div>
         </div>
       )}

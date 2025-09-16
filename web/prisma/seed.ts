@@ -24,7 +24,7 @@ async function main() {
         comuna: s.comuna,
         startsAt: s.startsAt,
         durationMins: 90,
-        pricePerSpot: 3000,
+        pricePerSpot: 0,
         totalSpots: 10,
         level: s.level as any,
         organizer: {
@@ -42,7 +42,7 @@ async function main() {
     const spotsData = Array.from({ length: match.totalSpots }).map(() => ({
       matchId: match.id,
       status: "AVAILABLE" as const,
-      priceCLP: match.pricePerSpot,
+      priceCLP: 0,
     }));
 
     await prisma.spot.createMany({ data: spotsData });

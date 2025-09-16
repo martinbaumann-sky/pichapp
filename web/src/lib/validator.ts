@@ -16,7 +16,7 @@ export const createMatchSchema = z.object({
     .coerce
     .number()
     .int()
-    .min(100, { message: "El precio minimo por cupo es 100 CLP" })
+    .min(0, { message: "El precio por cupo debe ser 0 o mayor" })
     .max(50000),
   totalSpots: z.coerce.number().int().min(1).max(30),
   level: levelEnum,
@@ -50,11 +50,12 @@ export const createMatchSchema = z.object({
 
 export type CreateMatchInput = z.infer<typeof createMatchSchema>;
 
-export const listMatchesSchema = z.object({
-  comuna: z.string().optional(),
-  from: z.string().optional(),
-  level: levelEnum.optional(),
-  maxPrice: z.coerce.number().optional(),
-});
+export const listMatchesSchema = z
+  .object({
+    comuna: z.string().optional(),
+    from: z.string().optional(),
+    level: levelEnum.optional(),
+  })
+  .passthrough();
 
 export type ListMatchesQuery = z.infer<typeof listMatchesSchema>;

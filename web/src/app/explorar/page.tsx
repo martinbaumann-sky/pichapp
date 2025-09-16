@@ -14,7 +14,7 @@ export default function ExplorePage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const [filters, setFilters] = useState({ comuna: "", from: "", level: "", maxPrice: 9000, page: 1, pageSize: 24 });
+  const [filters, setFilters] = useState({ comuna: "", from: "", level: "", page: 1, pageSize: 24 });
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const MiniMap = dynamic(() => import("@/components/MatchMiniMap"), { ssr: false });
 
@@ -24,7 +24,7 @@ export default function ExplorePage() {
       if (v !== "" && v !== undefined && v !== null) params.set(k, String(v));
     });
     return params.toString();
-  }, [filters.comuna, filters.from, filters.level, filters.maxPrice, filters.pageSize]);
+  }, [filters.comuna, filters.from, filters.level, filters.pageSize]);
 
   // Load first page on filter change
   useEffect(() => {
@@ -129,18 +129,8 @@ export default function ExplorePage() {
                 </option>
               ))}
             </select>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-500">Máx $</label>
-              <input
-                type="range"
-                min={0}
-                max={9000}
-                step={500}
-                value={filters.maxPrice}
-                onChange={(e) => setFilters((f) => ({ ...f, maxPrice: Number(e.target.value), page: 1 }))}
-                className="w-full"
-              />
-              <div className="text-xs text-gray-600">{new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(filters.maxPrice)}</div>
+            <div className="hidden md:flex md:items-center md:justify-end text-sm text-gray-500">
+              Todas las reservas son gratuitas en este lanzamiento.
             </div>
           </div>
         </div>
@@ -197,7 +187,7 @@ export default function ExplorePage() {
                 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                   <div className="text-green-600 font-semibold">
-                    <span>{new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}</span>
+                    <span>{match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot) : "Gratis"}</span>
                   </div>
                   
                   <span className="text-sm text-gray-500">

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
-import FrostedPaymentCard from "@/components/FrostedPaymentCard";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, ImageIcon, MessageSquare } from "lucide-react";
@@ -21,32 +20,14 @@ export default function MatchDetailPage(props: any) {
   const [authOpen, setAuthOpen] = useState(false);
   const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchMatch = async () => {
-      try {
-        const res = await fetch(`/api/matches/${id}`, { cache: "no-store" });
-        const paidParam = new URL(window.location.href).searchParams.get("paid");
-        if (res.ok) {
-          const data = await res.json();
-          setMatch(data);
-          if (paidParam === "1") {
-            setToast("Pago confirmado. Cupo tomado.");
-            setTimeout(() => setToast(null), 3000);
-          } else if (paidParam === "0") {
-            setToast("Pago pendiente o rechazado.");
-            setTimeout(() => setToast(null), 3000);
-          }
-        } else {
-          const fallback = sampleMatches().find((m: any) => m.id === id);
-          if (fallback) {
-            setMatch({
-              ...fallback,
-              paid: fallback.spots.filter((s: any) => s.status === "PAID").length,
-              available: fallback.spots.filter((s: any) => s.status === "AVAILABLE").length,
-            });
-          }
-        }
-      } catch (error) {
+  const loadMatch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/matches/${id}`, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setMatch(data);
+      } else {
         const fallback = sampleMatches().find((m: any) => m.id === id);
         if (fallback) {
           setMatch({
@@ -55,57 +36,54 @@ export default function MatchDetailPage(props: any) {
             available: fallback.spots.filter((s: any) => s.status === "AVAILABLE").length,
           });
         }
-      } finally {
-        setLoading(false);
       }
-    };
-
-    fetchMatch();
+    } catch (error) {
+      const fallback = sampleMatches().find((m: any) => m.id === id);
+      if (fallback) {
+        setMatch({
+          ...fallback,
+          paid: fallback.spots.filter((s: any) => s.status === "PAID").length,
+          available: fallback.spots.filter((s: any) => s.status === "AVAILABLE").length,
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
-  const [payProvider, setPayProvider] = useState<string>("MP");
-  const [reserveInfo, setReserveInfo] = useState<any>(null);
-  const [providerModalOpen, setProviderModalOpen] = useState(false);
+  useEffect(() => {
+    loadMatch();
+  }, [loadMatch]);
+
+  const [joining, setJoining] = useState(false);
 
   const handleJoin = async () => {
     if (!user) {
       setAuthOpen(true);
       return;
     }
+    setJoining(true);
     try {
-      // Reservar primero (nueva ruta)
-      const res = await fetch(`/api/matches/${id}/reserve`, { method: "POST", credentials: "same-origin" });
+      const res = await fetch(`/api/matches/${id}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const body = await res.text().catch(() => null);
-        throw new Error(body || "No se pudo reservar");
+        throw new Error(data?.error || data?.message || "No se pudo confirmar el cupo");
       }
-      const data = await res.json();
-      setReserveInfo(data);
-      // En vez de abrir modal, abrir nueva pestaña de pago
-      const url = `${window.location.origin}/match/${id}/pay/${data.paymentId}`;
-      window.open(url, "_blank");
-    } catch (e) {
-      const msg = e && (e as any).message ? (e as any).message : "Error al reservar. Intenta nuevamente.";
+      const successMessage = data?.message || (data?.alreadyJoined ? "Ya estabas inscrito en este partido." : "Cupo confirmado. Nos vemos en la cancha.");
+      setToast(successMessage);
+      setTimeout(() => setToast(null), 3000);
+      await loadMatch();
+    } catch (e: any) {
+      const msg = e?.message ?? "No se pudo confirmar el cupo";
       setToast(msg);
       setTimeout(() => setToast(null), 3000);
-    }
-  };
-
-  const handleCheckout = async (provider: string) => {
-    if (!reserveInfo) return;
-    try {
-      const res = await fetch(`/api/matches/${id}/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentId: reserveInfo.paymentId, provider }), credentials: "same-origin" });
-      if (!res.ok) {
-        const b = await res.text().catch(() => null);
-        throw new Error(b || "No se pudo iniciar checkout");
-      }
-      const data = await res.json();
-      const url = data.init_point || data.checkoutUrl;
-      if (url) window.location.href = url;
-    } catch (err) {
-      const msg = err && (err as any).message ? (err as any).message : "Error al iniciar pago";
-      setToast(msg);
-      setTimeout(() => setToast(null), 3000);
+    } finally {
+      setJoining(false);
     }
   };
 
@@ -244,8 +222,8 @@ export default function MatchDetailPage(props: any) {
 
                 <div className="flex items-center gap-3">
                   <div>
-                    <p className="text-sm text-gray-500">Precio por cupo</p>
-                    <p className="font-medium text-green-600">{new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}</p>
+                    <p className="text-sm text-gray-500">Costo por cupo</p>
+                    <p className="font-medium text-green-600">{match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot) : "Gratis"}</p>
                   </div>
                 </div>
               </div>
@@ -274,9 +252,17 @@ export default function MatchDetailPage(props: any) {
               if (!isFull) {
                 return (
                   <div className="space-y-3">
-                    <button onClick={handleJoin} className="w-full px-8 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                    <button
+                      onClick={handleJoin}
+                      disabled={joining}
+                      className="w-full px-8 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                    >
                       <CheckCircle className="w-5 h-5" />
-                      Tomar Cupo - {new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}
+                      {joining
+                        ? "Confirmando..."
+                        : match.pricePerSpot > 0
+                          ? `Tomar Cupo - ${new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}`
+                          : "Tomar Cupo Gratis"}
                     </button>
                   </div>
                 );
@@ -321,36 +307,6 @@ export default function MatchDetailPage(props: any) {
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded-lg shadow-lg text-sm">{toast}</div>
-      )}
-      {providerModalOpen && reserveInfo && (
-        <div className="fixed inset-0 z-[90] pointer-events-auto">
-          <div className="absolute inset-0 bg-black/60" />
-          <div className="relative z-50 flex items-start justify-center h-full pt-24 px-4">
-            <div className="w-full max-w-3xl bg-white rounded-xl shadow-2xl p-6">
-              <h2 className="text-2xl font-bold text-black mb-4">Pagar cupo</h2>
-              <p className="mb-6 text-gray-700">Precio: <strong>{new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(reserveInfo.amountCLP)}</strong></p>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="p-4 border rounded">
-                  <h3 className="font-semibold mb-2">MercadoPago</h3>
-                  <p className="text-sm text-gray-600 mb-4">Paga con tarjeta, RedCompra o transferencia según MercadoPago.</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => handleCheckout("MP")} className="flex-1 px-4 py-3 bg-black text-white rounded">Ir a pagar</button>
-                  </div>
-                </div>
-                <div className="p-4 border rounded">
-                  <h3 className="font-semibold mb-2">Transbank</h3>
-                  <p className="text-sm text-gray-600 mb-4">Paga con Webpay (tarjeta de débito/crédito).</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => handleCheckout("WEBPAY")} className="flex-1 px-4 py-3 bg-black text-white rounded">Ir a pagar</button>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end">
-                <button onClick={() => setProviderModalOpen(false)} className="px-4 py-2 text-sm text-gray-600">Cancelar</button>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next={`/match/${id}`}/>
     </div>

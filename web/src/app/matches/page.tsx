@@ -11,7 +11,7 @@ export default function MatchesPage() {
   const FALLBACK_IMG = "https://images.unsplash.com/photo-1505842465776-3d7a1ee1a8b7?q=80&w=1200&auto=format&fit=crop";
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [filters, setFilters] = useState({ comuna: "", from: "", level: "", maxPrice: "", page: 1, pageSize: 24 });
+  const [filters, setFilters] = useState({ comuna: "", from: "", level: "", page: 1, pageSize: 24 });
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -89,13 +89,9 @@ export default function MatchesPage() {
                 </option>
               ))}
             </select>
-            <input
-              placeholder="Max $"
-              inputMode="numeric"
-              value={filters.maxPrice}
-              onChange={(e) => setFilters((f) => ({ ...f, maxPrice: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-            />
+            <div className="text-sm text-gray-500 md:text-right md:col-span-1">
+              Reservar es gratis durante este lanzamiento.
+            </div>
             <div className="flex items-center justify-end gap-2">
               <button onClick={() => setFilters((f) => ({ ...f, page: Math.max(1, Number(f.page) - 1) }))} className="px-3 py-2 text-sm border rounded-lg">Anterior</button>
               <button onClick={() => setFilters((f) => ({ ...f, page: Number(f.page) + 1 }))} className="px-3 py-2 text-sm border rounded-lg">Siguiente</button>
@@ -167,7 +163,7 @@ export default function MatchesPage() {
                 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                   <div className="text-green-600 font-semibold">
-                    <span>{new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}</span>
+                    <span>{match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot) : "Gratis"}</span>
                   </div>
                   
                   <span className="text-sm text-gray-500">

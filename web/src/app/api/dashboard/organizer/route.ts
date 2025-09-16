@@ -23,12 +23,10 @@ export async function GET() {
     const totalOrganized = recentMatches.length;
     let totalSpots = 0;
     let totalPaid = 0;
-    let estimatedRevenue = 0;
     for (const m of recentMatches) {
       const paidCount = m.spots.filter((s: any) => s.status === "PAID").length;
       totalSpots += m.totalSpots;
       totalPaid += paidCount;
-      estimatedRevenue += paidCount * m.pricePerSpot;
     }
     const occupancy = totalSpots > 0 ? totalPaid / totalSpots : 0;
 
@@ -49,7 +47,7 @@ export async function GET() {
       metrics: {
         totalOrganized,
         occupancy,
-        estimatedRevenue,
+        confirmedPlayers: totalPaid,
         rating: profile?.rating ?? 0,
       },
     };
