@@ -1,8 +1,10 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { Mail, Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { comunasRM } from "@/lib/comunas-rm";
+
+type AuthPhase = "auth" | "verify";
 
 type Props = {
   tab: "login" | "signup";
@@ -23,6 +25,7 @@ type Props = {
   setShowPassword: (v: boolean) => void;
   onClose?: () => void;
   next?: string;
+  isOpen: boolean;
 };
 
 export default function FrostedAuthCard({
@@ -44,23 +47,84 @@ export default function FrostedAuthCard({
   setShowPassword,
   onClose,
   next,
+  isOpen,
 }: Props) {
   const [localLoading, setLocalLoading] = React.useState(false);
   const [phone, setPhone] = React.useState("");
+  const [phase, setPhase] = React.useState<AuthPhase>("auth");
+  const [pendingEmail, setPendingEmail] = React.useState<string | null>(null);
+  const [verifyCode, setVerifyCode] = React.useState("");
+  const [verifyLoading, setVerifyLoading] = React.useState(false);
+  const [verificationError, setVerificationError] = React.useState<string | null>(null);
+  const [resendMessage, setResendMessage] = React.useState<string | null>(null);
+  const [resendLoading, setResendLoading] = React.useState(false);
+  const [lastExpiresAt, setLastExpiresAt] = React.useState<string | null>(null);
+
+  const resetVerificationState = React.useCallback(() => {
+    setPhase("auth");
+    setPendingEmail(null);
+    setVerifyCode("");
+    setVerificationError(null);
+    setResendMessage(null);
+    setResendLoading(false);
+    setLastExpiresAt(null);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      resetVerificationState();
+    }
+  }, [isOpen, resetVerificationState]);
+
+  React.useEffect(() => {
+    if (phase === "verify" && !pendingEmail) {
+      resetVerificationState();
+    }
+  }, [phase, pendingEmail, resetVerificationState]);
+
+  const beginVerification = React.useCallback(
+    (targetEmail: string, expiresAt?: string | null) => {
+      setPendingEmail(targetEmail);
+      setPhase("verify");
+      setVerifyCode("");
+      setVerificationError(null);
+      setResendMessage(null);
+      if (expiresAt) {
+        setLastExpiresAt(expiresAt);
+      }
+    },
+    []
+  );
+
+  const navigateAfterAuth = React.useCallback(() => {
+    if (onClose) onClose();
+    if (next) {
+      window.location.href = next;
+    } else {
+      window.location.reload();
+    }
+  }, [next, onClose]);
 
   const doSignup = async () => {
     try {
       setLocalLoading(true);
-      const payload: any = { email, password, name, lastName, comuna, position, phone };
-      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      setVerificationError(null);
+      setResendMessage(null);
+      const payload: Record<string, unknown> = { email, password, name, lastName, comuna, position, phone };
+      const r = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d?.error || "Error al crear cuenta");
-      onClose && onClose();
-      if (next) {
-        window.location.href = next;
-      } else {
-        window.location.reload();
+      if (!r.ok) {
+        throw new Error(d?.error || "Error al crear cuenta");
       }
+      if (d?.requiresVerification) {
+        beginVerification(email, d?.expiresAt);
+        return;
+      }
+      navigateAfterAuth();
     } catch (e: any) {
       alert(e?.message || "No se pudo crear la cuenta");
     } finally {
@@ -71,26 +135,187 @@ export default function FrostedAuthCard({
   const doLogin = async () => {
     try {
       setLocalLoading(true);
-      const r = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      setVerificationError(null);
+      setResendMessage(null);
+      const r = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d?.error || "Credenciales inválidas");
-      onClose && onClose();
-      if (next) {
-        window.location.href = next;
-      } else {
-        window.location.reload();
+      if (!r.ok) {
+        if (d?.requiresVerification && d?.email) {
+          beginVerification(d.email as string, d?.expiresAt);
+          setVerificationError(d?.error || "Debes verificar tu correo para continuar.");
+          return;
+        }
+        throw new Error(d?.error || "Credenciales invalidas");
       }
+      navigateAfterAuth();
     } catch (e: any) {
-      alert(e?.message || "Credenciales inválidas");
+      alert(e?.message || "Credenciales invalidas");
     } finally {
       setLocalLoading(false);
     }
   };
 
+  const handleVerify = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    if (!pendingEmail) return;
+    if (!verifyCode.trim()) {
+      setVerificationError("Ingresa el codigo que recibiste por correo");
+      return;
+    }
+    try {
+      setVerifyLoading(true);
+      setVerificationError(null);
+      const r = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: pendingEmail, code: verifyCode.trim() }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setVerificationError(d?.error || "Codigo invalido");
+        return;
+      }
+      navigateAfterAuth();
+    } catch (e: any) {
+      setVerificationError(e?.message || "No se pudo verificar el codigo");
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!pendingEmail) return;
+    try {
+      setResendLoading(true);
+      setVerificationError(null);
+      const r = await fetch("/api/auth/verification/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: pendingEmail }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setVerificationError(d?.error || "No se pudo reenviar el codigo");
+        return;
+      }
+      setResendMessage(`Enviamos un nuevo codigo a ${pendingEmail}.`);
+      if (d?.expiresAt) {
+        setLastExpiresAt(d.expiresAt as string);
+      }
+    } catch (e: any) {
+      setVerificationError(e?.message || "No se pudo reenviar el codigo");
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  const minutesLeft = React.useMemo(() => {
+    if (!lastExpiresAt) return null;
+    const ms = new Date(lastExpiresAt).getTime() - Date.now();
+    if (Number.isNaN(ms) || ms <= 0) return null;
+    return Math.max(1, Math.round(ms / 60000));
+  }, [lastExpiresAt]);
+
+  const verifyView = phase === "verify" && pendingEmail ? (
+    <div className="w-full">
+      <div
+        className="relative overflow-hidden rounded-3xl p-6"
+        style={{
+          background: "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <div
+          className="absolute -inset-1 blur-lg opacity-30 pointer-events-none"
+          style={{ background: "linear-gradient(90deg, rgba(6,182,212,0.08), rgba(11,143,61,0.06))" }}
+        />
+        <div className="relative z-10 space-y-5 text-white">
+          <button
+            type="button"
+            onClick={resetVerificationState}
+            className="inline-flex items-center gap-2 text-sm text-white/80 hover:text-white"
+          >
+            <ChevronLeft className="w-4 h-4" /> Volver
+          </button>
+
+          <div className="space-y-2">
+            <h3 className="text-2xl font-semibold">Verifica tu correo</h3>
+            <p className="text-white/80">
+              Enviamos un codigo a <span className="font-semibold">{pendingEmail}</span>. Ingresa los 6 digitos para confirmar tu cuenta.
+            </p>
+            {minutesLeft && (
+              <p className="text-xs text-white/60">El codigo vence en aproximadamente {minutesLeft} minuto{minutesLeft === 1 ? "" : "s"}.</p>
+            )}
+            {resendMessage && <div className="text-xs text-emerald-200">{resendMessage}</div>}
+            {verificationError && <div className="text-xs text-red-200">{verificationError}</div>}
+          </div>
+
+          <form onSubmit={handleVerify} className="space-y-4">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={verifyCode}
+              onChange={(e) => setVerifyCode(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Ingresa el codigo"
+              className="input-field bg-white text-black text-center tracking-[0.6em] text-lg"
+            />
+            <button
+              type="submit"
+              disabled={verifyLoading || verifyCode.length < 4}
+              className="btn-primary w-full"
+            >
+              {verifyLoading ? "Verificando..." : "Confirmar codigo"}
+            </button>
+          </form>
+
+          <div className="flex flex-col gap-2 text-sm text-white/80">
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendLoading}
+              className="underline underline-offset-4 decoration-white/30 hover:decoration-white"
+            >
+              {resendLoading ? "Enviando..." : "Reenviar codigo"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("signup");
+                resetVerificationState();
+              }}
+              className="underline underline-offset-4 decoration-white/30 hover:decoration-white"
+            >
+              Usar otro correo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  if (verifyView) {
+    return verifyView;
+  }
+
   return (
     <div className="w-full">
-      <div className="relative overflow-hidden rounded-3xl p-6" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="absolute -inset-1 blur-lg opacity-30 pointer-events-none" style={{ background: 'linear-gradient(90deg, rgba(6,182,212,0.08), rgba(11,143,61,0.06))' }} />
+      <div
+        className="relative overflow-hidden rounded-3xl p-6"
+        style={{
+          background: "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <div
+          className="absolute -inset-1 blur-lg opacity-30 pointer-events-none"
+          style={{ background: "linear-gradient(90deg, rgba(6,182,212,0.08), rgba(11,143,61,0.06))" }}
+        />
         <div className="relative z-10">
           <div className="mb-3">
             <button type="button" onClick={onClose} className="p-2 rounded-md bg-white/10 hover:bg-white/20 text-white">
@@ -99,12 +324,26 @@ export default function FrostedAuthCard({
           </div>
           <div className="flex items-center justify-between mb-4">
             <div className="flex bg-white/8 rounded-full p-1">
-              <button onClick={() => setTab("signup")} className={`px-4 py-2 rounded-full text-sm font-medium transition ${tab === "signup" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"}`}>Crear cuenta</button>
-              <button onClick={() => setTab("login")} className={`px-4 py-2 rounded-full text-sm font-medium transition ${tab === "login" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"}`}>Iniciar sesión</button>
+              <button
+                onClick={() => setTab("signup")}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                  tab === "signup" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"
+                }`}
+              >
+                Crear cuenta
+              </button>
+              <button
+                onClick={() => setTab("login")}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                  tab === "login" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"
+                }`}
+              >
+                Iniciar sesion
+              </button>
             </div>
           </div>
 
-          <h3 className="text-2xl font-semibold text-white mb-4">{tab === "signup" ? "Únete a PichangApp" : "Bienvenido"}</h3>
+          <h3 className="text-2xl font-semibold text-white mb-4">{tab === "signup" ? "Unete a PichangApp" : "Bienvenido"}</h3>
 
           <div className="space-y-4">
             {tab === "login" && (
@@ -112,39 +351,96 @@ export default function FrostedAuthCard({
                 <label className="text-sm text-white/80">Correo</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="email" name="signup_email" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.com" className="input-field pl-12 bg-white text-black" />
+                  <input
+                    type="email"
+                    name="signup_email"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    readOnly
+                    onFocus={(e) => {
+                      e.currentTarget.readOnly = false;
+                    }}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@correo.com"
+                    className="input-field pl-12 bg-white text-black"
+                  />
                 </div>
-                <label className="text-sm text-white/80">Contraseña</label>
+                <label className="text-sm text-white/80">Contrasena</label>
                 <div className="relative">
-                  <input type={showPassword ? "text" : "password"} name="new-password" autoComplete="new-password" readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="input-field pr-12 bg-white text-black" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="new-password"
+                    autoComplete="new-password"
+                    readOnly
+                    onFocus={(e) => {
+                      e.currentTarget.readOnly = false;
+                    }}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="********"
+                    className="input-field pr-12 bg-white text-black"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
+                  >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-                <button disabled={localLoading || !email || !password} onClick={doLogin} className="btn-primary w-full">Iniciar sesión</button>
+                <button
+                  disabled={localLoading || !email || !password}
+                  onClick={doLogin}
+                  className="btn-primary w-full"
+                >
+                  {localLoading ? "Procesando..." : "Iniciar sesion"}
+                </button>
               </div>
             )}
 
             {tab === "signup" && (
               <div className="space-y-3">
                 <label className="text-sm text-white/80">Nombre y Apellido</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" className="input-field bg-white text-black" />
-                  <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Apellido" className="input-field bg-white text-black" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Nombre"
+                    className="input-field bg-white text-black"
+                  />
+                  <input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Apellido"
+                    className="input-field bg-white text-black"
+                  />
                 </div>
                 <div>
                   <label className="text-sm text-white/80">Comuna</label>
-                  <select value={comuna} onChange={(e) => setComuna(e.target.value)} className="input-field bg-white text-black">
+                  <select
+                    value={comuna}
+                    onChange={(e) => setComuna(e.target.value)}
+                    className="input-field bg-white text-black"
+                  >
                     <option value="">Selecciona tu comuna</option>
                     {comunasRM.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm text-white/80">Posición</label>
-                  <select value={position} onChange={(e) => setPosition(e.target.value)} className="input-field bg-white text-black">
-                    <option value="">Selecciona tu posición</option>
+                  <label className="text-sm text-white/80">Posicion</label>
+                  <select
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value)}
+                    className="input-field bg-white text-black"
+                  >
+                    <option value="">Selecciona tu posicion</option>
                     <option value="ARQUERO">Arquero</option>
                     <option value="DEFENSA">Defensa</option>
                     <option value="LATERAL">Lateral</option>
@@ -154,19 +450,61 @@ export default function FrostedAuthCard({
                 </div>
                 <div>
                   <label className="text-sm text-white/80">Celular</label>
-                  <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+569..." className="input-field bg-white text-black" />
+                  <input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+569..."
+                    className="input-field bg-white text-black"
+                  />
                 </div>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="email" name="signup_email" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.com" className="input-field pl-12 bg-white text-black" />
+                  <input
+                    type="email"
+                    name="signup_email"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    readOnly
+                    onFocus={(e) => {
+                      e.currentTarget.readOnly = false;
+                    }}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@correo.com"
+                    className="input-field pl-12 bg-white text-black"
+                  />
                 </div>
                 <div className="relative">
-                  <input type={showPassword ? "text" : "password"} name="new-password" autoComplete="new-password" readOnly onFocus={(e) => { e.currentTarget.readOnly = false; }} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crea una contraseña" className="input-field pr-12 bg-white text-black" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="new-password"
+                    autoComplete="new-password"
+                    readOnly
+                    onFocus={(e) => {
+                      e.currentTarget.readOnly = false;
+                    }}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Crea una contrasena"
+                    className="input-field pr-12 bg-white text-black"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
+                  >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-                <button disabled={localLoading || !name || !comuna || !position || !email || !password} onClick={doSignup} className="btn-primary w-full">Crear cuenta</button>
+                <button
+                  disabled={localLoading || !name || !comuna || !email || !password}
+                  onClick={doSignup}
+                  className="btn-primary w-full"
+                >
+                  {localLoading ? "Procesando..." : "Crear cuenta"}
+                </button>
               </div>
             )}
           </div>

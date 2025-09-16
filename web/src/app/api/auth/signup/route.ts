@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
-import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { setPasswordHash } from "@/lib/auth-password";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
+import { createVerificationCode, sendVerificationEmail } from "@/lib/email-verification";
 
 const rl = createRateLimiter({ name: "auth_signup", limit: 5, windowSec: 300 });
 
@@ -11,7 +11,13 @@ export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req as any);
     const probe = await rl.check(`ip:${ip}`);
-    if (!probe.allowed) return NextResponse.json({ ok: false, error: "Límite de registros alcanzado. Intenta más tarde." }, { status: 429 });
+    if (!probe.allowed) {
+      return NextResponse.json(
+        { ok: false, error: "Limite de registros alcanzado. Intenta mas tarde." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
     const password = String(body?.password || "");
@@ -20,24 +26,30 @@ export async function POST(req: NextRequest) {
     const comuna = String(body?.comuna || "");
     const position = body?.position ? String(body.position) : null;
     const phone = body?.phone ? String(body.phone) : "+56 9 1234 5678";
-    const birthday = body?.birthday ? String(body.birthday) : null;
-    const gender = body?.gender ? String(body.gender) : null;
 
     if (!email || !password || !name || !comuna) {
-      return NextResponse.json({ ok: false, error: "Completa email, contraseña, nombre y comuna" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "Completa email, contrasena, nombre y comuna" },
+        { status: 400 }
+      );
     }
 
     const exists = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-    if (exists) return NextResponse.json({ ok: false, error: "Este correo ya está registrado" }, { status: 409 });
+    if (exists) {
+      return NextResponse.json(
+        { ok: false, error: "Este correo ya esta registrado" },
+        { status: 409 }
+      );
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
-
     const fullName = [name, lastName].filter(Boolean).join(" ");
 
     const user = await prisma.user.create({
       data: {
         email,
         isAdmin: false,
+        emailVerifiedAt: null,
         profile: {
           create: {
             name: fullName || name,
@@ -47,28 +59,34 @@ export async function POST(req: NextRequest) {
           },
         },
       },
-      select: { id: true, email: true, isAdmin: true, profile: { select: { name: true, comuna: true, position: true } } },
+      select: { id: true, email: true, profile: { select: { name: true } } },
     });
 
-    // Persist hash in auxiliary table to avoid DB migrations in dev
-    try { await setPasswordHash(user.id, passwordHash); } catch {}
+    try {
+      await setPasswordHash(user.id, passwordHash);
+    } catch {}
 
-    const token = await createSession(user.id);
-    const res = NextResponse.json({ ok: true, user: sanitizeUser(user) });
-    attachSessionCookie(res, token);
-    return res;
+    const verification = await createVerificationCode(user.id);
+
+    try {
+      await sendVerificationEmail(email, verification.code, { name: user.profile?.name });
+    } catch (err: any) {
+      return NextResponse.json(
+        { ok: false, error: err?.message || "No se pudo enviar el correo de verificacion" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      requiresVerification: true,
+      email,
+      expiresAt: verification.expiresAt.toISOString(),
+    });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || "No se pudo crear la cuenta" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err?.message || "No se pudo crear la cuenta" },
+      { status: 500 }
+    );
   }
-}
-
-function sanitizeUser(u: any) {
-  return {
-    id: u.id,
-    email: u.email,
-    isAdmin: !!u.isAdmin,
-    name: u.profile?.name || null,
-    comuna: u.profile?.comuna || null,
-    position: u.profile?.position || null,
-  };
 }

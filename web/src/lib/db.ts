@@ -20,7 +20,7 @@ const ensureDatabaseEnv = () => {
 
 ensureDatabaseEnv();
 
-// Evitar pasar opciones al constructor para que no haya validación
+// Evitar pasar opciones al constructor para que no haya validaciï¿½n
 // sobre "datasources" (que dispara P2022 si alguien sobrecarga mal).
 // Usamos singleton para entornos con HMR.
 const globalAny = globalThis as any;

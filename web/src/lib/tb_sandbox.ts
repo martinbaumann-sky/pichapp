@@ -23,7 +23,7 @@ export async function createTbTransaction(opts: CreateTbOpts) {
           const options = { commerceCode, apiKey, environment: sdk.Environment.SANDBOX };
           const webpay = new Webpay(options);
           // Dependiendo del SDK la creación del checkout puede variar; mantenemos fallback instructivo.
-          const providerRef = `TB_${randomUUID()}`;
+          const providerRef = `WEBPAY_${randomUUID()}`;
           const checkoutUrl = `${opts.baseUrl}/api/tb/simulate?paymentId=${encodeURIComponent(opts.paymentId)}&providerRef=${encodeURIComponent(providerRef)}`;
           return { providerRef, checkoutUrl };
         } catch (err) {
@@ -36,7 +36,7 @@ export async function createTbTransaction(opts: CreateTbOpts) {
   }
 
   // Fallback sandbox: generamos providerRef y URL a simulador interno
-  const providerRef = `TB_${randomUUID()}`;
+  const providerRef = `WEBPAY_${randomUUID()}`;
   const checkoutUrl = `${opts.baseUrl}/api/tb/simulate?paymentId=${encodeURIComponent(opts.paymentId)}&providerRef=${encodeURIComponent(providerRef)}&matchId=${encodeURIComponent(opts.matchId)}`;
   return { providerRef, checkoutUrl };
 }

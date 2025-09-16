@@ -1,37 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { approvePayment, rejectPayment } from "@/lib/payments/update";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const providerRef = body.providerRef ?? body.transaction ?? body.id;
-    const status = body.status ?? "APPROVED";
+    const providerRef = body.providerRef ?? body.transaction ?? body.id ?? body.token;
+    const status = (body.status ?? body.event ?? "APPROVED").toString().toUpperCase();
 
     if (!providerRef) return NextResponse.json({ ok: true });
 
     const payment = await prisma.payment.findFirst({ where: { providerRef: String(providerRef) } });
     if (!payment) return NextResponse.json({ ok: true });
 
-    if (status === "APPROVED" || status === "approved") {
-      await prisma.$transaction(async (tx: any) => {
-        const availableSpot = await tx.spot.findFirst({ where: { matchId: payment.matchId, status: 'AVAILABLE' }, orderBy: { createdAt: 'asc' } });
-        if (!availableSpot) {
-          await tx.payment.update({ where: { id: payment.id }, data: { status: 'REJECTED' } });
-          return;
-        }
-
-        await tx.payment.update({ where: { id: payment.id }, data: { status: 'APPROVED', spotId: availableSpot.id } });
-        await tx.spot.update({ where: { id: availableSpot.id }, data: { status: 'PAID', userId: payment.userId, holdUntil: null, team: payment.team ?? null, position: payment.position ?? null } });
-
-        const counts = await tx.spot.groupBy({ by: ["status"], where: { matchId: payment.matchId }, _count: { _all: true } });
-        const available = counts.find((c: any) => c.status === "AVAILABLE")?._count._all ?? 0;
-        if (available === 0) await tx.match.update({ where: { id: payment.matchId }, data: { status: "FULL" } });
-      });
-    } else if (status === "REJECTED" || status === "rejected") {
-      await prisma.$transaction(async (tx: any) => {
-        await tx.payment.update({ where: { id: payment.id }, data: { status: "REJECTED" } });
-        if (payment.spotId) await tx.spot.update({ where: { id: payment.spotId }, data: { status: "AVAILABLE", userId: null, holdUntil: null } });
-      });
+    if (status === "APPROVED" || status === "APPROVAL" || status === "SUCCESS") {
+      await approvePayment(payment.id, String(providerRef));
+    } else if (status === "REJECTED" || status === "FAILED" || status === "CANCELED") {
+      await rejectPayment(payment.id, String(providerRef));
     }
 
     return NextResponse.json({ ok: true });
@@ -39,5 +24,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
-
-

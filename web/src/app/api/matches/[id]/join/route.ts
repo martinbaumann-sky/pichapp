@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
     const p: any = (ctx as any)?.params;
     const { id: matchId } = (p && typeof p.then === 'function') ? await p : p;
 
-    // soportar provider en body para elegir MP (MercadoPago) o TB (Transbank)
+    // soportar provider en body para elegir MP (Mercado Pago) o WEBPAY
     const body = await req.json().catch(() => ({}));
     const provider = (body?.provider ?? "MP") as string;
     const team = body?.team ?? null;
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!;
 
-    if (provider === "TB") {
+    if (provider === "WEBPAY" || provider === "TB") {
       // Transbank sandbox flow (simulado si no hay credenciales)
       const { createTbTransaction } = await import("@/lib/tb_sandbox");
 
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
         }
 
         const payment = await tx.payment.create({
-          data: { amountCLP: spot.priceCLP, userId, matchId, spotId: spot.id, provider: "TB", team: team ?? null, position: position ?? null },
+          data: { amountCLP: spot.priceCLP, userId, matchId, spotId: spot.id, provider: "WEBPAY", team: team ?? null, position: position ?? null },
         });
 
         const tbResp = await createTbTransaction({ paymentId: payment.id, amount: spot.priceCLP, matchId, spotId: spot.id, baseUrl });
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
     }
 
     // Default: MercadoPago flow (existente)
-    const { getMpPreferenceClient } = await import("@/lib/mp");
+
     const prefClient = getMpPreferenceClient();
 
       const result = await prisma.$transaction(async (tx: any) => {

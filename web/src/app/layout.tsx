@@ -1,23 +1,20 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import "./globals.css";
 import { Inter } from "next/font/google";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import RouteTransition from "../components/RouteTransition";
 import ChunkErrorHandler from "../components/ChunkErrorHandler";
-import HelpWidget from "../components/HelpWidget";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "PichangApp - Encuentra tu pichanga",
-  description:
-    "Únete al próximo partido de fútbol amateur cerca de ti. Cupos pagados. 100% online.",
+  description: "Unete al proximo partido de futbol amateur cerca de ti. Cupos pagados. 100% online.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
   openGraph: {
     title: "PichangApp - Encuentra tu pichanga",
-    description:
-      "Únete al próximo partido de fútbol amateur cerca de ti. Cupos pagados. 100% online.",
+    description: "Unete al proximo partido de futbol amateur cerca de ti. Cupos pagados. 100% online.",
     url: "/",
     siteName: "PichangApp",
     locale: "es_CL",
@@ -36,10 +33,8 @@ export default function RootLayout({
         <ChunkErrorHandler />
         <Header />
         <RouteTransition>{children}</RouteTransition>
-        <HelpWidget />
         <Footer />
       </body>
     </html>
   );
 }
-

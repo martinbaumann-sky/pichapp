@@ -1,22 +1,22 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 export const levelEnum = z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]);
 
 export const createMatchSchema = z.object({
   title: z.string().min(3).max(80),
-  // Permitir que venga vacío y derivarlo en el backend desde la dirección
+  // Permitir que venga vacio y derivarlo en el backend desde la direccion
   comuna: z.string().min(2, { message: "Comuna requerida" }).optional(),
   startsAt: z
     .string()
     .transform((v) => new Date(v))
-    .refine((d) => !isNaN(d.getTime()), { message: "Fecha inválida" }),
-  // Coercer números que pueden venir como string desde el form
+    .refine((d) => !isNaN(d.getTime()), { message: "Fecha invalida" }),
+  // Coercer numeros que pueden venir como string desde el form
   durationMins: z.coerce.number().int().min(30).max(180),
   pricePerSpot: z
     .coerce
     .number()
     .int()
-    .min(500, { message: "El precio mínimo por cupo es 500 CLP" })
+    .min(100, { message: "El precio minimo por cupo es 100 CLP" })
     .max(50000),
   totalSpots: z.coerce.number().int().min(1).max(30),
   level: levelEnum,

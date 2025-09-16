@@ -1,59 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { approvePayment, rejectPayment } from "@/lib/payments/update";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const query = Object.fromEntries(new URL(req.url).searchParams.entries());
 
-    // Mercado Pago puede enviar via query params (topic, id) o body
-    const paymentId = body?.data?.id ?? query["data.id"] ?? body?.id ?? query["id"];
-    if (!paymentId) return NextResponse.json({ ok: true });
+    const paymentIdValue = body?.data?.id ?? query["data.id"] ?? body?.id ?? query["id"];
+    if (!paymentIdValue) return NextResponse.json({ ok: true });
 
-    // Lookup Payment by providerRef
-    const payment = await prisma.payment.findFirst({ where: { providerRef: String(paymentId) } });
+    const payment = await prisma.payment.findFirst({ where: { providerRef: String(paymentIdValue) } });
     if (!payment) return NextResponse.json({ ok: true });
 
-    // En un entorno real, consultar a MP el estado del pago por API.
-    // Aquí aceptamos webhook como fuente de verdad simplificada opcionalmente con body.status
-    const status = body?.status ?? body?.data?.status ?? "APPROVED"; // fallback para sandbox
+    const status = String(body?.status ?? body?.data?.status ?? "approved").toLowerCase();
 
-    if (status === "approved" || status === "APPROVED") {
-      await prisma.$transaction(async (tx: any) => {
-        // Intentar asignar un spot AVAILABLE al pago aprobado
-        const availableSpot = await tx.spot.findFirst({ where: { matchId: payment.matchId, status: 'AVAILABLE' }, orderBy: { createdAt: 'asc' } });
-        if (!availableSpot) {
-          // No hay cupos disponibles al momento de confirmar pago -> marcar pago como REJECTED
-          await tx.payment.update({ where: { id: payment.id }, data: { status: 'REJECTED' } });
-          return;
-        }
-
-        await tx.payment.update({ where: { id: payment.id }, data: { status: 'APPROVED', spotId: availableSpot.id } });
-        // Mantener team/position si vinieron en metadata del pago (si aplica)
-        // Copiar team/position desde payment si existen
-        await tx.spot.update({ where: { id: availableSpot.id }, data: { status: 'PAID', userId: payment.userId, holdUntil: null, team: payment.team ?? null, position: payment.position ?? null } });
-
-        // Si el match quedó lleno, marcar FULL
-        const counts = await tx.spot.groupBy({
-          by: ["status"],
-          where: { matchId: payment.matchId },
-          _count: { _all: true },
-        });
-        const available = counts.find((c: any) => c.status === "AVAILABLE")?._count._all ?? 0;
-        if (available === 0) {
-          await tx.match.update({ where: { id: payment.matchId }, data: { status: "FULL" } });
-        }
-      });
-    } else if (status === "rejected" || status === "REJECTED") {
-      await prisma.$transaction(async (tx: any) => {
-        await tx.payment.update({ where: { id: payment.id }, data: { status: "REJECTED" } });
-        if (payment.spotId) {
-          await tx.spot.update({
-            where: { id: payment.spotId },
-            data: { status: "AVAILABLE", userId: null, holdUntil: null },
-          });
-        }
-      });
+    if (status === "approved" || status === "success") {
+      await approvePayment(payment.id, String(paymentIdValue));
+    } else if (status === "rejected" || status === "cancelled" || status === "canceled") {
+      await rejectPayment(payment.id, String(paymentIdValue));
     }
 
     return NextResponse.json({ ok: true });

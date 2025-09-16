@@ -341,7 +341,7 @@ export default function MatchDetailPage(props: any) {
                   <h3 className="font-semibold mb-2">Transbank</h3>
                   <p className="text-sm text-gray-600 mb-4">Paga con Webpay (tarjeta de débito/crédito).</p>
                   <div className="flex gap-2">
-                    <button onClick={() => handleCheckout("TB")} className="flex-1 px-4 py-3 bg-black text-white rounded">Ir a pagar</button>
+                    <button onClick={() => handleCheckout("WEBPAY")} className="flex-1 px-4 py-3 bg-black text-white rounded">Ir a pagar</button>
                   </div>
                 </div>
               </div>

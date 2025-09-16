@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
@@ -24,15 +24,15 @@ export default function Home() {
   return (
     <motion.div className="bg-white" initial={{ x: 0, opacity: 1 }} animate={{ x: 0, opacity: 1 }}>
       {/* Hero Section */}
-      <section className="flex flex-col md:flex-row items-center justify-between container container-px py-12 gap-10">
+      <section className="flex flex-col md:flex-row items-center justify-between container container-px py-12 sm:py-16 gap-10">
         {/* Left Content */}
         <div className="flex-1 max-w-2xl space-y-8">
-          <h1 className="text-6xl font-bold text-black leading-tight tracking-tight">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black leading-tight tracking-tight">
             Encuentra tu pichanga.
           </h1>
           
           <p className="text-xl text-gray-600 leading-relaxed">
-            Juega donde y cuando quieras, con la mejor comunidad de fútbol amateur.
+            Juega donde y cuando quieras, con la mejor comunidad de fÃºtbol amateur.
           </p>
 
           {/* CTA Buttons */}
@@ -62,25 +62,25 @@ export default function Home() {
           <AnimatedBall />
         </div>
       </section>
-      {/* Cómo funciona */}
+      {/* CÃ³mo funciona */}
       <section id="como-funciona" className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid md:grid-cols-3 gap-6">
           <div className="card card-hover flex items-start gap-4 p-6">
-            <div className="text-6xl font-black leading-none text-black">1</div>
+            <div className="text-4xl sm:text-5xl lg:text-6xl font-black leading-none text-black">1</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Explora partidos</h3>
-              <p className="text-gray-600 text-sm">Encuentra tu pichanga ideal por ubicación y nivel.</p>
+              <p className="text-gray-600 text-sm">Encuentra tu pichanga ideal por ubicaciÃ³n y nivel.</p>
             </div>
           </div>
           <div className="card card-hover flex items-start gap-4 p-6">
-            <div className="text-6xl font-black leading-none text-black">2</div>
+            <div className="text-4xl sm:text-5xl lg:text-6xl font-black leading-none text-black">2</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Reserva y paga</h3>
               <p className="text-gray-600 text-sm">Asegura tu cupo en segundos.</p>
             </div>
           </div>
           <div className="card card-hover flex items-start gap-4 p-6">
-            <div className="text-6xl font-black leading-none text-black">3</div>
+            <div className="text-4xl sm:text-5xl lg:text-6xl font-black leading-none text-black">3</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Juega y disfruta</h3>
               <p className="text-gray-600 text-sm">Te recordamos antes. Solo llega y juega.</p>

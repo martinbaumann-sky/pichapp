@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { getPasswordHash } from "@/lib/auth-password";
@@ -11,11 +11,21 @@ export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req as any);
     const probe = await rl.check(`ip:${ip}`);
-    if (!probe.allowed) return NextResponse.json({ ok: false, error: "Demasiados intentos. Intenta más tarde." }, { status: 429 });
+    if (!probe.allowed) {
+      return NextResponse.json(
+        { ok: false, error: "Demasiados intentos. Intenta mas tarde." },
+        { status: 429 }
+      );
+    }
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
     const password = String(body?.password || "");
-    if (!email || !password) return NextResponse.json({ ok: false, error: "Email y contraseña requeridos" }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json(
+        { ok: false, error: "Email y contrasena requeridos" },
+        { status: 400 }
+      );
+    }
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -23,24 +33,50 @@ export async function POST(req: NextRequest) {
         id: true,
         email: true,
         isAdmin: true,
+        emailVerifiedAt: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
-    if (!user) return NextResponse.json({ ok: false, error: "Credenciales inválidas" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+    }
     let hash: string | null = null;
-    try { hash = await getPasswordHash(user.id); } catch {}
-    if (!hash && (user as any).passwordHash) hash = (user as any).passwordHash as string;
-    if (!hash) return NextResponse.json({ ok: false, error: "Credenciales inválidas" }, { status: 401 });
+    try {
+      hash = await getPasswordHash(user.id);
+    } catch {}
+    if (!hash && (user as any).passwordHash) {
+      hash = (user as any).passwordHash as string;
+    }
+    if (!hash) {
+      return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+    }
 
     const ok = await bcrypt.compare(password, hash);
-    if (!ok) return NextResponse.json({ ok: false, error: "Credenciales inválidas" }, { status: 401 });
+    if (!ok) {
+      return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+    }
+
+    if (!user.emailVerifiedAt) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Debes verificar tu correo para continuar",
+          requiresVerification: true,
+          email: user.email,
+        },
+        { status: 403 }
+      );
+    }
 
     const token = await createSession(user.id);
     const res = NextResponse.json({ ok: true, user: sanitizeUser(user) });
     attachSessionCookie(res, token);
     return res;
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || "Error al iniciar sesión" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err?.message || "Error al iniciar sesion" },
+      { status: 500 }
+    );
   }
 }
 
@@ -48,6 +84,7 @@ function sanitizeUser(u: any) {
   return {
     id: u.id,
     email: u.email,
+    emailVerified: !!u.emailVerifiedAt,
     isAdmin: !!u.isAdmin,
     name: u.profile?.name || null,
     comuna: u.profile?.comuna || null,
