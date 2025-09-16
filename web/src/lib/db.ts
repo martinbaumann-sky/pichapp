@@ -18,8 +18,6 @@ const ensureDatabaseEnv = () => {
   }
 };
 
-ensureDatabaseEnv();
-
 // Asegurar que la columna `emailVerifiedAt` exista en la base de datos en tiempo de
 // ejecución cuando la app arranca en entornos de desarrollo/local. Esto ejecuta un
 // script JS que aplica ALTER TABLE IF NOT EXISTS. No hacemos `require` en prod si
@@ -42,9 +40,27 @@ try {
   console.warn("Error comprobando/ejecutando ensure-email-verified-column:", err?.message || err);
 }
 
-// Evitar pasar opciones al constructor para que no haya validaci�n
+// Evitar pasar opciones al constructor para que no haya validación
 // sobre "datasources" (que dispara P2022 si alguien sobrecarga mal).
 // Usamos singleton para entornos con HMR.
 const globalAny = globalThis as any;
-export const prisma: PrismaClient = globalAny.__prisma__ || new PrismaClient();
-if (!globalAny.__prisma__) globalAny.__prisma__ = prisma;
+let prismaSingleton: PrismaClient | undefined = globalAny.__prisma__;
+
+const getPrismaInternal = () => {
+  ensureDatabaseEnv();
+  if (!prismaSingleton) {
+    prismaSingleton = new PrismaClient();
+    globalAny.__prisma__ = prismaSingleton;
+  }
+  return prismaSingleton;
+};
+
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    const client = getPrismaInternal();
+    const value = Reflect.get(client, prop, receiver);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
+
+export const getPrisma = () => getPrismaInternal();

@@ -19,13 +19,16 @@ const ensureDatabaseEnv = () => {
       console.log('DIRECT_URL not provided. Using non-pooling Postgres URL from Vercel env.');
     }
   }
+
   if (!process.env.DATABASE_URL) {
-    console.error('DATABASE_URL environment variable is required for Prisma.');
-    process.exit(1);
+    console.warn('DATABASE_URL environment variable is missing. Prisma will run without it.');
+    return false;
   }
+
+  return true;
 };
 
-ensureDatabaseEnv();
+const hasDatabaseEnv = ensureDatabaseEnv();
 
 try {
   run('npx prisma generate');
@@ -35,7 +38,7 @@ try {
 }
 
 const dbUrl = process.env.DATABASE_URL || '';
-if (dbUrl && !dbUrl.startsWith('file:')) {
+if (hasDatabaseEnv && dbUrl && !dbUrl.startsWith('file:')) {
   try {
     run('npx prisma migrate deploy');
   } catch (e) {
