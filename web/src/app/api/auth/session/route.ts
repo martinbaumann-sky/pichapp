@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/auth-core";
+import { normalizeForDisplay } from "@/lib/phone";
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
@@ -13,7 +14,7 @@ export async function GET() {
         id: true,
         email: true,
         isAdmin: true,
-        profile: { select: { name: true, comuna: true, position: true } },
+        profile: { select: { name: true, comuna: true, position: true, phone: true } },
       },
     });
     if (!user) return NextResponse.json({ user: null });
@@ -26,6 +27,8 @@ export async function GET() {
         name: user.profile?.name || null,
         comuna: user.profile?.comuna || null,
         position: user.profile?.position || null,
+        phone: user.profile?.phone || null,
+        phoneDisplay: user.profile?.phone ? normalizeForDisplay(user.profile.phone) : null,
       },
     });
   } catch (err) {

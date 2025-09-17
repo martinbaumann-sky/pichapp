@@ -19,3 +19,13 @@ export function normalizeForDisplay(phone: string): string {
   return phone;
 }
 
+export function normalizeForStorage(phone: string): string {
+  const digits = digitsOnly(phone);
+  if (!digits) return "";
+  const nine = last9(digits);
+  if (!nine) return "";
+  const ccDigits = digits.length > nine.length ? digits.slice(0, digits.length - nine.length) : "56";
+  const cc = ccDigits || "56";
+  return `+${cc}${nine}`;
+}
+
