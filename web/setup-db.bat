@@ -1,6 +1,9 @@
 @echo off
+setlocal
+cd /d "%~dp0"
+
 echo ========================================
-echo    CONFIGURACION RAPIDA PICHANGA
+echo    CONFIGURACION RAPIDA PICHANGAPP
 echo ========================================
 echo.
 
@@ -9,82 +12,99 @@ where psql >nul 2>&1
 if %errorlevel% neq 0 (
     echo ERROR: PostgreSQL no esta instalado o no esta en PATH
     echo.
-    echo Instala PostgreSQL desde: https://www.postgresql.org/download/windows/
-    echo O usa Docker: docker run --name postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres
+    echo Instala PostgreSQL: https://www.postgresql.org/download/windows/
+    echo O usa Docker: docker run --name postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:15
     echo.
     pause
     exit /b 1
 )
 
-echo PostgreSQL encontrado ✓
+echo PostgreSQL encontrado.
 echo.
 
-echo 2. Creando base de datos...
-psql -U postgres -c "CREATE DATABASE pichanga_db;" 2>nul
+echo 2. Creando base de datos local 'pichapp' (si no existe)...
+psql -U postgres -c "CREATE DATABASE pichapp;" 2>nul
 if %errorlevel% neq 0 (
     echo Intentando con usuario actual...
-    createdb pichanga_db 2>nul
-    if %errorlevel% neq 0 (
-        echo ERROR: No se pudo crear la base de datos
-        echo Asegurate de que PostgreSQL este corriendo en puerto 5432
-        pause
-        exit /b 1
-    )
+    createdb pichapp 2>nul
 )
-
-echo Base de datos creada ✓
 echo.
 
 echo 3. Configurando variables de entorno...
 if not exist .env (
     echo Creando archivo .env...
     (
-        echo # Supabase Configuration
-        echo NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-        echo NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-        echo SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-        echo.
         echo # Database Configuration
-        echo DATABASE_URL="postgresql://postgres:postgres@localhost:5432/pichanga_db"
-        echo.
-        echo # Mercado Pago
-        echo MP_ACCESS_TOKEN=your-mp-access-token
+        echo DATABASE_URL="postgresql://postgres:postgres@localhost:5432/pichapp?schema=public"
+        echo DIRECT_URL="postgresql://postgres:postgres@localhost:5432/pichapp"
         echo.
         echo # Base URL
         echo NEXT_PUBLIC_BASE_URL=http://localhost:3000
         echo.
-        echo # Google Maps API ^(opcional^)
-        echo NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+        echo # Sessions
+        echo AUTH_SECRET=change_me_in_dev
         echo.
-        echo # Admin Configuration
-        echo ADMIN_EMAIL=admin@pichanga.com
+        echo # Maps (opcional)
+        echo NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
+        echo NEXT_PUBLIC_MAPBOX_TOKEN=
+        echo.
+        echo # Email (opcional)
+        echo RESEND_API_KEY=
+        echo RESEND_FROM_EMAIL="PichangApp <no-reply@pichangapp.cl>"
+        echo EMAIL_VERIFICATION_TTL_MINUTES=15
+        echo.
+        echo # Payments (opcional)
+        echo MP_ACCESS_TOKEN=
+        echo FLOW_API_KEY=
+        echo FLOW_SECRET_KEY=
+        echo FLOW_ENV=SANDBOX
+        echo KHIPU_RECEIVER_ID=
+        echo KHIPU_SECRET_KEY=
+        echo FINTOC_SECRET_KEY=
+        echo TRANSBANK_COMMERCE_CODE=
+        echo TRANSBANK_API_KEY=
+        echo.
+        echo # Rate limiting (opcional)
+        echo UPSTASH_REDIS_REST_URL=
+        echo UPSTASH_REDIS_REST_TOKEN=
+        echo.
+        echo # Admin
+        echo ADMIN_EMAIL=admin@pichangapp.com
         echo ADMIN_PASSWORD=admin123
-        echo.
-        echo # Resend ^(opcional^)
-        echo RESEND_API_KEY=your-resend-api-key
+        echo ADMIN_USER_ID=admin-user-id
+        echo ADMIN_EMAILS=admin@pichangapp.com
     ) > .env
-    echo Archivo .env creado ✓
-) else (
-    echo Archivo .env ya existe ✓
+    echo Archivo .env creado.
+    echo.
+    echo Revisa y edita .env segun tus credenciales reales.
+    echo.
+)
+
+echo 4. Generando cliente Prisma...
+npm run prisma:generate
+if %errorlevel% neq 0 (
+    echo Error generando Prisma. Revisa tu Node/npm.
+    pause
+    exit /b 1
 )
 
 echo.
-echo 4. Generando cliente Prisma...
-npm run prisma:generate
-
-echo.
-echo 5. Ejecutando migraciones...
+echo 5. Ejecutando migraciones (dev)...
 npm run prisma:migrate
+if %errorlevel% neq 0 (
+    echo Error ejecutando migraciones.
+    pause
+    exit /b 1
+)
 
 echo.
 echo ========================================
-echo    CONFIGURACION COMPLETADA
+echo     CONFIGURACION COMPLETADA
 echo ========================================
 echo.
-echo IMPORTANTE: Edita el archivo .env con tus credenciales reales
-echo - NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY de Supabase
-echo - DATABASE_URL si usas credenciales diferentes
-echo.
-echo Luego ejecuta: npm run dev
+echo Para desarrollo, ejecuta: start-definitivo.bat
 echo.
 pause
+endlocal
+exit /b
+
