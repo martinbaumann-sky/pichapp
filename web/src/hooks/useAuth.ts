@@ -9,6 +9,8 @@ interface User {
   comuna: string;
   position?: string;
   isAdmin: boolean;
+  phone?: string | null;
+  phoneDisplay?: string | null;
 }
 
 export function useAuth() {

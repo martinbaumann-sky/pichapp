@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { requireUserId } from "@/lib/auth";
 import { ensureUserInDatabase } from "@/lib/user";
+import { digitsOnly, normalizeForStorage } from "@/lib/phone";
 
 export async function GET() {
   try {
@@ -30,11 +31,12 @@ export async function PUT(req: NextRequest) {
     if (!name || !comuna) {
       return NextResponse.json({ error: "Nombre y comuna son obligatorios" }, { status: 400 });
     }
-    const digits = phone.replace(/\D/g, "");
+    const digits = digitsOnly(phone);
     if (!/^56?9?\d{8}$/.test(digits)) {
       return NextResponse.json({ error: "Celular inválido (+56 9 XXXXXXXX)" }, { status: 400 });
     }
-    const data: any = { name, phone, comuna, position };
+    const normalizedPhone = normalizeForStorage(phone);
+    const data: any = { name, phone: normalizedPhone || phone, comuna, position };
     const profile = await prisma.profile.upsert({
       where: { userId },
       update: data,

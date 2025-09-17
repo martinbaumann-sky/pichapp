@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = 'nodejs';
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
-import { digitsOnly, last9, normalizeForDisplay } from "@/lib/phone";
+import { last9, normalizeForDisplay, normalizeForStorage } from "@/lib/phone";
 
 function friendSelect() {
   return {
@@ -87,12 +87,30 @@ export async function POST(req: NextRequest) {
       userToAdd = await prisma.user.findUnique({ where: { id: targetId }, include: { profile: true } });
     } else if (rawPhone) {
       const nine = last9(rawPhone);
-      if (nine.length < 7) return NextResponse.json({ error: 'Número inválido' }, { status: 400 });
-      // Find a profile whose phone ends with the last 9 digits
-      userToAdd = await prisma.user.findFirst({
-        where: { profile: { is: { phone: { endsWith: nine } } } },
-        include: { profile: true },
-      });
+      if (nine.length < 7) return NextResponse.json({ error: "Número inválido" }, { status: 400 });
+
+      const normalized = normalizeForStorage(rawPhone);
+      if (normalized) {
+        userToAdd = await prisma.user.findFirst({
+          where: { profile: { is: { phone: normalized } } },
+          include: { profile: true },
+        });
+      }
+
+      if (!userToAdd) {
+        const lastDigits = nine.slice(-4) || nine;
+        const candidates = await prisma.user.findMany({
+          where: lastDigits
+            ? { profile: { is: { phone: { contains: lastDigits } } } }
+            : { profile: { isNot: null } },
+          include: { profile: true },
+          take: 25,
+        });
+        userToAdd = candidates.find((candidate) => {
+          const stored = candidate.profile?.phone || "";
+          return stored && last9(stored) === nine;
+        }) || null;
+      }
     }
 
     if (!userToAdd) return NextResponse.json({ error: 'No encontramos un usuario con ese teléfono' }, { status: 404 });
