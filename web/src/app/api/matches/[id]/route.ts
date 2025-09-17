@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { streetViewUrl } from "@/lib/places";
 import { buildStaticMapUrl } from "@/lib/maps";
+import { getSessionUserId } from "@/lib/auth-core";
+import { requireUserId } from "@/lib/auth";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -51,8 +53,26 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       const user = prof ? { id: s.userId, name: prof.name, position: prof.position ?? null } : null;
       const position = s.position ?? (user ? user.position : null);
       const displayName = user?.name ?? `Jugador ${idx + 1}`;
-      return { user, displayName, position, team: s.team ?? null, status: s.status };
+      return { user, userId: s.userId ?? null, displayName, position, team: s.team ?? null, status: s.status };
     });
+
+    const viewerId = await getSessionUserId();
+    let viewerIsAdmin = false;
+    if (viewerId) {
+      try {
+        const viewer = await prisma.user.findUnique({ where: { id: viewerId }, select: { isAdmin: true } });
+        viewerIsAdmin = !!viewer?.isAdmin;
+      } catch {}
+    }
+
+    const viewer = viewerId
+      ? {
+          isOrganizer: viewerId === m.organizerId,
+          isAdmin: viewerIsAdmin,
+          hasJoined: paidSpots.some((s: any) => s.userId === viewerId),
+          canDelete: viewerId === m.organizerId || viewerIsAdmin,
+        }
+      : null;
 
     // cover image fallback
     let cover = m.coverImageUrl as string | null | undefined;
@@ -81,10 +101,49 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       available,
       organizer: profile ? { id: m.organizerId, name: profile.name } : null,
       players,
+      viewer,
     };
 
     return NextResponse.json(out);
   } catch (err) {
     return NextResponse.json({ error: "error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const userId = await requireUserId();
+    const id = params.id;
+    if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
+
+    const match = await prisma.match.findUnique({ where: { id }, select: { organizerId: true } });
+    if (!match) return NextResponse.json({ error: "Partido no encontrado" }, { status: 404 });
+
+    let isAdmin = false;
+    if (userId !== match.organizerId) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+      isAdmin = !!user?.isAdmin;
+      if (!isAdmin) {
+        return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+      }
+    }
+
+    await prisma.$transaction([
+      prisma.message.deleteMany({ where: { matchId: id } }),
+      prisma.waitlistEntry.deleteMany({ where: { matchId: id } }),
+      prisma.payment.deleteMany({ where: { matchId: id } }),
+      prisma.organizerRating.deleteMany({ where: { matchId: id } }),
+      prisma.playerRating.deleteMany({ where: { matchId: id } }),
+      prisma.spot.deleteMany({ where: { matchId: id } }),
+      prisma.match.delete({ where: { id } }),
+    ]);
+
+    return NextResponse.json({ ok: true, message: "Partido eliminado correctamente" });
+  } catch (err: any) {
+    if (err instanceof Response) return err;
+    try {
+      console.error("[API] DELETE /api/matches/[id] error", err);
+    } catch {}
+    return NextResponse.json({ error: err?.message ?? "Error al eliminar partido" }, { status: 500 });
   }
 }
