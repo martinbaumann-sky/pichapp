@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, ImageIcon, MessageSquare } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2 } from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
@@ -19,6 +19,7 @@ export default function MatchDetailPage(props: any) {
   const [toast, setToast] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const { user } = useAuth();
+  const router = useRouter();
 
   const loadMatch = useCallback(async () => {
     setLoading(true);
@@ -56,6 +57,7 @@ export default function MatchDetailPage(props: any) {
   }, [loadMatch]);
 
   const [joining, setJoining] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleJoin = async () => {
     if (!user) {
@@ -84,6 +86,34 @@ export default function MatchDetailPage(props: any) {
       setTimeout(() => setToast(null), 3000);
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!match?.viewer?.canDelete || deleting) return;
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm("¿Estás seguro de eliminar este partido? Esta acción no se puede deshacer.");
+      if (!confirmed) return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/matches/${id}`, { method: "DELETE", credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "No se pudo eliminar el partido");
+      }
+      const msg = data?.message || "Partido eliminado correctamente";
+      setToast(msg);
+      setTimeout(() => setToast(null), 3000);
+      setTimeout(() => {
+        router.replace("/explorar");
+      }, 600);
+    } catch (e: any) {
+      const msg = e?.message ?? "No se pudo eliminar el partido";
+      setToast(msg);
+      setTimeout(() => setToast(null), 3000);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -123,6 +153,9 @@ export default function MatchDetailPage(props: any) {
 
   const isFull = match.available === 0;
   const isAlmostFull = match.available <= 2;
+  const viewer = match.viewer ?? null;
+  const isOrganizer = viewer?.isOrganizer || (user && match && (user.id === (match.organizerId ?? match.organizer?.id)));
+  const canOpenChat = !!(viewer?.hasJoined || isOrganizer);
 
   return (
     <div className="bg-gray-50">
@@ -133,9 +166,23 @@ export default function MatchDetailPage(props: any) {
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <h1 className="text-2xl font-bold text-black">Detalle del Partido</h1>
-            <button onClick={handleShare} className="ml-auto p-2 hover:bg-gray-100 rounded-lg">
-              <Share2 className="w-5 h-5" />
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              {viewer?.canDelete ? (
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="px-3 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center gap-2">
+                    <Trash2 className="w-4 h-4" />
+                    <span>{deleting ? "Eliminando..." : "Eliminar"}</span>
+                  </div>
+                </button>
+              ) : null}
+              <button onClick={handleShare} className="p-2 hover:bg-gray-100 rounded-lg">
+                <Share2 className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -240,8 +287,7 @@ export default function MatchDetailPage(props: any) {
             </div>
 
             {(() => {
-              const isOrganizer = user && match && (user.id === (match.organizerId ?? match.organizer?.id));
-              if (isOrganizer) {
+              if (canOpenChat) {
                 return (
                   <Link href={`/match/${id}/chat`} className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-white border border-gray-300 text-black rounded-lg font-semibold hover:bg-gray-50 transition-all duration-200">
                     <MessageSquare className="w-5 h-5" />
