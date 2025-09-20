@@ -50,9 +50,9 @@ export function useNotifications(enabled: boolean) {
       setUnreadCount(typeof data.unreadCount === "number" ? data.unreadCount : 0);
       setError(null);
     } catch (err) {
-      if ((err as any)?.name === "AbortError") return;
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.error("[useNotifications]", err);
-      setError((err as Error)?.message || "No se pudieron cargar las notificaciones");
+      setError(err instanceof Error ? err.message : "No se pudieron cargar las notificaciones");
     } finally {
       initialLoad.current = false;
       setLoading(false);
