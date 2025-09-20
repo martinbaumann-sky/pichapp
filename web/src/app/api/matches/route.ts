@@ -220,36 +220,43 @@ export async function GET(req: NextRequest) {
       })
       .catch(() => null);
 
+    // Map DB results into lightweight API items with defensive guards
     const items = await Promise.all((matches ?? []).map(async (m: any) => {
       const paid = m.spots.filter((s: any) => s.status === "PAID").length;
       const available = m.spots.filter((s: any) => s.status === "AVAILABLE").length;
 
-      // Si no tenemos lat/lng en DB, intentar geocodificar desde venueAddress/venueName
+      // Si no tenemos lat/lng en DB, intentar geocodificar desde venueAddress/venueName (con fail-safe)
       let lat = typeof m.lat === "number" ? m.lat : null;
       let lng = typeof m.lng === "number" ? m.lng : null;
       if ((lat == null || lng == null) && (m.venueAddress || m.venueName || m.title)) {
         try {
           const query = `${m.venueAddress ?? ""} ${m.venueName ?? m.title ?? ""}`.trim();
           if (query.length > 0) {
-            const places = await searchPlace(query);
+            const places = await searchPlace(query).catch(() => [] as any[]);
             if (places && places.length > 0) {
               lat = places[0].lat;
               lng = places[0].lng;
             }
           }
-        } catch {}
+        } catch {
+          // ignorar errores de geocodificación
+        }
       }
 
-      // Generar imagen: Street View > Mapbox/OSM static > Unsplash
+      // Generar imagen: Street View > Mapbox/OSM static > Unsplash (con fail-safe)
       let coverImageUrl = m.coverImageUrl as string | null | undefined;
-      if (!coverImageUrl && lat != null && lng != null) {
-        const sv = streetViewUrl(lat, lng);
-        if (sv && /^https?:\/\//i.test(sv)) {
-          coverImageUrl = sv;
-        } else {
-          const sm = buildStaticMapUrl({ lat, lng, width: 800, height: 400, pixelRatio: 1 });
-          coverImageUrl = sm || `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=800x400&markers=${lat},${lng},red`;
+      try {
+        if (!coverImageUrl && lat != null && lng != null) {
+          const sv = streetViewUrl(lat, lng);
+          if (sv && /^https?:\/\//i.test(sv)) {
+            coverImageUrl = sv;
+          } else {
+            const sm = buildStaticMapUrl({ lat, lng, width: 800, height: 400, pixelRatio: 1 });
+            coverImageUrl = sm || `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=800x400&markers=${lat},${lng},red`;
+          }
         }
+      } catch {
+        // ignorar fallos al construir URL de imagen
       }
 
       if (!coverImageUrl) {
@@ -282,6 +289,8 @@ export async function GET(req: NextRequest) {
 
     return new NextResponse(JSON.stringify({ items }), { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("/api/matches GET error:", err);
     return NextResponse.json({ error: "Error al listar partidos" }, { status: 500 });
   }
 }

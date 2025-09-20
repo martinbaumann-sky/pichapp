@@ -30,6 +30,16 @@ export function useNotifications(enabled: boolean) {
   const [error, setError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const initialLoad = useRef(true);
+  const [lastSeenAt, setLastSeenAt] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    const raw = window.localStorage.getItem("notifications:lastSeenAt");
+    const n = raw ? Number(raw) : 0;
+    return Number.isFinite(n) ? n : 0;
+  });
+  const lastSeenAtRef = useRef<number>(0);
+  useEffect(() => {
+    lastSeenAtRef.current = lastSeenAt;
+  }, [lastSeenAt]);
 
   const fetchNotifications = useCallback(async () => {
     if (!enabled) return;
@@ -46,8 +56,14 @@ export function useNotifications(enabled: boolean) {
       });
       if (!res.ok) throw new Error(`Failed to load notifications (${res.status})`);
       const data = (await res.json()) as NotificationsResponse;
-      setItems(Array.isArray(data.items) ? data.items : []);
-      setUnreadCount(typeof data.unreadCount === "number" ? data.unreadCount : 0);
+      const nextItems = Array.isArray(data.items) ? data.items : [];
+      setItems(nextItems);
+      // Compute unread based on lastSeenAt so opening the dropdown clears badge
+      const computedUnread = nextItems.reduce((acc, it) => {
+        const ts = new Date(it.createdAt).getTime();
+        return acc + (ts > lastSeenAtRef.current ? 1 : 0);
+      }, 0);
+      setUnreadCount(computedUnread);
       setError(null);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
@@ -88,5 +104,16 @@ export function useNotifications(enabled: boolean) {
     loading,
     error,
     refresh: fetchNotifications,
+    markAsSeen: useCallback(() => {
+      const now = Date.now();
+      setLastSeenAt(now);
+      lastSeenAtRef.current = now;
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("notifications:lastSeenAt", String(now));
+        }
+      } catch {}
+      setUnreadCount(0);
+    }, []),
   };
 }

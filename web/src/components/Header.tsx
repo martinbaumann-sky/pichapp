@@ -36,6 +36,7 @@ export default function Header() {
     loading: notificationsLoading,
     error: notificationsError,
     refresh: refreshNotifications,
+    markAsSeen,
   } = useNotifications(Boolean(user));
 
   const formatNotificationDate = (value: string) => {
@@ -79,8 +80,14 @@ export default function Header() {
   }, [pathname]);
 
   useEffect(() => {
-    if (notificationsOpen) refreshNotifications();
-  }, [notificationsOpen, refreshNotifications]);
+    if (!notificationsOpen) return;
+    // Run once on open: mark seen then refresh
+    markAsSeen();
+    refreshNotifications();
+    // We intentionally depend only on `notificationsOpen` to avoid loops
+    // caused by changing function identities.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notificationsOpen]);
 
   return (
     <header className="sticky top-0 z-40 bg-white/60 backdrop-blur-xl supports-[backdrop-filter]:bg-white/50 border-b">
