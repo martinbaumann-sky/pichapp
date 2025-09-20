@@ -3,23 +3,51 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { User as UserIcon, LayoutDashboard, Users, UserCircle, LogOut } from "lucide-react";
+import {
+  User as UserIcon,
+  LayoutDashboard,
+  Users,
+  UserCircle,
+  LogOut,
+  Bell,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { cn } from "../utils/cn";
 import AuthDialog from "./AuthDialog";
 import { useAuth } from "@/hooks/useAuth";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
+import { useNotifications } from "@/hooks/useNotifications";
 
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
-  const [open, setOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authNext, setAuthNext] = useState<string | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [authInitialTab, setAuthInitialTab] = useState<"login" | "signup">("login");
+  const {
+    items: notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    error: notificationsError,
+    refresh: refreshNotifications,
+  } = useNotifications(Boolean(user));
+
+  const formatNotificationDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return new Intl.DateTimeFormat("es-CL", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  };
 
   const navLink = (href: string, label: string) => {
     const active = pathname === href;
@@ -45,9 +73,14 @@ export default function Header() {
 
   // Cerrar menús al cambiar de ruta
   useEffect(() => {
-    if (menuOpen) setMenuOpen(false);
-    if (mobileOpen) setMobileOpen(false);
+    setMenuOpen(false);
+    setMobileOpen(false);
+    setNotificationsOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (notificationsOpen) refreshNotifications();
+  }, [notificationsOpen, refreshNotifications]);
 
   return (
     <header className="sticky top-0 z-40 bg-white/60 backdrop-blur-xl supports-[backdrop-filter]:bg-white/50 border-b">
@@ -95,59 +128,153 @@ export default function Header() {
               <UserIcon className="w-5 h-5" />
             </button>
           ) : (
-            <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-              <DropdownMenu.Trigger asChild>
-                <button onClick={() => setMenuOpen(true)} className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition">
-                  <UserIcon className="w-5 h-5" />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  sideOffset={10}
-                  align="end"
-                  className="dropdown-content z-50 min-w-56 rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
-                >
-                  <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
-                    <div className="text-xs text-gray-500">Sesión</div>
-                    <div className="font-medium text-black truncate">{user.name}</div>
-                  </div>
-                  <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+            <>
+              <DropdownMenu.Root open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setNotificationsOpen(true)}
+                    className={cn(
+                      "relative p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition",
+                      notificationsOpen && "bg-gray-100"
+                    )}
+                    aria-label="notificaciones"
+                  >
+                    <Bell className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] rounded-full bg-[var(--brand-2)] px-1 text-center text-[10px] font-semibold leading-4 text-white shadow">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    sideOffset={10}
+                    align="end"
+                    className="dropdown-content z-50 w-80 max-w-xs rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
+                  >
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-gray-50 to-white px-3 py-2">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">Notificaciones</div>
+                        <div className="text-xs text-gray-500">
+                          {notificationsLoading
+                            ? "Actualizando..."
+                            : unreadCount > 0
+                              ? `${unreadCount} nuevas`
+                              : "Todo al día"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => refreshNotifications()}
+                        className="rounded-full p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+                        aria-label="Actualizar notificaciones"
+                      >
+                        {notificationsLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
 
-                  <DropdownMenu.Item asChild>
-                    <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                      <LayoutDashboard className="w-4 h-4 text-gray-600" />
-                      <span>Dashboard</span>
-                    </Link>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item asChild>
-                    <Link href="/amigos" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                      <Users className="w-4 h-4 text-gray-600" />
-                      <span>Amigos</span>
-                    </Link>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item asChild>
-                    <Link href="/perfil" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                      <UserCircle className="w-4 h-4 text-gray-600" />
-                      <span>Perfil</span>
-                    </Link>
-                  </DropdownMenu.Item>
+                    <div className="mt-2 max-h-80 overflow-y-auto">
+                      {notificationsLoading && notifications.length === 0 ? (
+                        <div className="flex items-center justify-center px-4 py-8 text-sm text-gray-500">
+                          Cargando notificaciones...
+                        </div>
+                      ) : notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-sm text-gray-500">
+                          No tienes notificaciones nuevas por ahora.
+                        </div>
+                      ) : (
+                        notifications.map((item) => (
+                          <DropdownMenu.Item asChild key={item.id}>
+                            <Link
+                              href={item.href}
+                              onClick={() => setNotificationsOpen(false)}
+                              className="block rounded-xl px-3 py-3 transition hover:bg-gray-100 focus:bg-gray-100"
+                            >
+                              <div className="flex flex-col gap-1 text-left">
+                                <span className="text-sm font-medium text-gray-900">{item.title}</span>
+                                <span className="text-xs text-gray-500">{item.description}</span>
+                                <span className="text-[11px] uppercase tracking-wide text-gray-400">
+                                  {formatNotificationDate(item.createdAt)}
+                                </span>
+                              </div>
+                            </Link>
+                          </DropdownMenu.Item>
+                        ))
+                      )}
+                    </div>
 
-                  <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-                  <DropdownMenu.Item asChild>
-                    <button
-                      onClick={async () => {
-                        await signOut();
-                        setMenuOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-red-50 focus:bg-red-50 text-red-600 cursor-pointer"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Cerrar sesión</span>
-                    </button>
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
+                    {notificationsError && (
+                      <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+                        {notificationsError}
+                      </div>
+                    )}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+
+              <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    onClick={() => setMenuOpen(true)}
+                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition"
+                  >
+                    <UserIcon className="w-5 h-5" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    sideOffset={10}
+                    align="end"
+                    className="dropdown-content z-50 min-w-56 rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
+                  >
+                    <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
+                      <div className="text-xs text-gray-500">Sesión</div>
+                      <div className="font-medium text-black truncate">{user.name}</div>
+                    </div>
+                    <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+
+                    <DropdownMenu.Item asChild>
+                      <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
+                        <LayoutDashboard className="w-4 h-4 text-gray-600" />
+                        <span>Dashboard</span>
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link href="/amigos" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
+                        <Users className="w-4 h-4 text-gray-600" />
+                        <span>Amigos</span>
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link href="/perfil" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
+                        <UserCircle className="w-4 h-4 text-gray-600" />
+                        <span>Perfil</span>
+                      </Link>
+                    </DropdownMenu.Item>
+
+                    <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+                    <DropdownMenu.Item asChild>
+                      <button
+                        onClick={async () => {
+                          await signOut();
+                          setMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-red-50 focus:bg-red-50 text-red-600 cursor-pointer"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Cerrar sesión</span>
+                      </button>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </>
           )}
         </div>
 
