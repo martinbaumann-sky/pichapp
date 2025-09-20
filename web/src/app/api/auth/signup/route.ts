@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { setPasswordHash } from "@/lib/auth-password";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
+import { normalizeForStorage } from "@/lib/phone";
 import { createVerificationCode, sendVerificationEmail } from "@/lib/email-verification";
 
 const rl = createRateLimiter({ name: "auth_signup", limit: 5, windowSec: 300 });
@@ -25,7 +26,9 @@ export async function POST(req: NextRequest) {
     const lastName = body?.lastName ? String(body.lastName) : null;
     const comuna = String(body?.comuna || "");
     const position = body?.position ? String(body.position) : null;
-    const phone = body?.phone ? String(body.phone) : "+56 9 1234 5678";
+    const rawPhone = body?.phone ? String(body.phone) : "";
+    const defaultPhone = normalizeForStorage("+56 9 1234 5678") ?? "56900000000";
+    const phone = normalizeForStorage(rawPhone) ?? defaultPhone;
 
     if (!email || !password || !name || !comuna) {
       return NextResponse.json(

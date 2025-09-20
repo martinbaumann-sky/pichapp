@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
+import AddFriendButton from "@/components/AddFriendButton";
+import type { FriendStatus } from "@/lib/friendship";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2 } from "lucide-react";
@@ -92,7 +94,7 @@ export default function MatchDetailPage(props: any) {
   const handleDelete = async () => {
     if (!match?.viewer?.canDelete || deleting) return;
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm("¿Estás seguro de eliminar este partido? Esta acción no se puede deshacer.");
+      const confirmed = window.confirm("Estas seguro de eliminar este partido? Esta accion no se puede deshacer.");
       if (!confirmed) return;
     }
     setDeleting(true);
@@ -156,6 +158,8 @@ export default function MatchDetailPage(props: any) {
   const viewer = match.viewer ?? null;
   const isOrganizer = viewer?.isOrganizer || (user && match && (user.id === (match.organizerId ?? match.organizer?.id)));
   const canOpenChat = !!(viewer?.hasJoined || isOrganizer);
+  const organizerFriendship = match.organizerFriendship ?? { status: 'NONE', friendId: null };
+  const initialFriendStatus = (organizerFriendship.status ?? 'NONE') as FriendStatus;
 
   return (
     <div className="bg-gray-50">
@@ -189,7 +193,7 @@ export default function MatchDetailPage(props: any) {
 
       <main className="max-w-4xl mx-auto px-6 py-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
-          {/* Hero map: muestra la ubicación grande del partido */}
+          {/* Hero map: muestra la ubicacion grande del partido */}
           {match ? (
             <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} />
           ) : (
@@ -199,7 +203,7 @@ export default function MatchDetailPage(props: any) {
           <div className="p-8">
             <div className="flex items-start justify-between mb-6">
               <div className="flex-1">
-                <h2 className="text-3xl font-bold text-black mb-2">{match.venueName ? `${match.title} — ${match.venueName}` : match.title}</h2>
+                <h2 className="text-3xl font-bold text-black mb-2">{match.venueName ? `${match.title} - ${match.venueName}` : match.title}</h2>
                 <div className="flex items-center gap-2 text-gray-600 mb-4">
                   <MapPin className="w-5 h-5" />
                   <span className="text-lg">{match.comuna}</span>
@@ -226,7 +230,7 @@ export default function MatchDetailPage(props: any) {
                 )}
 
                 {isAlmostFull && !isFull && (
-                  <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">ÚLTIMOS CUPOS</span>
+                  <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">ULTIMOS CUPOS</span>
                 )}
               </div>
             </div>
@@ -252,7 +256,7 @@ export default function MatchDetailPage(props: any) {
                 <div className="flex items-center gap-3">
                   <Clock className="w-5 h-5 text-gray-500" />
                   <div>
-                    <p className="text-sm text-gray-500">Duración</p>
+                    <p className="text-sm text-gray-500">Duracion</p>
                     <p className="font-medium text-black">{match.durationMins ?? 90} minutos</p>
                   </div>
                 </div>
@@ -324,9 +328,23 @@ export default function MatchDetailPage(props: any) {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h3 className="text-xl font-semibold text-black mb-4">Organización</h3>
+          <h3 className="text-xl font-semibold text-black mb-4">Organizacion</h3>
           {match.organizer ? (
-            <p className="text-gray-700 mb-4">Organiza: <span className="font-medium">{match.organizer.name}</span></p>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <span className="text-gray-700">Organiza:</span>
+              <Link href={`/usuarios/${match.organizer.id}`} className="font-medium text-black underline-offset-4 hover:underline">
+                {match.organizer.name}
+              </Link>
+              {organizerFriendship ? (
+                <AddFriendButton
+                  targetId={match.organizer.id}
+                  targetName={match.organizer.name}
+                  initialStatus={initialFriendStatus}
+                  initialFriendId={organizerFriendship.friendId ?? null}
+                  size="sm"
+                />
+              ) : null}
+            </div>
           ) : null}
           <div className="mt-4">
             <h4 className="font-semibold text-black mb-2">Jugadores confirmados</h4>
@@ -335,7 +353,7 @@ export default function MatchDetailPage(props: any) {
                 <li key={idx} className="text-sm text-gray-700 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="font-medium">{p.displayName ?? p.user?.name ?? `Jugador ${idx+1}`}</span>
-                    {/* Mostrar posición preferida: si viene en user.profile usar eso, sino usar spot.position si existe */}
+                    {/* Mostrar posicion preferida: si viene en user.profile usar eso, sino usar spot.position si existe */}
                     {((p.user && p.user.position) || p.position) && (
                       <span className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600">{posicionES[(p.user?.position ?? p.position) as keyof typeof posicionES]}</span>
                     )}

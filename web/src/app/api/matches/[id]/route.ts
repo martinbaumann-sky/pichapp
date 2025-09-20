@@ -4,6 +4,7 @@ import { streetViewUrl } from "@/lib/places";
 import { buildStaticMapUrl } from "@/lib/maps";
 import { getSessionUserId } from "@/lib/auth-core";
 import { requireUserId } from "@/lib/auth";
+import { resolveFriendship } from "@/lib/friendship";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -74,6 +75,20 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         }
       : null;
 
+    let friendRecord = null as { id: string; status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'BLOCKED'; requesterId: string; addresseeId: string } | null;
+    if (viewerId && viewerId !== m.organizerId) {
+      friendRecord = await prisma.friend.findFirst({
+        where: {
+          OR: [
+            { requesterId: viewerId, addresseeId: m.organizerId },
+            { requesterId: m.organizerId, addresseeId: viewerId },
+          ],
+        },
+        select: { id: true, status: true, requesterId: true, addresseeId: true },
+      });
+    }
+    const organizerFriendship = resolveFriendship(viewerId, m.organizerId, friendRecord);
+
     // cover image fallback
     let cover = m.coverImageUrl as string | null | undefined;
     if (!cover) {
@@ -100,6 +115,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       paid,
       available,
       organizer: profile ? { id: m.organizerId, name: profile.name } : null,
+      organizerFriendship,
       players,
       viewer,
     };

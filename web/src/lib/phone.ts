@@ -19,3 +19,20 @@ export function normalizeForDisplay(phone: string): string {
   return phone;
 }
 
+export function normalizeForStorage(phone: string): string | null {
+  const digits = digitsOnly(phone);
+  if (digits.length < 7) return null;
+  if (digits.length > 11) {
+    return digits.slice(-11);
+  }
+  return digits;
+}
+
+export function matchesByLastDigits(phone: string | null | undefined, target: string): boolean {
+  if (!phone) return false;
+  const normalizedTarget = last9(target);
+  if (normalizedTarget.length === 0) return false;
+  const candidate = digitsOnly(phone);
+  if (candidate.length < normalizedTarget.length) return false;
+  return candidate.endsWith(normalizedTarget);
+}

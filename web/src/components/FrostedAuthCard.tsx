@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import { Mail, Eye, EyeOff, ChevronLeft } from "lucide-react";
@@ -60,6 +60,78 @@ export default function FrostedAuthCard({
   const [resendLoading, setResendLoading] = React.useState(false);
   const [lastExpiresAt, setLastExpiresAt] = React.useState<string | null>(null);
 
+  const loginEmailRef = React.useRef<HTMLInputElement>(null);
+  const loginPasswordRef = React.useRef<HTMLInputElement>(null);
+  const signupNameRef = React.useRef<HTMLInputElement>(null);
+  const signupLastNameRef = React.useRef<HTMLInputElement>(null);
+  const signupPhoneRef = React.useRef<HTMLInputElement>(null);
+  const signupEmailRef = React.useRef<HTMLInputElement>(null);
+  const signupPasswordRef = React.useRef<HTMLInputElement>(null);
+  const verifyCodeRef = React.useRef<HTMLInputElement>(null);
+
+  const focusField = React.useCallback((input: HTMLInputElement | null, opts?: { selectAll?: boolean }) => {
+    if (!input) return false;
+    if (input.readOnly) {
+      input.readOnly = false;
+    }
+    try {
+      input.focus({ preventScroll: true });
+    } catch {
+      input.focus();
+    }
+    try {
+      if (opts?.selectAll) {
+        input.select?.();
+      } else {
+        const length = input.value.length;
+        input.setSelectionRange?.(length, length);
+      }
+    } catch {}
+    return document.activeElement === input;
+  }, []);
+
+  const ensureKeyboard = React.useCallback(() => {
+    if (!isOpen || phase !== "auth") return;
+
+    const focusInOrder = (inputs: HTMLInputElement[]) => {
+      if (inputs.length === 0) return;
+      const empty = inputs.find((input) => !input.value.trim());
+      const ordered = empty ? [empty, ...inputs.filter((i) => i !== empty)] : inputs;
+      for (const input of ordered) {
+        if (focusField(input)) break;
+      }
+    };
+
+    if (tab === "login") {
+      const inputs = [loginEmailRef.current, loginPasswordRef.current].filter(Boolean) as HTMLInputElement[];
+      focusInOrder(inputs);
+    } else {
+      const inputs = [
+        signupNameRef.current,
+        signupLastNameRef.current,
+        signupPhoneRef.current,
+        signupEmailRef.current,
+        signupPasswordRef.current,
+      ].filter(Boolean) as HTMLInputElement[];
+      focusInOrder(inputs);
+    }
+  }, [focusField, isOpen, phase, tab]);
+
+  React.useEffect(() => {
+    if (!isOpen || phase !== "auth") return;
+    const handle = window.setTimeout(() => {
+      ensureKeyboard();
+    }, 120);
+    return () => window.clearTimeout(handle);
+  }, [ensureKeyboard, isOpen, phase, tab]);
+
+  React.useEffect(() => {
+    if (!isOpen || phase !== "verify") return;
+    const handle = window.setTimeout(() => {
+      focusField(verifyCodeRef.current, { selectAll: true });
+    }, 120);
+    return () => window.clearTimeout(handle);
+  }, [focusField, isOpen, phase]);
   const resetVerificationState = React.useCallback(() => {
     setPhase("auth");
     setPendingEmail(null);
@@ -260,6 +332,7 @@ export default function FrostedAuthCard({
               inputMode="numeric"
               pattern="[0-9]*"
               maxLength={6}
+              ref={verifyCodeRef}
               value={verifyCode}
               onChange={(e) => setVerifyCode(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder="Ingresa el codigo"
@@ -362,6 +435,7 @@ export default function FrostedAuthCard({
                     onFocus={(e) => {
                       e.currentTarget.readOnly = false;
                     }}
+                    ref={loginEmailRef}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tu@correo.com"
@@ -378,6 +452,7 @@ export default function FrostedAuthCard({
                     onFocus={(e) => {
                       e.currentTarget.readOnly = false;
                     }}
+                    ref={loginPasswordRef}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="********"
@@ -406,12 +481,14 @@ export default function FrostedAuthCard({
                 <label className="text-sm text-white/80">Nombre y Apellido</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
+                    ref={signupNameRef}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Nombre"
                     className="input-field bg-white text-black"
                   />
                   <input
+                    ref={signupLastNameRef}
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Apellido"
@@ -451,6 +528,7 @@ export default function FrostedAuthCard({
                 <div>
                   <label className="text-sm text-white/80">Celular</label>
                   <input
+                    ref={signupPhoneRef}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+569..."
@@ -470,6 +548,7 @@ export default function FrostedAuthCard({
                     onFocus={(e) => {
                       e.currentTarget.readOnly = false;
                     }}
+                    ref={signupEmailRef}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tu@correo.com"
@@ -485,6 +564,7 @@ export default function FrostedAuthCard({
                     onFocus={(e) => {
                       e.currentTarget.readOnly = false;
                     }}
+                    ref={signupPasswordRef}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Crea una contrasena"

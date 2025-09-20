@@ -212,6 +212,7 @@ export async function GET(req: NextRequest) {
           totalSpots: true,
           coverImageUrl: true,
           venueName: true,
+          venueAddress: true,
           lat: true,
           lng: true,
           spots: { select: { status: true } },
@@ -275,6 +276,7 @@ export async function GET(req: NextRequest) {
         lat: typeof lat === "number" ? lat : null,
         lng: typeof lng === "number" ? lng : null,
         venueName: m.venueName ?? null,
+        venueAddress: m.venueAddress ?? null,
       };
     }));
 

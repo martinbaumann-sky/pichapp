@@ -155,15 +155,20 @@ export default function ExplorePage() {
               <div className="p-6 space-y-4">
                 <div className="flex items-start justify-between">
                   <h3 className="text-xl font-semibold text-black group-hover:text-gray-700 transition-colors duration-200">
-                    {match.venueName ? `${match.title} — ${match.venueName}` : match.title}
+                    {match.venueName ? `${match.title} - ${match.venueName}` : match.title}
                   </h3>
                   <LevelBadge level={match.level as keyof typeof nivelES} />
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    <span>{match.comuna}</span>
+                  <div className="flex items-start gap-2 text-gray-600">
+                    <MapPin className="w-4 h-4 mt-0.5" />
+                    <div className="flex flex-col leading-tight">
+                      <span>{match.comuna}</span>
+                      {match.venueAddress && (
+                        <span className="text-sm text-gray-500">{match.venueAddress}</span>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-2 text-gray-600">

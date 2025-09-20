@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import AuthDialog from "@/components/AuthDialog";
+import Link from "next/link";
+import { digitsOnly } from "@/lib/phone";
 
 type FriendItem = {
   id: string;
@@ -24,6 +26,7 @@ export default function AmigosPage() {
   const [friends, setFriends] = useState<FriendItem[]>([]);
   const [incoming, setIncoming] = useState<FriendItem[]>([]);
   const [outgoing, setOutgoing] = useState<FriendItem[]>([]);
+  const normalizedPhone = useMemo(() => digitsOnly(phone), [phone]);
 
   useEffect(() => {
     if (!loading && !user) setAuthOpen(true);
@@ -45,18 +48,30 @@ export default function AmigosPage() {
   const addByPhone = async () => {
     const raw = phone.trim();
     if (!raw) return;
+    if (normalizedPhone.length < 7) {
+      alert('Ingresa un numero de celular valido');
+      return;
+    }
     setBusyAdd(true);
     try {
-      const res = await fetch('/api/friends', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: raw }) });
+      const res = await fetch('/api/friends', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizedPhone }),
+      });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         alert(data?.error || 'No se pudo agregar');
       } else {
-        setPhone("");
+        setPhone('');
         await refresh();
         setTab('requests');
       }
-    } finally { setBusyAdd(false); }
+    } catch {
+      alert('No se pudo enviar la solicitud. Intentalo nuevamente.');
+    } finally {
+      setBusyAdd(false);
+    }
   };
 
   if (!user) return (
@@ -70,7 +85,7 @@ export default function AmigosPage() {
       <div className="flex items-baseline justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Amigos</h1>
-          <p className="text-gray-600">Conecta con tus amigos por número de celular para invitarlos a tus pichangas.</p>
+          <p className="text-gray-600">Conecta con tus amigos por numero de celular para invitarlos a tus pichangas.</p>
         </div>
       </div>
 
@@ -78,16 +93,16 @@ export default function AmigosPage() {
       <div className="bg-white border rounded-2xl p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
           <input
-            inputMode="numeric"
-            pattern="[0-9]*"
+            inputMode="tel"
+            autoComplete="tel"
             placeholder="+56 9 1234 5678"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="flex-1 border rounded-lg px-3 py-2"
           />
-          <button onClick={addByPhone} disabled={busyAdd || !phone.trim()} className="btn-primary">{busyAdd ? 'Buscando…' : 'Agregar por celular'}</button>
+          <button onClick={addByPhone} disabled={busyAdd || normalizedPhone.length < 7} className="btn-primary">{busyAdd ? 'Buscando...' : 'Agregar por celular'}</button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">Tip: usa el número exacto que tu amigo tiene en su perfil.</p>
+        <p className="text-xs text-gray-500 mt-2">Tip: usa el numero exacto que tu amigo tiene en su perfil.</p>
       </div>
 
       {/* Tabs */}
@@ -98,7 +113,7 @@ export default function AmigosPage() {
 
       {tab === 'friends' ? (
         friends.length === 0 ? (
-          <div className="text-gray-500 text-sm">Aún no tienes amigos. ¡Agrega a tus contactos por su celular!</div>
+          <div className="text-gray-500 text-sm">Aun no tienes amigos. Agrega a tus contactos por su celular!</div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {friends.map((f) => (
@@ -126,19 +141,29 @@ export default function AmigosPage() {
 function FriendCard({ item, mode, onChanged }: { item: FriendItem; mode?: 'incoming' | 'outgoing'; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const isPending = item.status === 'PENDING';
+  const profileUrl = item.user?.id ? `/usuarios/${item.user.id}` : null;
+  const profileLinkButton = profileUrl ? (
+    <Link href={profileUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 text-sm rounded-lg border">Ver perfil</Link>
+  ) : null;
 
   const accept = async () => { setBusy(true); try { await fetch(`/api/friends/${item.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'accept' }) }); await onChanged(); } finally { setBusy(false); } };
   const reject = async () => { setBusy(true); try { await fetch(`/api/friends/${item.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reject' }) }); await onChanged(); } finally { setBusy(false); } };
   const cancel = async () => { setBusy(true); try { await fetch(`/api/friends/${item.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel' }) }); await onChanged(); } finally { setBusy(false); } };
-  const remove = async () => { if (!confirm('¿Eliminar de tus amigos?')) return; setBusy(true); try { await fetch(`/api/friends/${item.id}`, { method: 'DELETE' }); await onChanged(); } finally { setBusy(false); } };
+  const remove = async () => { if (!confirm('Eliminar de tus amigos?')) return; setBusy(true); try { await fetch(`/api/friends/${item.id}`, { method: 'DELETE' }); await onChanged(); } finally { setBusy(false); } };
 
   return (
     <div className="rounded-2xl border p-4 bg-white">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-lg">⚽</div>
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-lg">*</div>
         <div>
-          <div className="font-semibold">{item.user.name}</div>
-          <div className="text-xs text-gray-500">{item.user.comuna || '—'} {item.user.position ? `• ${item.user.position}`: ''}</div>
+          {profileUrl ? (
+            <Link href={profileUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-black underline-offset-4 hover:underline">
+              {item.user.name}
+            </Link>
+          ) : (
+            <div className="font-semibold">{item.user.name}</div>
+          )}
+          <div className="text-xs text-gray-500">{item.user.comuna || '-'} {item.user.position ? `- ${item.user.position}`: ''}</div>
           {item.user.phoneDisplay && <div className="text-xs text-gray-400">{item.user.phoneDisplay}</div>}
         </div>
       </div>
@@ -146,14 +171,19 @@ function FriendCard({ item, mode, onChanged }: { item: FriendItem; mode?: 'incom
         {isPending ? (
           mode === 'incoming' ? (
             <>
+              {profileLinkButton}
               <button disabled={busy} onClick={accept} className="px-3 py-1.5 text-sm rounded-lg bg-black text-white">Aceptar</button>
               <button disabled={busy} onClick={reject} className="px-3 py-1.5 text-sm rounded-lg border">Rechazar</button>
             </>
           ) : (
-            <button disabled={busy} onClick={cancel} className="px-3 py-1.5 text-sm rounded-lg border">Cancelar solicitud</button>
+            <>
+              {profileLinkButton}
+              <button disabled={busy} onClick={cancel} className="px-3 py-1.5 text-sm rounded-lg border">Cancelar solicitud</button>
+            </>
           )
         ) : (
           <>
+            {profileLinkButton}
             <a href={`/organizar`} className="px-3 py-1.5 text-sm rounded-lg bg-gray-900 text-white">Invitar a pichanga</a>
             <button disabled={busy} onClick={remove} className="px-3 py-1.5 text-sm rounded-lg border">Eliminar</button>
           </>
