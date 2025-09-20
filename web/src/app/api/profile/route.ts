@@ -4,7 +4,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { requireUserId } from "@/lib/auth";
 import { ensureUserInDatabase } from "@/lib/user";
+<<<<<<< HEAD
 import { normalizeForStorage } from "@/lib/phone";
+=======
+import { digitsOnly, normalizeForStorage } from "@/lib/phone";
+>>>>>>> ed92f3cfd883cb47dd2736c9ea353b38e3e58f4e
 
 export async function GET() {
   try {
@@ -30,6 +34,7 @@ export async function PUT(req: NextRequest) {
     if (!name || !comuna) {
       return NextResponse.json({ error: "Nombre y comuna son obligatorios" }, { status: 400 });
     }
+<<<<<<< HEAD
 
     const normalizedPhone = normalizeForStorage(phoneInput);
     const localNine = normalizedPhone ? normalizedPhone.slice(-9) : '';
@@ -38,6 +43,14 @@ export async function PUT(req: NextRequest) {
     }
 
     const data: any = { name, phone: normalizedPhone, comuna, position };
+=======
+    const digits = digitsOnly(phone);
+    if (!/^56?9?\d{8}$/.test(digits)) {
+      return NextResponse.json({ error: "Celular inválido (+56 9 XXXXXXXX)" }, { status: 400 });
+    }
+    const normalizedPhone = normalizeForStorage(phone);
+    const data: any = { name, phone: normalizedPhone || phone, comuna, position };
+>>>>>>> ed92f3cfd883cb47dd2736c9ea353b38e3e58f4e
     const profile = await prisma.profile.upsert({
       where: { userId },
       update: data,

@@ -19,6 +19,7 @@ export function normalizeForDisplay(phone: string): string {
   return phone;
 }
 
+<<<<<<< HEAD
 export function normalizeForStorage(phone: string): string | null {
   const digits = digitsOnly(phone);
   if (digits.length < 7) return null;
@@ -36,3 +37,15 @@ export function matchesByLastDigits(phone: string | null | undefined, target: st
   if (candidate.length < normalizedTarget.length) return false;
   return candidate.endsWith(normalizedTarget);
 }
+=======
+export function normalizeForStorage(phone: string): string {
+  const digits = digitsOnly(phone);
+  if (!digits) return "";
+  const nine = last9(digits);
+  if (!nine) return "";
+  const ccDigits = digits.length > nine.length ? digits.slice(0, digits.length - nine.length) : "56";
+  const cc = ccDigits || "56";
+  return `+${cc}${nine}`;
+}
+
+>>>>>>> ed92f3cfd883cb47dd2736c9ea353b38e3e58f4e

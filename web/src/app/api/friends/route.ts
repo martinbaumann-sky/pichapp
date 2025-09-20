@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = 'nodejs';
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
+<<<<<<< HEAD
 import { digitsOnly, last9, matchesByLastDigits, normalizeForDisplay } from "@/lib/phone";
+=======
+import { last9, normalizeForDisplay, normalizeForStorage } from "@/lib/phone";
+>>>>>>> ed92f3cfd883cb47dd2736c9ea353b38e3e58f4e
 
 function friendSelect() {
   return {
@@ -104,6 +108,7 @@ export async function POST(req: NextRequest) {
     if (targetId) {
       userToAdd = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true, profile: { select: { phone: true } } } });
     } else if (rawPhone) {
+<<<<<<< HEAD
       const digits = digitsOnly(rawPhone);
       const nine = last9(digits);
       if (nine.length < 7) {
@@ -133,6 +138,32 @@ export async function POST(req: NextRequest) {
           take: 25,
         });
         userToAdd = candidates.find((candidate) => matchesByLastDigits(candidate.profile?.phone, nine)) ?? null;
+=======
+      const nine = last9(rawPhone);
+      if (nine.length < 7) return NextResponse.json({ error: "Número inválido" }, { status: 400 });
+
+      const normalized = normalizeForStorage(rawPhone);
+      if (normalized) {
+        userToAdd = await prisma.user.findFirst({
+          where: { profile: { is: { phone: normalized } } },
+          include: { profile: true },
+        });
+      }
+
+      if (!userToAdd) {
+        const lastDigits = nine.slice(-4) || nine;
+        const candidates = await prisma.user.findMany({
+          where: lastDigits
+            ? { profile: { is: { phone: { contains: lastDigits } } } }
+            : { profile: { isNot: null } },
+          include: { profile: true },
+          take: 25,
+        });
+        userToAdd = candidates.find((candidate) => {
+          const stored = candidate.profile?.phone || "";
+          return stored && last9(stored) === nine;
+        }) || null;
+>>>>>>> ed92f3cfd883cb47dd2736c9ea353b38e3e58f4e
       }
     }
 
