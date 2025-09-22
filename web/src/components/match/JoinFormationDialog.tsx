@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
-import { Fragment } from "react";
-import { Dialog, Transition } from "@headlessui/react";
+import { useEffect, useRef } from "react";
+import type { MouseEventHandler } from "react";
 import type { PositionKey, TeamKey } from "@/lib/teams";
 import { FormationBoard, type FormationSlotView, type FormationPlayer } from "@/components/match/FormationBoard";
 import { TEAM_KEYS, TEAM_LABELS, POSITION_KEYS } from "@/lib/teams";
@@ -65,213 +65,250 @@ export function JoinFormationDialog({
 }: JoinFormationDialogProps) {
   const boundedFriendCount = Math.min(friendCount, maxFriends);
   const canAdjustFriends = typeof onFriendCountChange === "function" && maxFriends > 0;
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const displayedFriends = friends.slice(0, boundedFriendCount);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !loading) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, loading, onClose]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus({ preventScroll: true });
+
+    return () => {
+      previouslyFocused?.focus?.();
+    };
+  }, [open]);
+
+  if (!open) {
+    return null;
+  }
+
+  const handleBackdropClick = () => {
+    if (!loading) {
+      onClose();
+    }
+  };
+
+  const handlePanelClick: MouseEventHandler<HTMLDivElement> = (event) => {
+    event.stopPropagation();
+  };
 
   return (
-    <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={loading ? () => undefined : onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-200"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-150"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-slate-900/30 backdrop-blur" />
-        </Transition.Child>
-
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center px-4 py-6">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-200"
-              enterFrom="opacity-0 translate-y-2"
-              enterTo="opacity-100 translate-y-0"
-              leave="ease-in duration-150"
-              leaveFrom="opacity-100 translate-y-0"
-              leaveTo="opacity-0 translate-y-2"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="join-formation-title"
+      aria-describedby="join-formation-description"
+      onClick={handleBackdropClick}
+    >
+      <div className="absolute inset-0 bg-slate-900/30 backdrop-blur" />
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="relative z-10 w-full max-w-5xl overflow-y-auto rounded-3xl bg-white shadow-2xl outline-none"
+        onClick={handlePanelClick}
+      >
+        <div className="flex flex-col gap-6 p-6 sm:p-8">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 id="join-formation-title" className="text-2xl font-semibold text-slate-900">
+                {title}
+              </h2>
+              <p id="join-formation-description" className="mt-1 text-sm text-slate-500">
+                {description}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Dialog.Panel className="w-full max-w-5xl rounded-3xl bg-white shadow-2xl">
-                <div className="flex flex-col gap-6 p-6 sm:p-8">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <Dialog.Title className="text-2xl font-semibold text-slate-900">{title}</Dialog.Title>
-                      <Dialog.Description className="mt-1 text-sm text-slate-500">{description}</Dialog.Description>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-500 transition hover:bg-slate-50"
-                    >
-                      Cerrar
-                    </button>
-                  </div>
+              Cerrar
+            </button>
+          </div>
 
-                  <div className="grid gap-6 md:grid-cols-2">
-                    {teams.map((team) => (
-                      <div
-                        key={team.team}
-                        className={`flex flex-col gap-4 rounded-3xl border transition ${
-                          selectedTeam === team.team ? "border-emerald-400 bg-emerald-50" : "border-slate-200 bg-slate-50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between px-4 pt-4">
-                          <button
-                            type="button"
-                            onClick={() => onSelectTeam(team.team)}
-                            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                              selectedTeam === team.team
-                                ? "bg-emerald-500 text-white shadow"
-                                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
-                            }`}
-                          >
-                            {team.label}
-                          </button>
-                          {selectedTeam === team.team ? (
-                            <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Seleccionado</span>
-                          ) : null}
-                        </div>
-                        <div className="px-4 pb-4">
-                          <FormationBoard
-                            teamLabel={team.label}
-                            formationName={team.formationName}
-                            slots={team.slots}
-                            bench={team.bench}
-                            selectedSlotIndex={selectedSlot && selectedSlot.team === team.team ? selectedSlot.slotIndex ?? null : null}
-                            onSelectSlot={(slot) => onSelectSlot(team.team, slot)}
+          <div className="grid gap-6 md:grid-cols-2">
+            {teams.map((team) => (
+              <div
+                key={team.team}
+                className={`flex flex-col gap-4 rounded-3xl border transition ${
+                  selectedTeam === team.team ? "border-emerald-400 bg-emerald-50" : "border-slate-200 bg-slate-50"
+                }`}
+              >
+                <div className="flex items-center justify-between px-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => onSelectTeam(team.team)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      selectedTeam === team.team
+                        ? "bg-emerald-500 text-white shadow"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {team.label}
+                  </button>
+                  {selectedTeam === team.team ? (
+                    <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Seleccionado</span>
+                  ) : null}
+                </div>
+                <div className="px-4 pb-4">
+                  <FormationBoard
+                    teamLabel={team.label}
+                    formationName={team.formationName}
+                    slots={team.slots}
+                    bench={team.bench}
+                    selectedSlotIndex={selectedSlot && selectedSlot.team === team.team ? selectedSlot.slotIndex ?? null : null}
+                    onSelectSlot={(slot) => onSelectSlot(team.team, slot)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {errorMessage ? (
+            <div className="rounded-full bg-red-100 px-4 py-2 text-center text-xs font-semibold text-red-700">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          {canAdjustFriends ? (
+            <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h4 className="text-lg font-semibold text-slate-800">¿Quieres traer amigos?</h4>
+                  <p className="text-sm text-slate-500">Reserva cupos para tus invitados y asigna su posición.</p>
+                </div>
+                <div className="inline-flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onFriendCountChange?.(Math.max(0, boundedFriendCount - 1))}
+                    disabled={boundedFriendCount <= 0 || loading}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 disabled:opacity-40"
+                    aria-label="Reducir invitados"
+                  >
+                    -
+                  </button>
+                  <span className="min-w-[2rem] text-center text-sm font-semibold text-slate-700">{boundedFriendCount}</span>
+                  <button
+                    type="button"
+                    onClick={() => onFriendCountChange?.(Math.min(maxFriends, boundedFriendCount + 1))}
+                    disabled={boundedFriendCount >= maxFriends || loading}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {boundedFriendCount > 0 ? (
+                <div className="space-y-4">
+                  {displayedFriends.map((friend, idx) => (
+                    <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-slate-700">Invitado {idx + 1}</p>
+                        <span className="text-xs text-slate-400">Completa sus datos</span>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</label>
+                          <input
+                            type="text"
+                            value={friend.name}
+                            onChange={(e) => onUpdateFriend?.(idx, { ...friend, name: e.target.value })}
+                            placeholder="Nombre de tu amigo"
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
                           />
                         </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {errorMessage ? (
-                    <div className="rounded-full bg-red-100 px-4 py-2 text-center text-xs font-semibold text-red-700">
-                      {errorMessage}
-                    </div>
-                  ) : null}
-
-                  {canAdjustFriends ? (
-                    <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="sm:col-span-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Correo</label>
+                          <input
+                            type="email"
+                            value={friend.email}
+                            onChange={(e) => onUpdateFriend?.(idx, { ...friend, email: e.target.value })}
+                            placeholder="amigo@correo.com"
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                          />
+                        </div>
                         <div>
-                          <h4 className="text-lg font-semibold text-slate-800">¿Quieres traer amigos?</h4>
-                          <p className="text-sm text-slate-500">Reserva cupos para tus invitados y asigna su posición.</p>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Equipo</label>
+                          <select
+                            value={friend.team}
+                            onChange={(e) =>
+                              onUpdateFriend?.(idx, { ...friend, team: (e.target.value as TeamKey) || "" })
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                          >
+                            <option value="">Asignar automáticamente</option>
+                            {TEAM_KEYS.map((key) => (
+                              <option key={key} value={key}>
+                                {TEAM_LABELS[key]}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                        <div className="inline-flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => onFriendCountChange?.(Math.max(0, boundedFriendCount - 1))}
-                            disabled={boundedFriendCount <= 0 || loading}
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 disabled:opacity-40"
-                            aria-label="Reducir invitados"
+                        <div>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Posición</label>
+                          <select
+                            value={friend.position}
+                            onChange={(e) =>
+                              onUpdateFriend?.(idx, { ...friend, position: (e.target.value as PositionKey) || "" })
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
                           >
-                            -
-                          </button>
-                          <span className="min-w-[2rem] text-center text-sm font-semibold text-slate-700">
-                            {boundedFriendCount}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => onFriendCountChange?.(Math.min(maxFriends, boundedFriendCount + 1))}
-                            disabled={boundedFriendCount >= maxFriends || loading}
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 disabled:opacity-40"
-                          >
-                            +
-                          </button>
+                            <option value="">Seleccionar posición</option>
+                            {POSITION_KEYS.filter((key) => key !== "ARQUERO").map((key) => (
+                              <option key={key} value={key}>
+                                {posicionES[key]}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
-
-                      {boundedFriendCount > 0 ? (
-                        <div className="space-y-4">
-                          {friends.slice(0, boundedFriendCount).map((friend, idx) => (
-                            <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-4">
-                              <div className="mb-3 flex items-center justify-between">
-                                <p className="text-sm font-semibold text-slate-700">Invitado {idx + 1}</p>
-                                <span className="text-xs text-slate-400">Completa sus datos</span>
-                              </div>
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="sm:col-span-2">
-                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</label>
-                                  <input
-                                    type="text"
-                                    value={friend.name}
-                                    onChange={(e) => onUpdateFriend?.(idx, { ...friend, name: e.target.value })}
-                                    placeholder="Nombre de tu amigo"
-                                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                                  />
-                                </div>
-                                <div className="sm:col-span-2">
-                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Correo</label>
-                                  <input
-                                    type="email"
-                                    value={friend.email}
-                                    onChange={(e) => onUpdateFriend?.(idx, { ...friend, email: e.target.value })}
-                                    placeholder="amigo@correo.com"
-                                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Equipo</label>
-                                  <select
-                                    value={friend.team}
-                                    onChange={(e) => onUpdateFriend?.(idx, { ...friend, team: (e.target.value as TeamKey) || "" })}
-                                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                                  >
-                                    <option value="">Asignar automáticamente</option>
-                                    {TEAM_KEYS.map((key) => (
-                                      <option key={key} value={key}>
-                                        {TEAM_LABELS[key]}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Posición</label>
-                                  <select
-                                    value={friend.position}
-                                    onChange={(e) => onUpdateFriend?.(idx, { ...friend, position: (e.target.value as PositionKey) || "" })}
-                                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                                  >
-                                    <option value="">Seleccionar posición</option>
-                                    {POSITION_KEYS.filter((key) => key !== "ARQUERO").map((key) => (
-                                      <option key={key} value={key}>
-                                        {posicionES[key]}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      <p className="text-xs text-slate-400">
-                        Puedes invitar hasta {maxFriends} amigo{maxFriends === 1 ? "" : "s"} según los cupos disponibles.
-                      </p>
                     </div>
-                  ) : null}
-
-                  <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={onConfirm}
-                      disabled={confirmDisabled || loading}
-                      className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {loading ? "Confirmando..." : "Confirmar"}
-                    </button>
-                    <p className="text-xs text-slate-400">Luego podras revisar la formacion en la pestaña Jugadores.</p>
-                  </div>
+                  ))}
                 </div>
-              </Dialog.Panel>
-            </Transition.Child>
+              ) : null}
+
+              <p className="text-xs text-slate-400">
+                Puedes invitar hasta {maxFriends} amigo{maxFriends === 1 ? "" : "s"} según los cupos disponibles.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={confirmDisabled || loading}
+              className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loading ? "Confirmando..." : "Confirmar"}
+            </button>
+            <p className="text-xs text-slate-400">Luego podras revisar la formacion en la pestaña Jugadores.</p>
           </div>
         </div>
-      </Dialog>
-    </Transition.Root>
+      </div>
+    </div>
   );
 }
-

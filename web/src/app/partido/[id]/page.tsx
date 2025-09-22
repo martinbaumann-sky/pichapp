@@ -7,7 +7,7 @@ import AddFriendButton from "@/components/AddFriendButton";
 import type { FriendStatus } from "@/lib/friendship";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
+import * as lucideReactIcons from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
@@ -23,6 +23,19 @@ import {
   type TeamKey,
   type PositionKey,
 } from "@/lib/teams";
+
+const ArrowLeft = lucideReactIcons.ArrowLeft;
+const Calendar = lucideReactIcons.Calendar;
+const MapPin = lucideReactIcons.MapPin;
+const Users = lucideReactIcons.Users;
+const Clock = lucideReactIcons.Clock;
+const CheckCircle = lucideReactIcons.CheckCircle;
+const AlertCircle = lucideReactIcons.AlertCircle;
+const Share2 = lucideReactIcons.Share2;
+const MessageSquare = lucideReactIcons.MessageSquare;
+const Trash2 = lucideReactIcons.Trash2;
+const Timer = lucideReactIcons.Timer;
+const Pencil = lucideReactIcons.Pencil;
 
 type NormalizedMatchPlayer = FormationPlayer & {
   team: TeamKey | null;
