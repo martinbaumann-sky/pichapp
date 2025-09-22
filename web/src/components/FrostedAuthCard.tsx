@@ -19,8 +19,6 @@ type Props = {
   setLastName: (v: string) => void;
   comuna: string;
   setComuna: (v: string) => void;
-  position: string;
-  setPosition: (v: string) => void;
   showPassword: boolean;
   setShowPassword: (v: boolean) => void;
   onClose?: () => void;
@@ -41,8 +39,6 @@ export default function FrostedAuthCard({
   setLastName,
   comuna,
   setComuna,
-  position,
-  setPosition,
   showPassword,
   setShowPassword,
   onClose,
@@ -59,6 +55,7 @@ export default function FrostedAuthCard({
   const [resendMessage, setResendMessage] = React.useState<string | null>(null);
   const [resendLoading, setResendLoading] = React.useState(false);
   const [lastExpiresAt, setLastExpiresAt] = React.useState<string | null>(null);
+  const [formError, setFormError] = React.useState<string | null>(null);
 
   const loginEmailRef = React.useRef<HTMLInputElement>(null);
   const loginPasswordRef = React.useRef<HTMLInputElement>(null);
@@ -182,7 +179,8 @@ export default function FrostedAuthCard({
       setLocalLoading(true);
       setVerificationError(null);
       setResendMessage(null);
-      const payload: Record<string, unknown> = { email, password, name, lastName, comuna, position, phone };
+      setFormError(null);
+      const payload: Record<string, unknown> = { email, password, name, lastName, comuna, phone };
       const r = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -190,6 +188,11 @@ export default function FrostedAuthCard({
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
+        if (r.status === 409) {
+          setTab("login");
+          setFormError("Ya tienes una cuenta con este correo. Inicia sesión para continuar.");
+          return;
+        }
         throw new Error(d?.error || "Error al crear cuenta");
       }
       if (d?.requiresVerification) {
@@ -198,7 +201,7 @@ export default function FrostedAuthCard({
       }
       navigateAfterAuth();
     } catch (e: any) {
-      alert(e?.message || "No se pudo crear la cuenta");
+      setFormError(e?.message || "No se pudo crear la cuenta");
     } finally {
       setLocalLoading(false);
     }
@@ -209,6 +212,7 @@ export default function FrostedAuthCard({
       setLocalLoading(true);
       setVerificationError(null);
       setResendMessage(null);
+      setFormError(null);
       const r = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -225,11 +229,12 @@ export default function FrostedAuthCard({
       }
       navigateAfterAuth();
     } catch (e: any) {
-      alert(e?.message || "Credenciales invalidas");
+      setFormError(e?.message || "Credenciales invalidas");
     } finally {
       setLocalLoading(false);
     }
   };
+
 
   const handleVerify = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -398,7 +403,10 @@ export default function FrostedAuthCard({
           <div className="flex items-center justify-between mb-4">
             <div className="flex bg-white/8 rounded-full p-1">
               <button
-                onClick={() => setTab("signup")}
+                onClick={() => {
+                  setFormError(null);
+                  setTab("signup");
+                }}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition ${
                   tab === "signup" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"
                 }`}
@@ -406,7 +414,10 @@ export default function FrostedAuthCard({
                 Crear cuenta
               </button>
               <button
-                onClick={() => setTab("login")}
+                onClick={() => {
+                  setFormError(null);
+                  setTab("login");
+                }}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition ${
                   tab === "login" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"
                 }`}
@@ -416,7 +427,13 @@ export default function FrostedAuthCard({
             </div>
           </div>
 
-          <h3 className="text-2xl font-semibold text-white mb-4">{tab === "signup" ? "Unete a PichangApp" : "Bienvenido"}</h3>
+          <h3 className="text-2xl font-semibold text-white mb-3">{tab === "signup" ? "Unete a PichangApp" : "Bienvenido"}</h3>
+
+          {formError ? (
+            <div className="mb-4 rounded-2xl border border-red-200/70 bg-red-50/90 px-4 py-3 text-sm font-medium text-red-700 shadow-sm">
+              {formError}
+            </div>
+          ) : null}
 
           <div className="space-y-4">
             {tab === "login" && (
@@ -510,21 +527,7 @@ export default function FrostedAuthCard({
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="text-sm text-white/80">Posicion</label>
-                  <select
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value)}
-                    className="input-field bg-white text-black"
-                  >
-                    <option value="">Selecciona tu posicion</option>
-                    <option value="ARQUERO">Arquero</option>
-                    <option value="DEFENSA">Defensa</option>
-                    <option value="LATERAL">Lateral</option>
-                    <option value="VOLANTE">Volante</option>
-                    <option value="DELANTERO">Delantero</option>
-                  </select>
-                </div>
+                
                 <div>
                   <label className="text-sm text-white/80">Celular</label>
                   <input

@@ -7,9 +7,9 @@ export type FormationPreset = {
 };
 
 const PRESETS: Record<number, FormationPreset> = {
-  4: { code: "2-1-1", name: "2-1-1", slots: ["ARQUERO", "DEFENSA", "VOLANTE", "DELANTERO"] },
-  5: { code: "2-2-1", name: "2-2-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "VOLANTE", "DELANTERO"] },
-  6: { code: "2-2-1-1", name: "2-2-1-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "DELANTERO"] },
+  4: { code: "1-1-1", name: "1-1-1", slots: ["ARQUERO", "DEFENSA", "VOLANTE", "DELANTERO"] },
+  5: { code: "2-1-1", name: "2-1-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "VOLANTE", "DELANTERO"] },
+  6: { code: "2-2-1", name: "2-2-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "DELANTERO"] },
   7: { code: "3-2-1", name: "3-2-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "DELANTERO"] },
   8: { code: "3-3-1", name: "3-3-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO"] },
   9: { code: "3-3-2", name: "3-3-2", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO", "DELANTERO"] },

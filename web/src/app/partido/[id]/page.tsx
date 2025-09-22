@@ -25,7 +25,7 @@ import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
 import { FormationBoard, type FormationPlayer, type FormationSlotView } from "@/components/match/FormationBoard";
-import { JoinFormationDialog, type JoinFormationTeam } from "@/components/match/JoinFormationDialog";
+import { JoinFormationDialog, type JoinFormationTeam, type InviteFriendDraft } from "@/components/match/JoinFormationDialog";
 import { assignPlayersToFormation, getFormationPreset } from "@/lib/formations";
 import {
   computeTeamCapacities,
@@ -66,6 +66,8 @@ export default function MatchDetailPage(props: any) {
   const [joinSelectedSlot, setJoinSelectedSlot] = useState<{ team: TeamKey; slotIndex: number; position: PositionKey } | null>(
     null,
   );
+  const [joinFriendCount, setJoinFriendCount] = useState(0);
+  const [joinFriends, setJoinFriends] = useState<InviteFriendDraft[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
 
   const loadMatch = useCallback(async () => {
@@ -212,6 +214,8 @@ export default function MatchDetailPage(props: any) {
       setJoinSelectedSlot(null);
       setJoinError("No quedan posiciones disponibles.");
     }
+    setJoinFriendCount(0);
+    setJoinFriends([]);
   }, [formationData]);
 
   const startJoinFlow = useCallback(() => {
@@ -223,11 +227,14 @@ export default function MatchDetailPage(props: any) {
     setJoinDialogOpen(true);
   }, [user, initializeJoinSelection]);
 
+
   const closeJoinDialog = useCallback(() => {
     if (joining) return;
     setJoinDialogOpen(false);
     setJoinError(null);
     setJoinSelectedSlot(null);
+    setJoinFriendCount(0);
+    setJoinFriends([]);
   }, [joining]);
 
   const handleSelectTeam = useCallback(
@@ -265,14 +272,28 @@ export default function MatchDetailPage(props: any) {
       setJoinError("Selecciona una posición disponible.");
       return;
     }
+    if (!friendsValid) {
+      setJoinError("Completa los datos de tus invitados antes de continuar.");
+      return;
+    }
     setJoining(true);
     setJoinError(null);
     try {
+      const payloadFriends = friendEntries.map((friend) => ({
+        name: friend.name.trim(),
+        email: friend.email.trim(),
+        team: friend.team || null,
+        position: friend.position,
+      }));
       const res = await fetch(`/api/matches/${id}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ team: joinSelectedSlot.team, position: joinSelectedSlot.position }),
+        body: JSON.stringify({
+          team: joinSelectedSlot.team,
+          position: joinSelectedSlot.position,
+          friends: payloadFriends,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -285,6 +306,8 @@ export default function MatchDetailPage(props: any) {
       setTimeout(() => setToast(null), 3000);
       setJoinDialogOpen(false);
       setJoinSelectedSlot(null);
+      setJoinFriendCount(0);
+      setJoinFriends([]);
       await loadMatch();
       setActiveTab("roster");
     } catch (e: any) {
@@ -293,7 +316,7 @@ export default function MatchDetailPage(props: any) {
     } finally {
       setJoining(false);
     }
-  }, [user, joinSelectedSlot, id, loadMatch]);
+  }, [user, joinSelectedSlot, id, loadMatch, friendsValid, friendEntries]);
 
   useEffect(() => {
     if (!joinDialogOpen) return;
@@ -379,6 +402,50 @@ export default function MatchDetailPage(props: any) {
   const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
   const isFull = availableSpots === 0;
   const isAlmostFull = availableSpots <= 2;
+  const maxInvitableFriends = useMemo(() => Math.max(0, availableSpots - 1), [availableSpots]);
+
+  const handleFriendCountChange = useCallback(
+    (next: number) => {
+      const bounded = Math.max(0, Math.min(next, maxInvitableFriends));
+      setJoinFriendCount(bounded);
+      setJoinFriends((prev) => {
+        const draft = [...prev];
+        while (draft.length < bounded) {
+          draft.push({ name: "", email: "", team: "", position: "" });
+        }
+        return draft.slice(0, bounded);
+      });
+    },
+    [maxInvitableFriends],
+  );
+
+  const handleUpdateFriend = useCallback((index: number, draft: InviteFriendDraft) => {
+    setJoinFriends((prev) => {
+      const next = [...prev];
+      next[index] = draft;
+      return next;
+    });
+  }, []);
+
+  const friendEntries = useMemo(() => joinFriends.slice(0, joinFriendCount), [joinFriends, joinFriendCount]);
+
+  const friendsValid = useMemo(() => {
+    if (joinFriendCount === 0) return true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return friendEntries.every((friend) => {
+      const nameOk = friend.name.trim().length > 1;
+      const emailOk = emailRegex.test(friend.email.trim());
+      const positionOk = !!friend.position;
+      return nameOk && emailOk && positionOk;
+    });
+  }, [friendEntries, joinFriendCount]);
+
+  useEffect(() => {
+    if (joinFriendCount > maxInvitableFriends) {
+      setJoinFriendCount(maxInvitableFriends);
+      setJoinFriends((prev) => prev.slice(0, maxInvitableFriends));
+    }
+  }, [joinFriendCount, maxInvitableFriends]);
 
   if (loading) {
     return (
@@ -480,9 +547,12 @@ export default function MatchDetailPage(props: any) {
               ) : null}
               <button
                 onClick={() => {
+                  setActiveTab("about");
                   const el = document.getElementById(mapSectionId);
                   if (el) {
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    window.requestAnimationFrame(() => {
+                      el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    });
                   }
                 }}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
@@ -521,11 +591,13 @@ export default function MatchDetailPage(props: any) {
       <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 pb-20">
         <section id={mapSectionId} className="mt-8">
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
-            <div className="h-[420px] w-full bg-gray-100">
-              {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-gray-200" />}
-            </div>
+            {activeTab === "about" ? (
+              <div className="h-[420px] w-full bg-gray-100">
+                {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-gray-200" />}
+              </div>
+            ) : null}
             <div className="p-6 sm:p-8 space-y-8">
-              <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+              <div className={`flex flex-col gap-6 md:flex-row md:items-start md:justify-between ${activeTab === "about" ? "" : "md:items-center"}`}>
                 <div className="space-y-4">
                   <p className={`text-sm font-semibold uppercase tracking-wider ${isFull ? "text-red-600" : isAlmostFull ? "text-amber-600" : "text-emerald-600"}`}>
                     {spotsHeadline}
@@ -551,15 +623,17 @@ export default function MatchDetailPage(props: any) {
                     <span>{match.venueName ? `${match.venueName}${match.comuna ? `, ${match.comuna}` : ""}` : match.comuna}</span>
                   </div>
                 </div>
-                <div className="flex flex-col items-start md:items-end gap-3">
-                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
-                    {nivelES[match.level as keyof typeof nivelES]}
-                  </span>
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-right text-emerald-700 shadow-inner">
-                    <p className="flex items-center justify-end gap-2 text-xs uppercase tracking-wide">Valor por cupo</p>
-                    <p className="mt-2 text-2xl font-semibold">{priceLabel}</p>
+                {activeTab === "about" ? (
+                  <div className="flex flex-col items-start md:items-end gap-3">
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+                      {nivelES[match.level as keyof typeof nivelES]}
+                    </span>
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-right text-emerald-700 shadow-inner">
+                      <p className="flex items-center justify-end gap-2 text-xs uppercase tracking-wide">Valor por cupo</p>
+                      <p className="mt-2 text-2xl font-semibold">{priceLabel}</p>
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </div>
 
               <div className={activeTab === "about" ? "space-y-8" : "hidden"} id="detalle">
@@ -745,6 +819,8 @@ export default function MatchDetailPage(props: any) {
                     {(match.players ?? []).length > 0 ? (
                       (match.players ?? []).map((p: any, idx: number) => {
                         const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
+                        const isGuest = Boolean(p.isGuest);
+                        const nameLabel = isGuest ? `${playerName} (invitado)` : playerName;
                         const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
                         const normalizedTeam = normalizeTeam(p.team ?? p.user?.team ?? null);
                         return (
@@ -753,7 +829,7 @@ export default function MatchDetailPage(props: any) {
                             className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex flex-wrap items-center gap-3 text-slate-800">
-                              <span className="font-semibold">{playerName}</span>
+                              <span className="font-semibold">{nameLabel}</span>
                               {positionKey ? (
                                 <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
                                   {posicionES[positionKey]}
@@ -806,9 +882,14 @@ export default function MatchDetailPage(props: any) {
         }
         onSelectSlot={handleSelectSlot}
         onConfirm={handleConfirmJoin}
-        confirmDisabled={!joinSelectedSlot || joining}
+        confirmDisabled={!joinSelectedSlot || joining || !friendsValid}
         loading={joining}
         errorMessage={joinError}
+        maxFriends={maxInvitableFriends}
+        friendCount={joinFriendCount}
+        onFriendCountChange={handleFriendCountChange}
+        friends={joinFriends}
+        onUpdateFriend={handleUpdateFriend}
       />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next={`/match/${id}`} />
     </div>
