@@ -12,7 +12,6 @@ export default function AuthModal({ open, onClose, initialTab, next }: Props) {
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [comuna, setComuna] = useState("");
-  const [position, setPosition] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   if (!open) return null;
@@ -33,8 +32,6 @@ export default function AuthModal({ open, onClose, initialTab, next }: Props) {
             setLastName={setLastName}
             comuna={comuna}
             setComuna={setComuna}
-            position={position}
-            setPosition={setPosition}
             showPassword={showPassword}
             setShowPassword={setShowPassword}
             onClose={onClose}

@@ -20,7 +20,6 @@ export default function AuthDialog({ open, onOpenChange, initialTab, next }: Pro
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [comuna, setComuna] = useState("");
-  const [position, setPosition] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -54,8 +53,6 @@ export default function AuthDialog({ open, onOpenChange, initialTab, next }: Pro
               setLastName={setLastName}
               comuna={comuna}
               setComuna={setComuna}
-              position={position}
-              setPosition={setPosition}
               showPassword={showPassword}
               setShowPassword={setShowPassword}
               onClose={() => onOpenChange(false)}
