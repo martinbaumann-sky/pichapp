@@ -18,11 +18,35 @@ import {
   Share2,
   MessageSquare,
   Trash2,
-  DollarSign,
-  Timer,\r\n  Pencil,\r\n} from "lucide-react";
+  Timer,
+  Pencil,
+} from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
-import\ \{\ sampleMatches\ }\ from\ "@/lib/samples";\r\nimport\ \{\ FormationBoard,\ type\ FormationPlayer,\ type\ FormationSlotView\ }\ from\ "@/components/match/FormationBoard";\r\nimport\ \{\ JoinFormationDialog,\ type\ JoinFormationTeam\ }\ from\ "@/components/match/JoinFormationDialog";\r\nimport\ \{\ assignPlayersToFormation,\ getFormationPreset\ }\ from\ "@/lib/formations";\r\nimport\ \{\ computeTeamCapacities,\ normalizeTeam,\ normalizePosition,\ TEAM_LABELS,\ type\ TeamKey,\ type\ PositionKey\ }\ from\ "@/lib/teams";
+import { sampleMatches } from "@/lib/samples";
+import { FormationBoard, type FormationPlayer, type FormationSlotView } from "@/components/match/FormationBoard";
+import { JoinFormationDialog, type JoinFormationTeam } from "@/components/match/JoinFormationDialog";
+import { assignPlayersToFormation, getFormationPreset } from "@/lib/formations";
+import {
+  computeTeamCapacities,
+  normalizeTeam,
+  normalizePosition,
+  TEAM_LABELS,
+  TEAM_KEYS,
+  type TeamKey,
+  type PositionKey,
+} from "@/lib/teams";
+
+type NormalizedMatchPlayer = FormationPlayer & {
+  team: TeamKey | null;
+  status: string;
+};
+
+type FormationTeamView = JoinFormationTeam & {
+  availableSlots: number;
+  capacity: number;
+  totalPlayers: number;
+};
 
 export default function MatchDetailPage(props: any) {
   const routeParams = useParams() as any;
@@ -34,6 +58,15 @@ export default function MatchDetailPage(props: any) {
   const [activeTab, setActiveTab] = useState<"about" | "roster">("about");
   const { user } = useAuth();
   const router = useRouter();
+
+  const [joining, setJoining] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [joinSelectedTeam, setJoinSelectedTeam] = useState<TeamKey>("CLARO");
+  const [joinSelectedSlot, setJoinSelectedSlot] = useState<{ team: TeamKey; slotIndex: number; position: PositionKey } | null>(
+    null,
+  );
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const loadMatch = useCallback(async () => {
     setLoading(true);
@@ -70,38 +103,231 @@ export default function MatchDetailPage(props: any) {
     loadMatch();
   }, [loadMatch]);
 
-  const [joining, setJoining] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const formationData = useMemo(() => {
+    if (!match) {
+      return { teams: [] as FormationTeamView[], unassigned: [] as NormalizedMatchPlayer[] };
+    }
+    const capacities = computeTeamCapacities(match.totalSpots ?? 0);
+    const rawPlayers = Array.isArray(match.players) ? (match.players as any[]) : [];
+    const normalizedPlayers: NormalizedMatchPlayer[] = rawPlayers.map((player: any, idx: number) => {
+      const displayName =
+        typeof player.displayName === "string" && player.displayName.trim().length > 0
+          ? player.displayName
+          : player.user?.name ?? `Jugador ${idx + 1}`;
+      const position = normalizePosition(player.position ?? player.user?.position ?? null);
+      const team = normalizeTeam(player.team ?? player.user?.team ?? null);
+      return {
+        spotId: player.spotId ?? player.id ?? null,
+        userId: player.userId ?? player.user?.id ?? null,
+        displayName,
+        position,
+        team,
+        status: player.status ?? "PAID",
+      };
+    });
 
-  const handleJoin = async () => {
+    const playersByTeam: Record<TeamKey, NormalizedMatchPlayer[]> = {
+      CLARO: normalizedPlayers.filter((player) => player.team === "CLARO"),
+      OSCURO: normalizedPlayers.filter((player) => player.team === "OSCURO"),
+    };
+
+    const unassigned = normalizedPlayers.filter((player) => !player.team);
+
+    const teams = (TEAM_KEYS as readonly TeamKey[])
+      .map((teamKey) => {
+        const capacity = teamKey === "CLARO" ? capacities.claro : capacities.oscuro;
+        const players = playersByTeam[teamKey];
+        const shouldInclude = capacity > 0 || players.length > 0;
+        if (!shouldInclude) {
+          return null;
+        }
+        const effectiveSize = capacity > 0 ? capacity : Math.max(players.length, 1);
+        const preset = getFormationPreset(effectiveSize);
+        const assignment = assignPlayersToFormation(players, preset);
+        const allowNewPlayers = capacity > 0 && players.length < capacity;
+        const slots: FormationSlotView[] = assignment.slots.map((slot, index) => ({
+          index,
+          position: slot.position,
+          player: slot.player
+            ? {
+                spotId: slot.player.spotId ?? null,
+                userId: slot.player.userId ?? null,
+                displayName: slot.player.displayName,
+                position: slot.player.position ?? null,
+              }
+            : null,
+          isAvailable: allowNewPlayers && index < capacity && !slot.player,
+        }));
+        const bench: FormationPlayer[] = assignment.bench.map((player) => ({
+          spotId: player.spotId ?? null,
+          userId: player.userId ?? null,
+          displayName: player.displayName,
+          position: player.position ?? null,
+        }));
+        const availableSlots = slots.filter((slot) => slot.isAvailable).length;
+        return {
+          team: teamKey,
+          label: TEAM_LABELS[teamKey],
+          formationName: preset.name,
+          slots,
+          bench,
+          availableSlots,
+          capacity,
+          totalPlayers: players.length,
+        } as FormationTeamView;
+      })
+      .filter((team): team is FormationTeamView => team !== null);
+
+    return { teams, unassigned };
+  }, [match]);
+
+  const viewerTeamKey = useMemo(() => {
+    if (!user || !match) return null;
+    const players = Array.isArray(match.players) ? (match.players as any[]) : [];
+    const viewerSpot = players.find((player: any) => {
+      const candidateId = player.userId ?? player.user?.id ?? null;
+      return candidateId && candidateId === user.id;
+    });
+    if (!viewerSpot) return null;
+    return normalizeTeam(viewerSpot.team ?? viewerSpot.user?.team ?? null);
+  }, [match, user]);
+
+  const viewerTeamLabel = viewerTeamKey ? TEAM_LABELS[viewerTeamKey] : null;
+
+  const initializeJoinSelection = useCallback(() => {
+    const sorted = [...formationData.teams].sort((a, b) => b.availableSlots - a.availableSlots);
+    const preferred = sorted.find((team) => team.availableSlots > 0) ?? sorted[0] ?? null;
+    if (preferred) {
+      setJoinSelectedTeam(preferred.team);
+      const slot = preferred.slots.find((candidate) => candidate.isAvailable) ?? null;
+      if (slot) {
+        setJoinSelectedSlot({ team: preferred.team, slotIndex: slot.index, position: slot.position });
+        setJoinError(null);
+      } else {
+        setJoinSelectedSlot(null);
+        setJoinError("Este equipo ya está completo. Prueba con el otro equipo.");
+      }
+    } else {
+      setJoinSelectedTeam("CLARO");
+      setJoinSelectedSlot(null);
+      setJoinError("No quedan posiciones disponibles.");
+    }
+  }, [formationData]);
+
+  const startJoinFlow = useCallback(() => {
     if (!user) {
       setAuthOpen(true);
       return;
     }
+    initializeJoinSelection();
+    setJoinDialogOpen(true);
+  }, [user, initializeJoinSelection]);
+
+  const closeJoinDialog = useCallback(() => {
+    if (joining) return;
+    setJoinDialogOpen(false);
+    setJoinError(null);
+    setJoinSelectedSlot(null);
+  }, [joining]);
+
+  const handleSelectTeam = useCallback(
+    (team: TeamKey) => {
+      setJoinSelectedTeam(team);
+      const teamData = formationData.teams.find((candidate) => candidate.team === team);
+      if (teamData) {
+        const slot = teamData.slots.find((candidate) => candidate.isAvailable) ?? null;
+        if (slot) {
+          setJoinSelectedSlot({ team, slotIndex: slot.index, position: slot.position });
+          setJoinError(null);
+        } else {
+          setJoinSelectedSlot(null);
+          setJoinError("Este equipo ya está completo. Prueba con el otro equipo.");
+        }
+      } else {
+        setJoinSelectedSlot(null);
+      }
+    },
+    [formationData],
+  );
+
+  const handleSelectSlot = useCallback((team: TeamKey, slot: FormationSlotView) => {
+    setJoinSelectedTeam(team);
+    setJoinSelectedSlot({ team, slotIndex: slot.index, position: slot.position });
+    setJoinError(null);
+  }, []);
+
+  const handleConfirmJoin = useCallback(async () => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+    if (!joinSelectedSlot) {
+      setJoinError("Selecciona una posición disponible.");
+      return;
+    }
     setJoining(true);
+    setJoinError(null);
     try {
       const res = await fetch(`/api/matches/${id}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({}),
+        body: JSON.stringify({ team: joinSelectedSlot.team, position: joinSelectedSlot.position }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.error || data?.message || "No se pudo confirmar el cupo");
       }
-      const successMessage = data?.message || (data?.alreadyJoined ? "Ya estabas inscrito en este partido." : "Cupo confirmado. Nos vemos en la cancha.");
+      const successMessage =
+        data?.message ||
+        (data?.alreadyJoined ? "Ya estabas inscrito en este partido." : "Cupo confirmado. Nos vemos en la cancha.");
       setToast(successMessage);
       setTimeout(() => setToast(null), 3000);
+      setJoinDialogOpen(false);
+      setJoinSelectedSlot(null);
       await loadMatch();
+      setActiveTab("roster");
     } catch (e: any) {
       const msg = e?.message ?? "No se pudo confirmar el cupo";
-      setToast(msg);
-      setTimeout(() => setToast(null), 3000);
+      setJoinError(msg);
     } finally {
       setJoining(false);
     }
-  };
+  }, [user, joinSelectedSlot, id, loadMatch]);
+
+  useEffect(() => {
+    if (!joinDialogOpen) return;
+    const teamData = formationData.teams.find((team) => team.team === joinSelectedTeam);
+    if (!teamData) {
+      if (formationData.teams.length > 0) {
+        initializeJoinSelection();
+      }
+      return;
+    }
+    if (joinSelectedSlot) {
+      const slotStillAvailable = teamData.slots.some(
+        (slot) => slot.index === joinSelectedSlot.slotIndex && slot.isAvailable,
+      );
+      if (!slotStillAvailable) {
+        if (teamData.availableSlots > 0) {
+          const nextSlot = teamData.slots.find((slot) => slot.isAvailable) ?? null;
+          if (nextSlot) {
+            setJoinSelectedSlot({ team: teamData.team, slotIndex: nextSlot.index, position: nextSlot.position });
+            setJoinError(null);
+          }
+        } else {
+          setJoinSelectedSlot(null);
+          setJoinError("Este equipo ya está completo. Prueba con el otro equipo.");
+        }
+      }
+    } else if (teamData.availableSlots > 0) {
+      const nextSlot = teamData.slots.find((slot) => slot.isAvailable) ?? null;
+      if (nextSlot) {
+        setJoinSelectedSlot({ team: teamData.team, slotIndex: nextSlot.index, position: nextSlot.position });
+        setJoinError(null);
+      }
+    }
+  }, [formationData, joinDialogOpen, joinSelectedSlot, joinSelectedTeam, initializeJoinSelection]);
 
   const handleDelete = async () => {
     if (!match?.viewer?.canDelete || deleting) return;
@@ -417,7 +643,7 @@ export default function MatchDetailPage(props: any) {
                     if (!isFull) {
                       return (
                         <button
-                          onClick={handleJoin}
+                          onClick={startJoinFlow}
                           disabled={joining}
                           className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-8 py-4 text-base font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
                         >
@@ -447,6 +673,66 @@ export default function MatchDetailPage(props: any) {
               </div>
 
               <div className={activeTab === "roster" ? "space-y-8" : "hidden"} id="jugadores">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-slate-800">Formaciones</h3>
+                      <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
+                    </div>
+                    {(() => {
+                      if (isFull) {
+                        return (
+                          <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                            Partido completo
+                          </span>
+                        );
+                      }
+                      if (viewer?.hasJoined) {
+                        return viewerTeamLabel ? (
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                            Inscrito en el {viewerTeamLabel.toLowerCase()}
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                            Ya estás inscrito
+                          </span>
+                        );
+                      }
+                      return (
+                        <button
+                          onClick={startJoinFlow}
+                          disabled={joining}
+                          className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Elegir mi posición
+                        </button>
+                      );
+                    })()}
+                  </div>
+                  <div className={`grid gap-6 ${formationData.teams.length > 1 ? "md:grid-cols-2" : ""}`}>
+                    {formationData.teams.map((team) => (
+                      <FormationBoard
+                        key={team.team}
+                        teamLabel={team.label}
+                        formationName={team.formationName}
+                        slots={team.slots}
+                        bench={team.bench}
+                      />
+                    ))}
+                    {formationData.teams.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                        Aún no hay formaciones disponibles para este partido.
+                      </div>
+                    ) : null}
+                  </div>
+                  {viewer?.hasJoined && viewerTeamLabel ? (
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                      Tu cupo está confirmado en el {viewerTeamLabel.toLowerCase()}.
+                    </div>
+                  ) : null}
+                </div>
+
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -460,8 +746,12 @@ export default function MatchDetailPage(props: any) {
                       (match.players ?? []).map((p: any, idx: number) => {
                         const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
                         const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
+                        const normalizedTeam = normalizeTeam(p.team ?? p.user?.team ?? null);
                         return (
-                          <li key={`${playerName}-${idx}`} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                          <li
+                            key={`${playerName}-${idx}`}
+                            className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                          >
                             <div className="flex flex-wrap items-center gap-3 text-slate-800">
                               <span className="font-semibold">{playerName}</span>
                               {positionKey ? (
@@ -469,9 +759,15 @@ export default function MatchDetailPage(props: any) {
                                   {posicionES[positionKey]}
                                 </span>
                               ) : null}
-                              {p.team ? (
-                                <span className={`rounded-full px-3 py-1 text-xs font-medium ${p.team === "CLARO" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-700"}`}>
-                                  {p.team === "CLARO" ? "Claro" : "Oscuro"}
+                              {normalizedTeam ? (
+                                <span
+                                  className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                    normalizedTeam === "CLARO"
+                                      ? "bg-amber-100 text-amber-700"
+                                      : "bg-slate-200 text-slate-700"
+                                  }`}
+                                >
+                                  {normalizedTeam === "CLARO" ? "Claro" : "Oscuro"}
                                 </span>
                               ) : null}
                             </div>
@@ -483,7 +779,7 @@ export default function MatchDetailPage(props: any) {
                       })
                     ) : (
                       <li className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-                        Aun no hay jugadores inscritos.
+                        Aún no hay jugadores inscritos.
                       </li>
                     )}
                   </ul>
@@ -499,6 +795,21 @@ export default function MatchDetailPage(props: any) {
           {toast}
         </div>
       )}
+      <JoinFormationDialog
+        open={joinDialogOpen}
+        onClose={closeJoinDialog}
+        teams={formationData.teams}
+        selectedTeam={joinSelectedTeam}
+        onSelectTeam={handleSelectTeam}
+        selectedSlot={
+          joinSelectedSlot ? { team: joinSelectedSlot.team, slotIndex: joinSelectedSlot.slotIndex } : null
+        }
+        onSelectSlot={handleSelectSlot}
+        onConfirm={handleConfirmJoin}
+        confirmDisabled={!joinSelectedSlot || joining}
+        loading={joining}
+        errorMessage={joinError}
+      />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next={`/match/${id}`} />
     </div>
   );
