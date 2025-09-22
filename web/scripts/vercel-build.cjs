@@ -19,6 +19,10 @@ const ensureDatabaseEnv = () => {
       console.log('DIRECT_URL not provided. Using non-pooling Postgres URL from Vercel env.');
     }
   }
+  if (!process.env.DIRECT_URL && process.env.DATABASE_URL) {
+    process.env.DIRECT_URL = process.env.DATABASE_URL;
+    console.log('DIRECT_URL not provided. Reusing DATABASE_URL for Prisma direct connection.');
+  }
   if (!process.env.DATABASE_URL) {
     console.error('DATABASE_URL environment variable is required for Prisma.');
     process.exit(1);
