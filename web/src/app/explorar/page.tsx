@@ -501,18 +501,13 @@ export default function ExplorePage() {
               listClassName="max-h-[240px]"
             />
 
-            <div className="hidden flex-col justify-center rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 via-white to-gray-100 p-6 text-sm text-gray-600 shadow-sm lg:flex">
-              <p className="font-semibold text-gray-700">Actualización en vivo</p>
-              <p className="mt-1 text-xs text-gray-500">
-                Los partidos se actualizan automáticamente a medida que se liberan nuevos cupos o se confirman reservas.
-              </p>
-            </div>
+            {/** Removed live update info block as requested */}
           </div>
         </div>
       </div>
 
       {/* Matches Grid */}
-      <main className="relative z-10 mx-auto max-w-7xl px-5 pt-4 pb-6 sm:pt-5 lg:pt-6 sm:px-6">
+      <main className="relative z-10 mx-auto max-w-7xl px-5 pt-2 pb-6 sm:pt-2 lg:pt-3 sm:px-6">
         {fetchError && items.length === 0 ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center text-red-600">
             <p className="text-lg font-semibold">{fetchError}</p>
@@ -569,11 +564,16 @@ export default function ExplorePage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Users className="h-4 w-4" />
-                      <span>
-                        {match.paid}/{match.totalSpots} cupos ocupados
-                      </span>
+                    <div className="text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>
+                          {match.paid}/{match.totalSpots} cupos ocupados
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 pl-6">
+                        {match.confirmed ? 'Partido confirmado' : `Se confirma con ${match.minSpotsToConfirm} jugadores`}
+                      </p>
                     </div>
                   </div>
 

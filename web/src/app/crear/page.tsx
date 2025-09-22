@@ -16,6 +16,7 @@ export default function CreateMatchPage() {
     startsAt: "",
     durationMins: 90,
     totalSpots: 10,
+    minSpotsToConfirm: 6,
     level: "BEGINNER",
     venueName: "",
     venueAddress: "",
@@ -51,6 +52,7 @@ export default function CreateMatchPage() {
          // Normalizar strings a números
          durationMins: Number(formData.durationMins || 0),
          totalSpots: Number(formData.totalSpots || 0),
+         minSpotsToConfirm: Number(formData.minSpotsToConfirm || 0),
          occupiedSpots: Number(formData.occupiedSpots || 0) || 0,
          // Asegurar strings para address/name aun si van vacíos
          venueName: formData.venueName || "",
@@ -101,10 +103,68 @@ export default function CreateMatchPage() {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+    const { name, value } = e.target;
+    setFormData((prev) => {
+      if (name === "totalSpots") {
+        if (value === "") {
+          return { ...prev, totalSpots: value };
+        }
+        const total = Number(value) || 0;
+        const suggestedMin = total > 0 ? Math.max(1, Math.ceil(total * 0.6)) : 1;
+        const currentMin = Number(prev.minSpotsToConfirm || 0);
+        const nextMin = total > 0
+          ? Math.min(Math.max(1, currentMin || suggestedMin), total)
+          : (currentMin || suggestedMin);
+        const currentOccupied = Number(prev.occupiedSpots || 0);
+        const clampedOccupied = total > 0 ? Math.min(currentOccupied, total) : currentOccupied;
+        if (clampedOccupied !== currentOccupied) {
+          setOccupiedPlayers((existing) => {
+            const next = [...existing];
+            if (clampedOccupied < next.length) {
+              next.length = clampedOccupied;
+            }
+            return next;
+          });
+        }
+        return {
+          ...prev,
+          totalSpots: value,
+          minSpotsToConfirm: nextMin.toString(),
+          occupiedSpots: clampedOccupied.toString(),
+        };
+      }
+      if (name === "minSpotsToConfirm") {
+        if (value === "") {
+          return { ...prev, minSpotsToConfirm: value };
+        }
+        const total = Number(prev.totalSpots || 0);
+        const minValue = Math.max(1, Number(value) || 1);
+        const clamped = total > 0 ? Math.min(minValue, total) : minValue;
+        return { ...prev, minSpotsToConfirm: clamped.toString() };
+      }
+      if (name === "occupiedSpots") {
+        if (value === "") {
+          return { ...prev, occupiedSpots: value };
+        }
+        const total = Number(prev.totalSpots || 0);
+        const numeric = Math.max(0, Number(value) || 0);
+        const clamped = total > 0 ? Math.min(numeric, total) : numeric;
+        if (clamped !== Number(prev.occupiedSpots || 0)) {
+          setOccupiedPlayers((existing) => {
+            const next = [...existing];
+            if (clamped < next.length) {
+              next.length = clamped;
+            }
+            return next;
+          });
+        }
+        return { ...prev, occupiedSpots: clamped.toString() };
+      }
+      return {
+        ...prev,
+        [name]: value,
+      };
+    });
   };
 
   // Usar useCallback para estabilizar las funciones
@@ -152,7 +212,7 @@ export default function CreateMatchPage() {
                 Información Básica
                </h2>
                
-               <div className="grid md:grid-cols-2 gap-6">
+               <div className="grid md:grid-cols-3 gap-6">
                  <div className="space-y-2">
                    <label className="block text-sm font-medium text-gray-700">
                      Título del partido
@@ -211,7 +271,7 @@ export default function CreateMatchPage() {
                 Fecha y Hora
               </h2>
               
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Fecha y hora de inicio
@@ -244,11 +304,11 @@ export default function CreateMatchPage() {
                 Detalles del Partido
               </h2>
               
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-3 gap-6">
                 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Total de cupos
+                    Cupos maximos disponibles
                   </label>
                   <input
                     type="number"
@@ -262,7 +322,24 @@ export default function CreateMatchPage() {
                   />
                   <p className="text-xs text-gray-500">Entre 6 y 30 jugadores</p>
                 </div>
-                
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Minimo de cupos para confirmar
+                  </label>
+                  <input
+                    type="number"
+                    name="minSpotsToConfirm"
+                    min={1}
+                    max={Number(formData.totalSpots) || 1}
+                    step={1}
+                    value={formData.minSpotsToConfirm}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">Te avisaremos cuando se alcance este minimo.</p>
+                </div>
+
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Cupos ya ocupados por el organizador
@@ -271,7 +348,7 @@ export default function CreateMatchPage() {
                     type="number"
                     name="occupiedSpots"
                     min={0}
-                    max={formData.totalSpots}
+                    max={Number(formData.totalSpots) || 0}
                     step={1}
                     value={formData.occupiedSpots}
                     onChange={handleChange}
@@ -281,7 +358,7 @@ export default function CreateMatchPage() {
                 </div>
 
                 {Number(formData.occupiedSpots) > 0 && (
-                  <div className="space-y-4">
+                  <div className="space-y-4 md:col-span-3">
                     <h3 className="text-sm font-medium text-gray-700">Inscribir jugadores ocupados</h3>
                     <p className="text-xs text-gray-500">Ingresa nombre y celular de cada jugador (uno por cupo ocupado).</p>
                     {Array.from({ length: Number(formData.occupiedSpots) }).map((_, idx) => (
@@ -394,3 +471,4 @@ export default function CreateMatchPage() {
     </div>
   );
 }
+

@@ -155,9 +155,12 @@ export default function MatchesPage() {
                     </span>
                   </div>
                   
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Users className="w-4 h-4" />
-                    <span>{match.paid}/{match.totalSpots} cupos ocupados</span>
+                  <div className="text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      <span>{match.paid}/{match.totalSpots} cupos ocupados</span>
+                    </div>
+                    <p className="text-xs text-gray-500 pl-6">{match.confirmed ? 'Partido confirmado' : `Se confirma con ${match.minSpotsToConfirm} jugadores`}</p>
                   </div>
                 </div>
                 

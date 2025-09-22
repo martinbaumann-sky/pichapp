@@ -149,6 +149,7 @@ model Match {
   durationMins  Int
   pricePerSpot  Int
   totalSpots    Int
+  minSpotsToConfirm Int @default(0)
   level         SkillLevel
   status        MatchStatus  @default(PUBLISHED)
   public        Boolean      @default(true)

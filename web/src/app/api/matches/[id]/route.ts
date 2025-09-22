@@ -11,31 +11,58 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     const id = params.id;
     if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
-    const m = await prisma.match.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        title: true,
-        organizerId: true,
-        comuna: true,
-        startsAt: true,
-        durationMins: true,
-        pricePerSpot: true,
-        totalSpots: true,
-        level: true,
-        venueName: true,
-        venueAddress: true,
-        lat: true,
-        lng: true,
-        coverImageUrl: true,
-        spots: { select: { id: true, status: true, userId: true, position: true, team: true } },
-      },
-    });
+    let m = null as any;
+    try {
+      m = await prisma.match.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          title: true,
+          organizerId: true,
+          comuna: true,
+          startsAt: true,
+          durationMins: true,
+          pricePerSpot: true,
+          totalSpots: true,
+          minSpotsToConfirm: true,
+          level: true,
+          venueName: true,
+          venueAddress: true,
+          lat: true,
+          lng: true,
+          coverImageUrl: true,
+          spots: { select: { id: true, status: true, userId: true, position: true, team: true } },
+        },
+      });
+    } catch {
+      // Fallback para clientes sin regenerar: reintentar sin el campo
+      m = await prisma.match.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          title: true,
+          organizerId: true,
+          comuna: true,
+          startsAt: true,
+          durationMins: true,
+          pricePerSpot: true,
+          totalSpots: true,
+          level: true,
+          venueName: true,
+          venueAddress: true,
+          lat: true,
+          lng: true,
+          coverImageUrl: true,
+          spots: { select: { id: true, status: true, userId: true, position: true, team: true } },
+        },
+      });
+    }
     if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
 
     // counts
     const paid = m.spots.filter((s: any) => s.status === "PAID").length;
     const available = m.spots.filter((s: any) => s.status === "AVAILABLE").length;
+    const minRequired = typeof (m as any).minSpotsToConfirm === 'number' && (m as any).minSpotsToConfirm > 0 ? (m as any).minSpotsToConfirm : m.totalSpots;
 
     // organizer name
     const profile = await prisma.profile.findUnique({ where: { userId: m.organizerId } }).catch(() => null);
@@ -106,6 +133,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       durationMins: m.durationMins,
       pricePerSpot: m.pricePerSpot,
       totalSpots: m.totalSpots,
+      minSpotsToConfirm: minRequired,
       level: m.level,
       venueName: m.venueName,
       venueAddress: m.venueAddress,
@@ -114,6 +142,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       coverImageUrl: cover ?? null,
       paid,
       available,
+      isConfirmed: paid >= minRequired,
       organizer: profile ? { id: m.organizerId, name: profile.name } : null,
       organizerFriendship,
       players,

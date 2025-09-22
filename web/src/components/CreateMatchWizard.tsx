@@ -25,6 +25,7 @@ type Form = {
   startsAt: string;
   durationMins: number;
   totalSpots: number;
+  minSpotsToConfirm: number;
   occupiedSpots: number;
 };
 
@@ -53,6 +54,7 @@ export default function CreateMatchWizard() {
     startsAt: "",
     durationMins: 90,
     totalSpots: 10,
+    minSpotsToConfirm: 6,
     occupiedSpots: 0,
   } as any);
 
@@ -60,7 +62,7 @@ export default function CreateMatchWizard() {
     if (step === 0) return !!form.title && !!form.level;
     if (step === 1) return !!(form.displayAddress || form.venueAddress || form.venueName);
     if (step === 2) return !!form.startsAt && form.durationMins >= 30;
-    if (step === 3) return form.totalSpots >= 6;
+    if (step === 3) return form.totalSpots >= 6 && form.minSpotsToConfirm >= 1 && form.minSpotsToConfirm <= form.totalSpots;
     return true;
   }, [step, form]);
 
@@ -94,6 +96,7 @@ export default function CreateMatchWizard() {
         title: finalTitle,
         durationMins: Number(form.durationMins || 0),
         totalSpots: Number(form.totalSpots || 0),
+        minSpotsToConfirm: Number(form.minSpotsToConfirm || 0),
         occupiedSpots: Number(form.occupiedSpots || 0) || 0,
         venueName: form.venueName || "",
         venueAddress: form.venueAddress || form.displayAddress || "",
@@ -232,10 +235,49 @@ export default function CreateMatchWizard() {
 
       {step === 3 && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Total de cupos</label>
-              <input type="number" min={6} max={30} value={form.totalSpots} onChange={(e)=>setForm({...form, totalSpots: Number(e.target.value)})} className="w-full border px-3 py-2 rounded" />
+              <label className="block text-sm text-gray-700 mb-1">Cupos maximos disponibles</label>
+              <input
+                type="number"
+                min={6}
+                max={30}
+                value={form.totalSpots}
+                onChange={(e)=>{
+                  const total = Math.max(1, Number(e.target.value || 0));
+                  const suggestedMin = total > 0 ? Math.max(1, Math.ceil(total * 0.6)) : 1;
+                  const nextMin = total > 0 ? Math.min(Math.max(1, form.minSpotsToConfirm || suggestedMin), total) : suggestedMin;
+                  const nextOccupied = Math.min(form.occupiedSpots, total);
+                  setForm({ ...form, totalSpots: total, minSpotsToConfirm: nextMin, occupiedSpots: nextOccupied });
+                  setOccupiedDetails((prev)=>{
+                    const next = [...prev];
+                    if (nextOccupied > next.length) {
+                      while(next.length < nextOccupied) next.push({ name: "", email: "", position: "" });
+                    } else if (nextOccupied < next.length) {
+                      next.length = nextOccupied;
+                    }
+                    return next;
+                  });
+                }}
+                className="w-full border px-3 py-2 rounded"
+              />
+              <p className="text-xs text-gray-500 mt-1">Entre 6 y 30 jugadores</p>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Minimo de cupos para confirmar</label>
+              <input
+                type="number"
+                min={1}
+                max={form.totalSpots || 1}
+                value={form.minSpotsToConfirm}
+                onChange={(e)=>{
+                  const minValue = Math.max(1, Number(e.target.value || 0));
+                  const clamped = form.totalSpots > 0 ? Math.min(minValue, form.totalSpots) : minValue;
+                  setForm({ ...form, minSpotsToConfirm: clamped });
+                }}
+                className="w-full border px-3 py-2 rounded"
+              />
+              <p className="text-xs text-gray-500 mt-1">Avisamos a los jugadores cuando se alcance este minimo.</p>
             </div>
             <div>
               <label className="block text-sm text-gray-700 mb-1">Ocupados por el organizador</label>
@@ -246,7 +288,7 @@ export default function CreateMatchWizard() {
                 value={form.occupiedSpots}
                 onChange={(e)=>{
                   const v = Math.max(0, Math.min(Number(e.target.value || 0), form.totalSpots));
-                  setForm({...form, occupiedSpots: v});
+                  setForm({ ...form, occupiedSpots: v });
                   setOccupiedDetails((prev)=>{
                     const next = [...prev];
                     if (v > next.length) {
@@ -259,6 +301,7 @@ export default function CreateMatchWizard() {
                 }}
                 className="w-full border px-3 py-2 rounded"
               />
+              <p className="text-xs text-gray-500 mt-1">Estos cupos quedan confirmados desde el inicio.</p>
             </div>
           </div>
           <p className="text-sm text-gray-500">Todas las reservas son gratuitas durante este lanzamiento.</p>
@@ -352,7 +395,7 @@ export default function CreateMatchWizard() {
             <p><span className="font-medium">Dirección:</span> {form.venueAddress || form.displayAddress || "-"}</p>
             <p><span className="font-medium">Fecha:</span> {form.startsAt ? new Date(form.startsAt).toLocaleString() : "-"}</p>
             <p><span className="font-medium">Duración:</span> {form.durationMins} min</p>
-            <p><span className="font-medium">Cupos:</span> {form.totalSpots} (ocupados {form.occupiedSpots})</p>
+            <p><span className="font-medium">Cupos:</span> {form.totalSpots} (minimo {form.minSpotsToConfirm}, ocupados {form.occupiedSpots})</p>
             <p><span className="font-medium">Costo:</span> Reservas gratuitas en este lanzamiento</p>
           </div>
         </div>

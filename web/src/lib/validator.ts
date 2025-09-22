@@ -19,6 +19,7 @@ export const createMatchSchema = z.object({
     .min(0, { message: "El precio por cupo debe ser 0 o mayor" })
     .max(50000),
   totalSpots: z.coerce.number().int().min(1).max(30),
+  minSpotsToConfirm: z.coerce.number().int().min(1).max(30),
   level: levelEnum,
   // Hacer opcionales para permitir texto libre; el backend normaliza
   venueName: z.string().optional().default(""),
@@ -46,6 +47,10 @@ export const createMatchSchema = z.object({
   .refine((data) => (data.occupiedSpots ?? 0) <= data.totalSpots, {
     message: "Los cupos ocupados no pueden exceder el total de cupos",
     path: ["occupiedSpots"],
+  })
+  .refine((data) => data.minSpotsToConfirm <= data.totalSpots, {
+    message: "El minimo de cupos debe ser menor o igual al total de cupos",
+    path: ["minSpotsToConfirm"],
   });
 
 export type CreateMatchInput = z.infer<typeof createMatchSchema>;

@@ -29,6 +29,8 @@ export async function GET() {
       totalPaid += paidCount;
     }
     const occupancy = totalSpots > 0 ? totalPaid / totalSpots : 0;
+    const nextMatchPaid = nextMatch ? nextMatch.spots.filter((s: any) => s.status === "PAID").length : 0;
+    const nextMatchMin = nextMatch ? (typeof nextMatch.minSpotsToConfirm === 'number' && nextMatch.minSpotsToConfirm > 0 ? nextMatch.minSpotsToConfirm : nextMatch.totalSpots) : 0;
 
     // obtener rating del perfil si existe
     const profile = await prisma.profile.findUnique({ where: { userId: organizerId } });
@@ -41,7 +43,9 @@ export async function GET() {
             comuna: nextMatch.comuna,
             startsAt: nextMatch.startsAt,
             totalSpots: nextMatch.totalSpots,
-            paid: nextMatch.spots.filter((s: any) => s.status === "PAID").length,
+            minSpotsToConfirm: nextMatchMin || nextMatch.totalSpots,
+            paid: nextMatchPaid,
+            isConfirmed: nextMatchPaid >= (nextMatchMin || nextMatch.totalSpots),
           }
         : null,
       metrics: {

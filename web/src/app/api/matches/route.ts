@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-export const runtime = 'nodejs';
+import crypto from "node:crypto";
 import { prisma } from "@/lib/db";
 import { createMatchSchema, listMatchesSchema } from "@/lib/validator";
 import { requireUserId } from "@/lib/auth";
 import { streetViewUrl, searchPlace, extractComunaFromText } from "@/lib/places";
 import { buildStaticMapUrl } from "@/lib/maps";
+
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,6 +40,19 @@ export async function POST(req: NextRequest) {
         };
       });
 
+    const totalSpotsNumber = Number(json?.totalSpots ?? 0);
+    const derivedMinSpots = (() => {
+      const raw = Number(json?.minSpotsToConfirm ?? 0);
+      if (Number.isFinite(raw) && raw > 0) return raw;
+      if (Number.isFinite(totalSpotsNumber) && totalSpotsNumber > 0) {
+        return Math.max(1, Math.min(Math.ceil(totalSpotsNumber * 0.6), totalSpotsNumber));
+      }
+      return 1;
+    })();
+    const safeMinSpots = Number.isFinite(totalSpotsNumber) && totalSpotsNumber > 0
+      ? Math.max(1, Math.min(derivedMinSpots, totalSpotsNumber))
+      : Math.max(1, derivedMinSpots);
+
     const defensivelyFilled = {
       ...json,
       title: (json?.title?.trim?.() || json?.venueName?.trim?.() || "Partido"),
@@ -47,7 +62,8 @@ export async function POST(req: NextRequest) {
       level: ["BEGINNER", "INTERMEDIATE", "ADVANCED"].includes(json?.level) ? json.level : "INTERMEDIATE",
       ...(derivedComuna && (!json?.comuna || String(json.comuna).trim().length < 2) ? { comuna: derivedComuna } : {}),
       pricePerSpot: 0,
-      totalSpots: Number(json?.totalSpots ?? 0),
+      totalSpots: totalSpotsNumber,
+      minSpotsToConfirm: safeMinSpots,
       durationMins: Number(json?.durationMins ?? 0),
       occupiedSpots: Number(json?.occupiedSpots ?? 0),
       ...(sanitizedPlayers.length > 0 ? { occupiedPlayers: sanitizedPlayers } : {}),
@@ -95,6 +111,7 @@ export async function POST(req: NextRequest) {
           durationMins: data.durationMins,
           pricePerSpot: data.pricePerSpot,
           totalSpots: data.totalSpots,
+          minSpotsToConfirm: data.minSpotsToConfirm,
           level: data.level as any,
           organizerId,
           public: true,
@@ -115,48 +132,43 @@ export async function POST(req: NextRequest) {
         })),
       });
 
-      // Marcar cupos ocupados por el organizador, si se envían
-      const occupied = typeof data.occupiedSpots === "number" ? Math.max(0, Math.min(data.occupiedSpots, data.totalSpots)) : 0;
-      if (occupied > 0) {
-        const spots = await tx.spot.findMany({ where: { matchId: created.id }, orderBy: { createdAt: "asc" }, take: occupied });
-        const occupiedPlayers = Array.isArray(data.occupiedPlayers) ? data.occupiedPlayers : [];
-        for (let i = 0; i < spots.length; i++) {
-          const s = spots[i];
-          const player = occupiedPlayers[i];
-          if (player) {
-            // Usar SQL crudo para insertar usuario y perfil evitando que Prisma intente
-            // escribir la columna `emailVerifiedAt` si no existe en la BD.
-            const newUserId = crypto.randomUUID();
-            await tx.$executeRaw`
-              INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${null}, ${false})
-            `;
-            const newProfileId = crypto.randomUUID();
-            await tx.$executeRaw`
-              INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${player.name || `Jugador ${i + 1}`}, ${player.phone ?? ""}, ${comuna || ""}, ${player.position ?? null}::"Position")
-            `;
-            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: newUserId, team: player.team ?? null, position: player.position ?? null } });
-          } else {
-            // Crear un jugador placeholder para que siempre haya nombre visible usando SQL crudo.
-            const newUserId = crypto.randomUUID();
-            await tx.$executeRaw`
-              INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${null}, ${false})
-            `;
-            const newProfileId = crypto.randomUUID();
-            await tx.$executeRaw`
-              INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${`Jugador ${i + 1}`}, ${""}, ${comuna || ""}, ${null}::"Position")
-            `;
-            await tx.spot.update({ where: { id: s.id }, data: { status: "PAID", userId: newUserId } });
-          }
-        }
-      }
-
-      // Si todos los cupos están ocupados, marcar FULL
-      if (occupied >= data.totalSpots) {
-        await tx.match.update({ where: { id: created.id }, data: { status: "FULL" } });
-      }
 
       return created;
     });
+    // Intento best-effort de guardar minSpotsToConfirm fuera de la transacción
+    try {
+      await prisma.$executeRaw`UPDATE "Match" SET "minSpotsToConfirm" = ${data.minSpotsToConfirm} WHERE "id" = ${match.id}`;
+    } catch {}
+
+    // Procesar cupos ocupados por el organizador fuera de la transacción
+    try {
+      const occupied = typeof data.occupiedSpots === "number" ? Math.max(0, Math.min(data.occupiedSpots, data.totalSpots)) : 0;
+      if (occupied > 0) {
+        const spots = await prisma.spot.findMany({ where: { matchId: match.id }, orderBy: { createdAt: "asc" }, take: occupied });
+        const occupiedPlayers = Array.isArray(data.occupiedPlayers) ? data.occupiedPlayers : [];
+        for (let i = 0; i < spots.length; i++) {
+          const spot = spots[i];
+          const player = occupiedPlayers[i];
+          try {
+            const newUserId = crypto.randomUUID();
+            await prisma.$executeRaw`INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${null}, ${false})`;
+            const newProfileId = crypto.randomUUID();
+            const name = player?.name ? String(player.name) : `Jugador ${i + 1}`;
+            const phone = player?.phone ? String(player.phone) : "";
+            const position = player?.position ? String(player.position) : null;
+            await prisma.$executeRaw`INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${name}, ${phone}, ${match.comuna || ""}, ${position}::"Position")`;
+            await prisma.spot.update({ where: { id: spot.id }, data: { status: "PAID", userId: newUserId, team: player?.team ?? null, position } });
+          } catch {
+            // ignorar fallos individuales
+          }
+        }
+        if (occupied >= data.totalSpots) {
+          await prisma.match.update({ where: { id: match.id }, data: { status: "FULL" } }).catch(() => null);
+        }
+      }
+    } catch {
+      // ignorar errores best-effort
+    }
 
     return NextResponse.json({ match }, { status: 201 });
   } catch (err: any) {
@@ -196,8 +208,32 @@ export async function GET(req: NextRequest) {
       ...(level ? { level } : {}),
     };
 
-    const matches = await prisma.match
-      .findMany({
+    let matches: any[] | null = null;
+    try {
+      matches = await prisma.match.findMany({
+        where,
+        orderBy: { startsAt: "asc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          title: true,
+          comuna: true,
+          startsAt: true,
+          level: true,
+          pricePerSpot: true,
+          totalSpots: true,
+          minSpotsToConfirm: true,
+          coverImageUrl: true,
+          venueName: true,
+          venueAddress: true,
+          lat: true,
+          lng: true,
+          spots: { select: { status: true } },
+        },
+      });
+    } catch {
+      matches = await prisma.match.findMany({
         where,
         orderBy: { startsAt: "asc" },
         skip: (page - 1) * pageSize,
@@ -217,8 +253,8 @@ export async function GET(req: NextRequest) {
           lng: true,
           spots: { select: { status: true } },
         },
-      })
-      .catch(() => null);
+      }).catch(() => null);
+    }
 
     // Map DB results into lightweight API items with defensive guards
     const items = await Promise.all((matches ?? []).map(async (m: any) => {
@@ -269,6 +305,9 @@ export async function GET(req: NextRequest) {
         } catch {}
       }
 
+      const rawMinSpots = (m as any).minSpotsToConfirm;
+      const minRequired = typeof rawMinSpots === 'number' && rawMinSpots > 0 ? rawMinSpots : m.totalSpots;
+
       return {
         id: m.id,
         title: m.title,
@@ -277,6 +316,8 @@ export async function GET(req: NextRequest) {
         level: m.level,
         pricePerSpot: m.pricePerSpot,
         totalSpots: m.totalSpots,
+        minSpotsToConfirm: minRequired,
+        confirmed: paid >= minRequired,
         paid,
         available,
         coverImageUrl: coverImageUrl ?? null,

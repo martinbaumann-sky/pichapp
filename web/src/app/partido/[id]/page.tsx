@@ -132,6 +132,14 @@ export default function MatchDetailPage(props: any) {
     }
   };
 
+  const totalSpots = Math.max(match?.totalSpots ?? 1, 1);
+  const minSpotsToConfirm = Math.max(match?.minSpotsToConfirm ?? totalSpots, 1);
+  const paidCount = match?.paid ?? 0;
+  const availableSpots = match?.available ?? 0;
+  const progressPercent = Math.min(100, (paidCount / totalSpots) * 100);
+  const minMarkerPercent = Math.min(100, (minSpotsToConfirm / totalSpots) * 100);
+  const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
+
   if (loading) {
     return (
       <div className="min-h-[60vh] bg-gray-50 flex items-center justify-center">
@@ -268,6 +276,7 @@ export default function MatchDetailPage(props: any) {
                   <div>
                     <p className="text-sm text-gray-500">Cupos</p>
                     <p className="font-medium text-black">{match.paid}/{match.totalSpots} ocupados</p>
+                    <p className="text-xs text-gray-500">Minimo {minSpotsToConfirm} jugadores para confirmar</p>
                   </div>
                 </div>
 
@@ -282,12 +291,29 @@ export default function MatchDetailPage(props: any) {
 
             <div className="bg-gray-100 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Estado del partido</span>
-                <span className="text-sm text-gray-500">{match.available} cupos disponibles</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">Estado del partido</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${match.isConfirmed ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'}`}>{match.isConfirmed ? 'Confirmado' : 'En espera'}</span>
+                </div>
+                <span className="text-sm text-gray-500">{availableSpots} cupos disponibles</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-green-500 h-2 rounded-full transition-all duration-500" style={{ width: `${(match.paid / match.totalSpots) * 100}%` }} />
+              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                <span>Minimo {minSpotsToConfirm} jugadores</span>
+                <span>{paidCount} confirmados</span>
               </div>
+              <div className="relative w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div className={`${match.isConfirmed ? 'bg-green-500' : 'bg-emerald-400'} h-2 rounded-full transition-all duration-500`} style={{ width: `${progressPercent}%` }} />
+                <div className="absolute top-0 bottom-0" style={{ left: `calc(${minMarkerPercent}% - 1px)` }}>
+                  <div className="h-full w-px bg-gray-500/60" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {match.isConfirmed
+                  ? 'Te avisaremos 2 horas antes del partido.'
+                  : spotsMissingForConfirmation > 0
+                    ? `Faltan ${spotsMissingForConfirmation} jugadores para confirmar. Te avisaremos 2 horas antes si se alcanza el minimo.`
+                    : 'Te avisaremos 2 horas antes del partido.'}
+              </p>
             </div>
 
             {(() => {
