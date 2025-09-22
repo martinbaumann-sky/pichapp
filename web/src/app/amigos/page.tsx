@@ -25,7 +25,7 @@ export default function AmigosPage() {
   const [busyAdd, setBusyAdd] = useState(false);
   const [friends, setFriends] = useState<FriendItem[]>([]);
   const [incoming, setIncoming] = useState<FriendItem[]>([]);
-  const [outgoing, setOutgoing] = useState<FriendItem[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
   const normalizedPhone = useMemo(() => digitsOnly(phone), [phone]);
 
   useEffect(() => {
@@ -33,23 +33,26 @@ export default function AmigosPage() {
   }, [user, loading]);
 
   const refresh = async () => {
-    const [acc, inc, out] = await Promise.all([
+    const [acc, inc] = await Promise.all([
       fetch('/api/friends?status=ACCEPTED', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ items: [] })),
       fetch('/api/friends?pending=incoming', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ items: [] })),
-      fetch('/api/friends?pending=outgoing', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ items: [] })),
     ]);
-    setFriends(acc.items || []);
-    setIncoming(inc.items || []);
-    setOutgoing(out.items || []);
+    const acceptedItems = Array.isArray(acc.items) ? (acc.items as FriendItem[]) : [];
+    const incomingItems = Array.isArray(inc.items)
+      ? (inc.items as FriendItem[]).filter((item) => !item.isRequester)
+      : [];
+    setFriends(acceptedItems);
+    setIncoming(incomingItems);
   };
 
   useEffect(() => { if (user) refresh(); }, [user]);
 
   const addByPhone = async () => {
     const raw = phone.trim();
+    setFormError(null);
     if (!raw) return;
     if (normalizedPhone.length < 7) {
-      alert('Ingresa un numero de celular valido');
+      setFormError('Ingresa un número de celular válido para enviar la solicitud.');
       return;
     }
     setBusyAdd(true);
@@ -61,14 +64,15 @@ export default function AmigosPage() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(data?.error || 'No se pudo agregar');
+        setFormError(data?.error || 'No se pudo enviar la solicitud.');
       } else {
         setPhone('');
         await refresh();
         setTab('requests');
+        setFormError(null);
       }
     } catch {
-      alert('No se pudo enviar la solicitud. Intentalo nuevamente.');
+      setFormError('No se pudo enviar la solicitud. Inténtalo nuevamente.');
     } finally {
       setBusyAdd(false);
     }
@@ -90,7 +94,7 @@ export default function AmigosPage() {
       </div>
 
       {/* Add by phone */}
-      <div className="bg-white border rounded-2xl p-4 mb-6">
+      <div className="bg-white border rounded-2xl p-4 mb-6 space-y-3">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
           <input
             inputMode="tel"
@@ -103,12 +107,15 @@ export default function AmigosPage() {
           <button onClick={addByPhone} disabled={busyAdd || normalizedPhone.length < 7} className="btn-primary">{busyAdd ? 'Buscando...' : 'Agregar por celular'}</button>
         </div>
         <p className="text-xs text-gray-500 mt-2">Tip: usa el numero exacto que tu amigo tiene en su perfil.</p>
+        {formError ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
+        ) : null}
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4">
         <button onClick={() => setTab('friends')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab==='friends'?'bg-black text-white':'bg-gray-100 text-gray-700'}`}>Mis amigos ({friends.length})</button>
-        <button onClick={() => setTab('requests')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab==='requests'?'bg-black text-white':'bg-gray-100 text-gray-700'}`}>Solicitudes ({incoming.length + outgoing.length})</button>
+        <button onClick={() => setTab('requests')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab==='requests'?'bg-black text-white':'bg-gray-100 text-gray-700'}`}>Solicitudes ({incoming.length})</button>
       </div>
 
       {tab === 'friends' ? (
@@ -126,10 +133,7 @@ export default function AmigosPage() {
           {incoming.map((f) => (
             <FriendCard key={f.id} item={f} mode="incoming" onChanged={refresh} />
           ))}
-          {outgoing.map((f) => (
-            <FriendCard key={f.id} item={f} mode="outgoing" onChanged={refresh} />
-          ))}
-          {incoming.length + outgoing.length === 0 && (
+          {incoming.length === 0 && (
             <div className="text-gray-500 text-sm">No tienes solicitudes pendientes.</div>
           )}
         </div>
