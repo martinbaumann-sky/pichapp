@@ -5,11 +5,16 @@ const cwd = path.resolve(__dirname, '..');
 const run = (cmd) => execSync(cmd, { stdio: 'inherit', cwd });
 
 const ensureDatabaseEnv = () => {
+  const isCiLike = process.env.CI === 'true' || process.env.VERCEL === '1';
+  const sqliteFallback = 'file:./prisma/dev.db';
   if (!process.env.DATABASE_URL) {
     const fallback = process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL;
     if (fallback) {
       process.env.DATABASE_URL = fallback;
       console.log('DATABASE_URL not provided. Using Postgres URL from Vercel env.');
+    } else if (!isCiLike) {
+      process.env.DATABASE_URL = sqliteFallback;
+      console.log('DATABASE_URL not provided. Falling back to local SQLite at prisma/dev.db.');
     }
   }
   if (!process.env.DIRECT_URL) {
@@ -17,6 +22,9 @@ const ensureDatabaseEnv = () => {
     if (direct) {
       process.env.DIRECT_URL = direct;
       console.log('DIRECT_URL not provided. Using non-pooling Postgres URL from Vercel env.');
+    } else if (!isCiLike && process.env.DATABASE_URL?.startsWith('file:')) {
+      process.env.DIRECT_URL = process.env.DATABASE_URL;
+      console.log('DIRECT_URL not provided. Reusing SQLite DATABASE_URL for Prisma direct connection.');
     }
   }
   if (!process.env.DIRECT_URL && process.env.DATABASE_URL) {
