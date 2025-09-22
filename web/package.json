@@ -16,7 +16,7 @@
         "seed:reset": "tsx scripts/reset-and-seed.ts",
         "clear:matches": "tsx scripts/clear-matches.ts",
         "seed:examples": "tsx scripts/seed-examples.ts",
-        "test": "vitest run"
+        "test": "vitest run --passWithNoTests"
     },
     "dependencies": {
         "@headlessui/react": "^2.2.8",

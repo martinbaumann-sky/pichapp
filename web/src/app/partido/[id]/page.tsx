@@ -48,7 +48,7 @@ type FormationTeamView = JoinFormationTeam & {
   totalPlayers: number;
 };
 
-export default function MatchDetailPage(props: any) {
+export default function MatchDetailPage() {
   const routeParams = useParams() as any;
   const id = routeParams?.id as string;
   const [match, setMatch] = useState<any>(null);
@@ -56,6 +56,8 @@ export default function MatchDetailPage(props: any) {
   const [toast, setToast] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"about" | "roster">("about");
+  const showAbout = activeTab === "about";
+  const showRoster = activeTab === "roster";
   const { user } = useAuth();
   const router = useRouter();
 
@@ -591,13 +593,13 @@ export default function MatchDetailPage(props: any) {
       <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 pb-20">
         <section id={mapSectionId} className="mt-8">
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
-            {activeTab === "about" ? (
+            {showAbout ? (
               <div className="h-[420px] w-full bg-gray-100">
                 {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-gray-200" />}
               </div>
             ) : null}
             <div className="p-6 sm:p-8 space-y-8">
-              <div className={`flex flex-col gap-6 md:flex-row md:items-start md:justify-between ${activeTab === "about" ? "" : "md:items-center"}`}>
+              <div className={`flex flex-col gap-6 md:flex-row md:items-start md:justify-between ${showAbout ? "" : "md:items-center"}`}>
                 <div className="space-y-4">
                   <p className={`text-sm font-semibold uppercase tracking-wider ${isFull ? "text-red-600" : isAlmostFull ? "text-amber-600" : "text-emerald-600"}`}>
                     {spotsHeadline}
@@ -623,7 +625,7 @@ export default function MatchDetailPage(props: any) {
                     <span>{match.venueName ? `${match.venueName}${match.comuna ? `, ${match.comuna}` : ""}` : match.comuna}</span>
                   </div>
                 </div>
-                {activeTab === "about" ? (
+                {showAbout ? (
                   <div className="flex flex-col items-start md:items-end gap-3">
                     <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
                       {nivelES[match.level as keyof typeof nivelES]}
@@ -636,7 +638,7 @@ export default function MatchDetailPage(props: any) {
                 ) : null}
               </div>
 
-              <div className={activeTab === "about" ? "space-y-8" : "hidden"} id="detalle">
+              <div className={showAbout ? "space-y-8" : "hidden"} id="detalle">
                 <div>
                   <h3 className="mb-4 text-xl font-semibold text-slate-800">Resumen</h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -746,7 +748,7 @@ export default function MatchDetailPage(props: any) {
                 </div>
               </div>
 
-              <div className={activeTab === "roster" ? "space-y-8" : "hidden"} id="jugadores">
+              <div className={showRoster ? "space-y-8" : "hidden"} id="jugadores">
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
