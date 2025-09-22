@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -54,10 +54,10 @@ export default function PerfilPage() {
   }, [user]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Inicia sesión para ver tu perfil.</div>;
+    return <div className="min-h-screen flex items-center justify-center">Inicia sesiÃ³n para ver tu perfil.</div>;
   }
   if (!user) {
-    return <div className="min-h-screen flex items-center justify-center">Inicia sesión para ver tu perfil.</div>;
+    return <div className="min-h-screen flex items-center justify-center">Inicia sesiÃ³n para ver tu perfil.</div>;
   }
 
   const digitsPreview = form.phone.replace(/\D/g, "");
@@ -71,7 +71,7 @@ export default function PerfilPage() {
     // validate phone: fixed +569 XXXXXXXX (8 digits after 9)
     const digits = form.phone.replace(/\D/g, "");
     if (!/^\d{8}$/.test(digits)) {
-      alert("Ingresa 8 dí­gitos para el celular (formato +569 XXXXXXXX)");
+      alert("Ingresa 8 dÃ­Â­gitos para el celular (formato +569 XXXXXXXX)");
       setSaving(false);
       return;
     }
@@ -118,8 +118,8 @@ export default function PerfilPage() {
           <label className="block text-sm font-medium mb-1">Celular</label>
           <div className="flex items-center"><span className="px-3 py-2 border rounded-l bg-gray-50 text-gray-700 border-r-0 whitespace-nowrap w-16 flex items-center justify-center">+569</span><input value={form.phone} onChange={e=>setForm({...form, phone:e.target.value.replace(/\D/g, "").slice(0,8)})} className="w-full border px-3 py-2 rounded" placeholder="XXXXXXXX" inputMode="numeric" maxLength={8} required />
           </div>
-          <p className="text-xs text-gray-500 mt-1">8 dígitos, ej: 87654321</p>
-          {phonePreview && <p className="text-xs text-gray-500 mt-0.5">Se mostrará como {phonePreview}</p>}
+          <p className="text-xs text-gray-500 mt-1">8 dÃ­gitos, ej: 87654321</p>
+          {phonePreview && <p className="text-xs text-gray-500 mt-0.5">Se mostrarÃ¡ como {phonePreview}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Comuna</label>
@@ -129,19 +129,20 @@ export default function PerfilPage() {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Posición</label>
+          <label className="block text-sm font-medium mb-1">PosiciÃ³n</label>
           <select value={form.position} onChange={e=>setForm({...form, position:e.target.value})} className="w-full border px-3 py-2 rounded">
-            <option value="">Selecciona tu posición (opcional))</option>
+            <option value="">Selecciona tu posiciÃ³n (opcional))</option>
             {Object.entries(posicionES).map(([k,v]) => (<option key={k} value={k}>{v}</option>))}
           </select>
         </div>
         <div className="flex items-center gap-3">
           <button type="submit" disabled={saving} className="px-4 py-2 bg-black text-white rounded">{saving?"Guardando...":"Guardar cambios"}</button>
-          <button type="button" onClick={signOut} className="px-4 py-2 bg-gray-200 rounded">Cerrar sesión</button>
+          <button type="button" onClick={signOut} className="px-4 py-2 bg-gray-200 rounded">Cerrar sesiÃ³n</button>
         </div>
       </form>
     </div>
   );
 }
+
 
 

@@ -1,25 +1,37 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
 import AddFriendButton from "@/components/AddFriendButton";
 import type { FriendStatus } from "@/lib/friendship";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Users,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Share2,
+  MessageSquare,
+  Trash2,
+  DollarSign,
+  Timer,\r\n  Pencil,\r\n} from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
-import { sampleMatches } from "@/lib/samples";
+import\ \{\ sampleMatches\ }\ from\ "@/lib/samples";\r\nimport\ \{\ FormationBoard,\ type\ FormationPlayer,\ type\ FormationSlotView\ }\ from\ "@/components/match/FormationBoard";\r\nimport\ \{\ JoinFormationDialog,\ type\ JoinFormationTeam\ }\ from\ "@/components/match/JoinFormationDialog";\r\nimport\ \{\ assignPlayersToFormation,\ getFormationPreset\ }\ from\ "@/lib/formations";\r\nimport\ \{\ computeTeamCapacities,\ normalizeTeam,\ normalizePosition,\ TEAM_LABELS,\ type\ TeamKey,\ type\ PositionKey\ }\ from\ "@/lib/teams";
 
 export default function MatchDetailPage(props: any) {
-  const FALLBACK_IMG = "https://images.unsplash.com/photo-1505842465776-3d7a1ee1a8b7?q=80&w=1200&auto=format&fit=crop";
   const routeParams = useParams() as any;
   const id = routeParams?.id as string;
   const [match, setMatch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"about" | "roster">("about");
   const { user } = useAuth();
   const router = useRouter();
 
@@ -139,21 +151,27 @@ export default function MatchDetailPage(props: any) {
   const progressPercent = Math.min(100, (paidCount / totalSpots) * 100);
   const minMarkerPercent = Math.min(100, (minSpotsToConfirm / totalSpots) * 100);
   const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
+  const isFull = availableSpots === 0;
+  const isAlmostFull = availableSpots <= 2;
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-slate-500">
+          <div className="h-3 w-3 rounded-full bg-emerald-500 animate-ping" />
+          <span className="text-sm uppercase tracking-[0.3em]">Cargando partido...</span>
+        </div>
       </div>
     );
   }
 
   if (!match) {
     return (
-      <div className="min-h-[60vh] bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Partido no encontrado</h1>
-          <Link href="/explorar" className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors duration-200">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-slate-700">
+          <h1 className="text-2xl font-semibold mb-4">Partido no encontrado</h1>
+          <Link href="/explorar" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 font-semibold text-white shadow hover:bg-slate-800 transition">
+            <ArrowLeft className="h-4 w-4" />
             Volver a partidos
           </Link>
         </div>
@@ -161,245 +179,332 @@ export default function MatchDetailPage(props: any) {
     );
   }
 
-  const isFull = match.available === 0;
-  const isAlmostFull = match.available <= 2;
   const viewer = match.viewer ?? null;
   const isOrganizer = viewer?.isOrganizer || (user && match && (user.id === (match.organizerId ?? match.organizer?.id)));
   const canOpenChat = !!(viewer?.hasJoined || isOrganizer);
-  const organizerFriendship = match.organizerFriendship ?? { status: 'NONE', friendId: null };
-  const initialFriendStatus = (organizerFriendship.status ?? 'NONE') as FriendStatus;
+  const organizerFriendship = match.organizerFriendship ?? { status: "NONE", friendId: null };
+  const initialFriendStatus = (organizerFriendship.status ?? "NONE") as FriendStatus;
+
+  const mapSectionId = "match-hero-map-section";
+  const tabs: Array<{ id: "about" | "roster"; label: string }> = [
+    { id: "about", label: "DETALLE" },
+    { id: "roster", label: "JUGADORES" },
+  ];
+  const startAt = match.startsAt ? new Date(match.startsAt) : null;
+  const estimatedEndAt = startAt ? new Date(startAt.getTime() + ((match.durationMins ?? 90) * 60 * 1000)) : null;
+  const dateFormatter = new Intl.DateTimeFormat("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  const timeFormatter = new Intl.DateTimeFormat("es-CL", { hour: "2-digit", minute: "2-digit" });
+  const capitalize = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value);
+  const dateLabel = startAt ? capitalize(dateFormatter.format(startAt)) : "Fecha por confirmar";
+  const timeLabel = startAt ? `${timeFormatter.format(startAt)}${estimatedEndAt ? ` - ${timeFormatter.format(estimatedEndAt)}` : ""}` : "Horario por confirmar";
+  const durationLabel = `${match.durationMins ?? 90} minutos`;
+  const priceLabel = match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(match.pricePerSpot) : "Gratis";
+  const spotsLeft = Math.max(availableSpots, 0);
+  const spotsHeadline = isFull
+    ? "Partido completo"
+    : spotsLeft <= 3
+      ? `${spotsLeft} ${spotsLeft === 1 ? "cupo disponible" : "cupos disponibles"}`
+      : `${spotsLeft} cupos disponibles`;
+  const matchStatusLabel = isFull ? "Partido completo" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "Partido confirmado" : "En confirmacion";
+  const chipPercent = isFull ? 100 : paidCount >= minSpotsToConfirm || match.isConfirmed ? Math.max(minMarkerPercent, progressPercent) : progressPercent;
+  const description = (match.description ?? match.details ?? match.notes ?? "") as string;
+  const statusSteps = [
+    { key: "scheduled", label: "Agendado", reached: true },
+    { key: "confirmed", label: "Confirmado", reached: paidCount >= minSpotsToConfirm || !!match.isConfirmed },
+    { key: "full", label: "Completo", reached: isFull },
+  ] as const;
+  const overviewItems = [
+    { icon: Calendar, label: "Fecha", value: dateLabel },
+    { icon: Clock, label: "Horario", value: timeLabel },
+    { icon: Timer, label: "Duracion", value: durationLabel },
+    { icon: Users, label: "Jugadores", value: `${minSpotsToConfirm} - ${totalSpots} jugadores` },
+  ] as const;
 
   return (
-    <div className="bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/explorar" className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-              <ArrowLeft className="w-5 h-5" />
+    <div className="min-h-screen bg-gray-50 text-slate-900">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Link href="/explorar" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition hover:bg-slate-50">
+              <ArrowLeft className="h-5 w-5 text-slate-600" />
             </Link>
-            <h1 className="text-2xl font-bold text-black">Detalle del Partido</h1>
+            <div className="flex-1 text-center sm:text-left">
+              <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Partido</p>
+              <h1 className="text-lg font-semibold text-slate-800">Detalles</h1>
+            </div>
             <div className="ml-auto flex items-center gap-2">
               {viewer?.canDelete ? (
                 <button
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="px-3 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="hidden sm:inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <div className="flex items-center gap-2">
-                    <Trash2 className="w-4 h-4" />
-                    <span>{deleting ? "Eliminando..." : "Eliminar"}</span>
-                  </div>
+                  <Trash2 className="h-4 w-4" />
+                  {deleting ? "Eliminando..." : "Eliminar"}
                 </button>
               ) : null}
-              <button onClick={handleShare} className="p-2 hover:bg-gray-100 rounded-lg">
-                <Share2 className="w-5 h-5" />
+              {canOpenChat ? (
+                <button
+                  onClick={() => router.push(`/match/${id}/chat`)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+                  aria-label="Abrir chat"
+                >
+                  <MessageSquare className="h-5 w-5" />
+                </button>
+              ) : null}
+              <button
+                onClick={() => {
+                  const el = document.getElementById(mapSectionId);
+                  if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+                aria-label="Ver mapa"
+              >
+                <MapPin className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+                aria-label="Compartir partido"
+              >
+                <Share2 className="h-5 w-5" />
               </button>
             </div>
           </div>
         </div>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-4">
+          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 text-sm font-semibold shadow-sm">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`${isActive ? "bg-emerald-500 text-white shadow" : "text-slate-500 hover:text-slate-900"} flex-1 rounded-full px-4 py-2 transition`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
-          {/* Hero map: muestra la ubicacion grande del partido */}
-          {match ? (
-            <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} />
-          ) : (
-            <div className="h-64 w-full bg-gray-100" />
-          )}
-
-          <div className="p-8">
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex-1">
-                <h2 className="text-3xl font-bold text-black mb-2">{match.venueName ? `${match.title} - ${match.venueName}` : match.title}</h2>
-                <div className="flex items-center gap-2 text-gray-600 mb-4">
-                  <MapPin className="w-5 h-5" />
-                  <span className="text-lg">{match.comuna}</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <span
-                  className={`px-4 py-2 rounded-full text-sm font-medium ${
-                    match.level === "BEGINNER"
-                      ? "bg-green-100 text-green-800"
-                      : match.level === "INTERMEDIATE"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : match.level === "ADVANCED"
-                      ? "bg-red-100 text-red-800"
-                      : "bg-blue-100 text-blue-800"
-                  }`}
-                >
-                  {nivelES[match.level as keyof typeof nivelES]}
-                </span>
-
-                {isFull && (
-                  <span className="px-4 py-2 bg-red-100 text-red-800 rounded-full text-sm font-medium">COMPLETO</span>
-                )}
-
-                {isAlmostFull && !isFull && (
-                  <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">ULTIMOS CUPOS</span>
-                )}
-              </div>
+      <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 pb-20">
+        <section id={mapSectionId} className="mt-8">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
+            <div className="h-[420px] w-full bg-gray-100">
+              {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-gray-200" />}
             </div>
-
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Fecha y hora</p>
-                    <p className="font-medium text-black">
-                      {new Intl.DateTimeFormat("es-CL", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }).format(new Date(match.startsAt))}
-                    </p>
+            <div className="p-6 sm:p-8 space-y-8">
+              <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                <div className="space-y-4">
+                  <p className={`text-sm font-semibold uppercase tracking-wider ${isFull ? "text-red-600" : isAlmostFull ? "text-amber-600" : "text-emerald-600"}`}>
+                    {spotsHeadline}
+                  </p>
+                  <h2 className="text-3xl font-semibold leading-tight text-slate-900">{match.title}</h2>
+                  {match.organizer ? (
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                      <span className="text-xs uppercase tracking-wide text-slate-500">Organiza</span>
+                      <Link href={`/usuarios/${match.organizer.id}`} className="font-semibold text-slate-900 underline-offset-4 hover:underline">
+                        {match.organizer.name}
+                      </Link>
+                      <AddFriendButton
+                        targetId={match.organizer.id}
+                        targetName={match.organizer.name}
+                        initialStatus={initialFriendStatus}
+                        initialFriendId={organizerFriendship.friendId ?? null}
+                        size="sm"
+                      />
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap items-center gap-2 text-slate-600">
+                    <MapPin className="h-4 w-4 text-emerald-600" />
+                    <span>{match.venueName ? `${match.venueName}${match.comuna ? `, ${match.comuna}` : ""}` : match.comuna}</span>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Duracion</p>
-                    <p className="font-medium text-black">{match.durationMins ?? 90} minutos</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Users className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Cupos</p>
-                    <p className="font-medium text-black">{match.paid}/{match.totalSpots} ocupados</p>
-                    <p className="text-xs text-gray-500">Minimo {minSpotsToConfirm} jugadores para confirmar</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div>
-                    <p className="text-sm text-gray-500">Costo por cupo</p>
-                    <p className="font-medium text-green-600">{match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot) : "Gratis"}</p>
+                <div className="flex flex-col items-start md:items-end gap-3">
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+                    {nivelES[match.level as keyof typeof nivelES]}
+                  </span>
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-right text-emerald-700 shadow-inner">
+                    <p className="flex items-center justify-end gap-2 text-xs uppercase tracking-wide">Valor por cupo</p>
+                    <p className="mt-2 text-2xl font-semibold">{priceLabel}</p>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-gray-100 rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">Estado del partido</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${match.isConfirmed ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'}`}>{match.isConfirmed ? 'Confirmado' : 'En espera'}</span>
+              <div className={activeTab === "about" ? "space-y-8" : "hidden"} id="detalle">
+                <div>
+                  <h3 className="mb-4 text-xl font-semibold text-slate-800">Resumen</h3>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {overviewItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                              <Icon className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-wide text-slate-500">{item.label}</p>
+                              <p className="text-lg font-semibold text-slate-900">{item.value}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <span className="text-sm text-gray-500">{availableSpots} cupos disponibles</span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                <span>Minimo {minSpotsToConfirm} jugadores</span>
-                <span>{paidCount} confirmados</span>
-              </div>
-              <div className="relative w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                <div className={`${match.isConfirmed ? 'bg-green-500' : 'bg-emerald-400'} h-2 rounded-full transition-all duration-500`} style={{ width: `${progressPercent}%` }} />
-                <div className="absolute top-0 bottom-0" style={{ left: `calc(${minMarkerPercent}% - 1px)` }}>
-                  <div className="h-full w-px bg-gray-500/60" />
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {match.isConfirmed
-                  ? 'Te avisaremos 2 horas antes del partido.'
-                  : spotsMissingForConfirmation > 0
-                    ? `Faltan ${spotsMissingForConfirmation} jugadores para confirmar. Te avisaremos 2 horas antes si se alcanza el minimo.`
-                    : 'Te avisaremos 2 horas antes del partido.'}
-              </p>
-            </div>
 
-            {(() => {
-              if (canOpenChat) {
-                return (
-                  <Link href={`/match/${id}/chat`} className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-white border border-gray-300 text-black rounded-lg font-semibold hover:bg-gray-50 transition-all duration-200">
-                    <MessageSquare className="w-5 h-5" />
-                    Abrir chat
-                  </Link>
-                );
-              }
-              if (!isFull) {
-                return (
-                  <div className="space-y-3">
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-800">Estado del partido</span>
+                      <span className={`${isFull ? "bg-red-100 text-red-700" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"} rounded-full px-3 py-1 text-xs font-semibold`}>
+                        {matchStatusLabel}
+                      </span>
+                    </div>
+                    <span className="text-sm text-slate-600">{availableSpots} {availableSpots === 1 ? "cupo" : "cupos"} disponibles</span>
+                  </div>
+                  <div className="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${Math.max(progressPercent, 4)}%` }} />
+                    <div className="absolute inset-y-0 w-px bg-slate-400/70" style={{ left: `calc(${minMarkerPercent}% - 1px)` }} />
+                    <div className="absolute -top-9 flex -translate-x-1/2 items-center" style={{ left: `calc(${chipPercent}% )` }}>
+                      <span className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow">
+                        {matchStatusLabel}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex justify-between text-xs text-slate-500">
+                    {statusSteps.map((step) => (
+                      <span key={step.key} className={step.reached ? "text-emerald-600 font-medium" : undefined}>
+                        {step.label}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-4 text-sm text-slate-600">
+                    {match.isConfirmed
+                      ? "Te avisaremos 2 horas antes del partido."
+                      : spotsMissingForConfirmation > 0
+                        ? `Faltan ${spotsMissingForConfirmation} jugadores para confirmar. Te avisaremos 2 horas antes si se alcanza el minimo.`
+                        : "Te avisaremos 2 horas antes del partido."}
+                  </p>
+                </div>
+
+                {description ? (
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="mb-3 text-lg font-semibold text-slate-800">Sobre este partido</h3>
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600">{description}</p>
+                  </div>
+                ) : null}
+
+                <div className="space-y-3">
+                  {(() => {
+                    if (canOpenChat) {
+                      return (
+                        <button
+                          onClick={() => router.push(`/match/${id}/chat`)}
+                          className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-8 py-4 text-base font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                        >
+                          <MessageSquare className="h-5 w-5" />
+                          Abrir chat
+                        </button>
+                      );
+                    }
+                    if (!isFull) {
+                      return (
+                        <button
+                          onClick={handleJoin}
+                          disabled={joining}
+                          className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-8 py-4 text-base font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          <CheckCircle className="h-5 w-5" />
+                          {joining ? "Confirmando..." : match.pricePerSpot > 0 ? `Tomar cupo - ${priceLabel}` : "Tomar cupo gratis"}
+                        </button>
+                      );
+                    }
+                    return (
+                      <div className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-100 px-8 py-4 text-base font-semibold text-slate-600">
+                        <AlertCircle className="h-5 w-5 text-amber-600" />
+                        Partido completo
+                      </div>
+                    );
+                  })()}
+                  {viewer?.canDelete ? (
                     <button
-                      onClick={handleJoin}
-                      disabled={joining}
-                      className="w-full px-8 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="flex w-full items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-8 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:hidden"
                     >
-                      <CheckCircle className="w-5 h-5" />
-                      {joining
-                        ? "Confirmando..."
-                        : match.pricePerSpot > 0
-                          ? `Tomar Cupo - ${new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot)}`
-                          : "Tomar Cupo Gratis"}
+                      <Trash2 className="h-4 w-4" />
+                      {deleting ? "Eliminando..." : "Eliminar partido"}
                     </button>
-                  </div>
-                );
-              }
-              return (
-                <div className="w-full px-8 py-4 bg-gray-200 text-gray-600 rounded-lg font-semibold flex items-center justify-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
-                  Partido Completo
+                  ) : null}
                 </div>
-              );
-            })()}
-          </div>
-        </div>
+              </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h3 className="text-xl font-semibold text-black mb-4">Organizacion</h3>
-          {match.organizer ? (
-            <div className="flex flex-wrap items-center gap-3 mb-4">
-              <span className="text-gray-700">Organiza:</span>
-              <Link href={`/usuarios/${match.organizer.id}`} className="font-medium text-black underline-offset-4 hover:underline">
-                {match.organizer.name}
-              </Link>
-              {organizerFriendship ? (
-                <AddFriendButton
-                  targetId={match.organizer.id}
-                  targetName={match.organizer.name}
-                  initialStatus={initialFriendStatus}
-                  initialFriendId={organizerFriendship.friendId ?? null}
-                  size="sm"
-                />
-              ) : null}
-            </div>
-          ) : null}
-          <div className="mt-4">
-            <h4 className="font-semibold text-black mb-2">Jugadores confirmados</h4>
-            <ul className="space-y-2">
-              {(match.players ?? []).map((p: any, idx: number) => (
-                <li key={idx} className="text-sm text-gray-700 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium">{p.displayName ?? p.user?.name ?? `Jugador ${idx+1}`}</span>
-                    {/* Mostrar posicion preferida: si viene en user.profile usar eso, sino usar spot.position si existe */}
-                    {((p.user && p.user.position) || p.position) && (
-                      <span className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600">{posicionES[(p.user?.position ?? p.position) as keyof typeof posicionES]}</span>
-                    )}
-                    {p.team && (
-                      <span className={`text-xs px-2 py-1 rounded ${p.team === 'CLARO' ? 'bg-yellow-50 text-yellow-800' : 'bg-slate-800 text-white'}`}> {p.team === 'CLARO' ? 'Claro' : 'Oscuro'}</span>
-                    )}
+              <div className={activeTab === "roster" ? "space-y-8" : "hidden"} id="jugadores">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-slate-800">Jugadores</h3>
+                      <p className="text-sm text-slate-500">Listado de confirmados y reservas</p>
+                    </div>
+                    <span className="text-sm text-slate-600">{paidCount} confirmados / {totalSpots} cupos</span>
                   </div>
-                  <div className="text-gray-500">{p.status === "PAID" ? "Confirmado" : "Reservado"}</div>
-                </li>
-              ))}
-            </ul>
+                  <ul className="mt-6 space-y-3">
+                    {(match.players ?? []).length > 0 ? (
+                      (match.players ?? []).map((p: any, idx: number) => {
+                        const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
+                        const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
+                        return (
+                          <li key={`${playerName}-${idx}`} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-wrap items-center gap-3 text-slate-800">
+                              <span className="font-semibold">{playerName}</span>
+                              {positionKey ? (
+                                <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
+                                  {posicionES[positionKey]}
+                                </span>
+                              ) : null}
+                              {p.team ? (
+                                <span className={`rounded-full px-3 py-1 text-xs font-medium ${p.team === "CLARO" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-700"}`}>
+                                  {p.team === "CLARO" ? "Claro" : "Oscuro"}
+                                </span>
+                              ) : null}
+                            </div>
+                            <span className={`text-sm font-medium ${p.status === "PAID" ? "text-emerald-600" : "text-slate-500"}`}>
+                              {p.status === "PAID" ? "Confirmado" : "Reservado"}
+                            </span>
+                          </li>
+                        );
+                      })
+                    ) : (
+                      <li className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+                        Aun no hay jugadores inscritos.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
       </main>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded-lg shadow-lg text-sm">{toast}</div>
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+          {toast}
+        </div>
       )}
-      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next={`/match/${id}`}/>
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next={`/match/${id}`} />
     </div>
   );
 }
+
+
+
+
 

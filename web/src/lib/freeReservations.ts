@@ -1,25 +1,6 @@
-import { prisma } from "@/lib/db";
-
-const allowedPositions = new Set(["ARQUERO", "DEFENSA", "LATERAL", "VOLANTE", "DELANTERO"]);
-const teamMap: Record<string, "CLARO" | "OSCURO"> = {
-  CLARO: "CLARO",
-  LIGHT: "CLARO",
-  OSCURO: "OSCURO",
-  OSCURA: "OSCURO",
-  DARK: "OSCURO",
-};
-
-function normalizeTeam(team: unknown) {
-  if (!team) return null;
-  const value = String(team).trim().toUpperCase();
-  return teamMap[value] ?? null;
-}
-
-function normalizePosition(position: unknown) {
-  if (!position) return null;
-  const upper = String(position).trim().toUpperCase();
-  return allowedPositions.has(upper) ? (upper as any) : null;
-}
+﻿import { prisma } from "@/lib/db";
+import { resolveTeamForUser, sanitizePosition } from "@/lib/teamAssignment";
+import { normalizeTeam } from "@/lib/teams";
 
 export type FreeReservationResult = {
   spotId: string;
@@ -28,8 +9,8 @@ export type FreeReservationResult = {
 };
 
 export async function confirmFreeSpot(params: { matchId: string; userId: string; team?: string | null; position?: string | null }): Promise<FreeReservationResult> {
-  const team = normalizeTeam(params.team);
-  const position = normalizePosition(params.position);
+  const requestedTeam = normalizeTeam(params.team ?? null);
+  const requestedPosition = sanitizePosition(params.position ?? null);
   const { matchId, userId } = params;
 
   return prisma.$transaction(async (tx) => {
@@ -48,13 +29,20 @@ export async function confirmFreeSpot(params: { matchId: string; userId: string;
     }
 
     if (existing && existing.status === "RESERVED") {
+      const computedTeam = await resolveTeamForUser(tx, matchId, userId, {
+        requestedTeam: requestedTeam ?? existing.team ?? null,
+        ignoreSpotId: existing.id,
+      });
+      const finalTeam = (computedTeam ?? normalizeTeam(existing.team)) ?? null;
+      const finalPosition = requestedPosition ?? existing.position ?? null;
+
       const updated = await tx.spot.update({
         where: { id: existing.id },
         data: {
           status: "PAID",
           holdUntil: null,
-          team: team ?? existing.team ?? null,
-          position: position ?? existing.position ?? null,
+          team: finalTeam,
+          position: finalPosition,
         },
         select: { id: true },
       });
@@ -73,14 +61,16 @@ export async function confirmFreeSpot(params: { matchId: string; userId: string;
         select: { id: true },
       });
       if (!candidate) break;
+
+      const assignedTeam = await resolveTeamForUser(tx, matchId, userId, { requestedTeam });
       const updated = await tx.spot.updateMany({
         where: { id: candidate.id, status: "AVAILABLE" },
         data: {
           status: "PAID",
           userId,
           holdUntil: null,
-          team: team ?? null,
-          position: position ?? null,
+          team: assignedTeam,
+          position: requestedPosition ?? null,
         },
       });
       if (updated.count > 0) {

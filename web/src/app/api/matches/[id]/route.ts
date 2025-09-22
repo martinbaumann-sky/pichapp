@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { streetViewUrl } from "@/lib/places";
 import { buildStaticMapUrl } from "@/lib/maps";
@@ -81,7 +81,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       const user = prof ? { id: s.userId, name: prof.name, position: prof.position ?? null } : null;
       const position = s.position ?? (user ? user.position : null);
       const displayName = user?.name ?? `Jugador ${idx + 1}`;
-      return { user, userId: s.userId ?? null, displayName, position, team: s.team ?? null, status: s.status };
+      return {`n        spotId: s.id,`n        user,`n        userId: s.userId ?? null,`n        displayName,`n        position,`n        team: s.team ?? null,`n        status: s.status,`n      };
     });
 
     const viewerId = await getSessionUserId();
@@ -192,3 +192,4 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: err?.message ?? "Error al eliminar partido" }, { status: 500 });
   }
 }
+
