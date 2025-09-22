@@ -574,11 +574,17 @@ export default function MatchDetailPage(props: any) {
           <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 text-sm font-semibold shadow-sm">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
+              const baseClasses = "flex-1 rounded-full px-4 py-2 transition";
+              const palette = isActive
+                ? "bg-emerald-500 text-white shadow"
+                : "text-slate-500 hover:text-slate-900";
+
               return (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`${isActive ? "bg-emerald-500 text-white shadow" : "text-slate-500 hover:text-slate-900"} flex-1 rounded-full px-4 py-2 transition`}
+                  className={`${baseClasses} ${palette}`}
                 >
                   {tab.label}
                 </button>
