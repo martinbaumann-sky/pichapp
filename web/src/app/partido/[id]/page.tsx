@@ -7,20 +7,7 @@ import AddFriendButton from "@/components/AddFriendButton";
 import type { FriendStatus } from "@/lib/friendship";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  Calendar,
-  MapPin,
-  Users,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Share2,
-  MessageSquare,
-  Trash2,
-  Timer,
-  Pencil,
-} from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
