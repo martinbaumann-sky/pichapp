@@ -515,6 +515,310 @@ export default function MatchDetailPage() {
     { icon: Users, label: "Jugadores", value: `${minSpotsToConfirm} - ${totalSpots} jugadores` },
   ] as const;
 
+  const renderSummaryHeader = (showPrice: boolean) => (
+    <div className={`flex flex-col gap-6 md:flex-row md:items-start md:justify-between ${showPrice ? "" : "md:items-center"}`}>
+      <div className="space-y-4">
+        <p
+          className={`text-sm font-semibold uppercase tracking-wider ${
+            isFull ? "text-red-600" : isAlmostFull ? "text-amber-600" : "text-emerald-600"
+          }`}
+        >
+          {spotsHeadline}
+        </p>
+        <h2 className="text-3xl font-semibold leading-tight text-slate-900">{match.title}</h2>
+        {match.organizer ? (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-wide text-slate-500">Organiza</span>
+            <Link href={`/usuarios/${match.organizer.id}`} className="font-semibold text-slate-900 underline-offset-4 hover:underline">
+              {match.organizer.name}
+            </Link>
+            <AddFriendButton
+              targetId={match.organizer.id}
+              targetName={match.organizer.name}
+              initialStatus={initialFriendStatus}
+              initialFriendId={organizerFriendship.friendId ?? null}
+              size="sm"
+            />
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2 text-slate-600">
+          <MapPin className="h-4 w-4 text-emerald-600" />
+          <span>{match.venueName ? `${match.venueName}${match.comuna ? `, ${match.comuna}` : ""}` : match.comuna}</span>
+        </div>
+      </div>
+      {showPrice ? (
+        <div className="flex flex-col items-start md:items-end gap-3">
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+            {nivelES[match.level as keyof typeof nivelES]}
+          </span>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-right text-emerald-700 shadow-inner">
+            <p className="flex items-center justify-end gap-2 text-xs uppercase tracking-wide">Valor por cupo</p>
+            <p className="mt-2 text-2xl font-semibold">{priceLabel}</p>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const aboutSection = (
+    <section id={mapSectionId} className="mt-8">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
+        <div className="h-[420px] w-full bg-gray-100">
+          {match ? (
+            <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} />
+          ) : (
+            <div className="h-full w-full animate-pulse bg-gray-200" />
+          )}
+        </div>
+        <div className="p-6 sm:p-8 space-y-8">
+          {renderSummaryHeader(true)}
+          <div className="space-y-8" id="detalle">
+            <div>
+              <h3 className="mb-4 text-xl font-semibold text-slate-800">Resumen</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {overviewItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-slate-500">{item.label}</p>
+                          <p className="text-lg font-semibold text-slate-900">{item.value}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-800">Estado del partido</span>
+                  <span
+                    className={`${
+                      isFull
+                        ? "bg-red-100 text-red-700"
+                        : paidCount >= minSpotsToConfirm || match.isConfirmed
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-amber-100 text-amber-700"
+                    } rounded-full px-3 py-1 text-xs font-semibold`}
+                  >
+                    {matchStatusLabel}
+                  </span>
+                </div>
+                <span className="text-sm text-slate-600">
+                  {availableSpots} {availableSpots === 1 ? "cupo" : "cupos"} disponibles
+                </span>
+              </div>
+              <div className="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${Math.max(progressPercent, 4)}%` }} />
+                <div className="absolute inset-y-0 w-px bg-slate-400/70" style={{ left: `calc(${minMarkerPercent}% - 1px)` }} />
+                <div className="absolute -top-9 flex -translate-x-1/2 items-center" style={{ left: `calc(${chipPercent}% )` }}>
+                  <span className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow">
+                    {matchStatusLabel}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-between text-xs text-slate-500">
+                {statusSteps.map((step) => (
+                  <span key={step.key} className={step.reached ? "text-emerald-600 font-medium" : undefined}>
+                    {step.label}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-4 text-sm text-slate-600">
+                {match.isConfirmed
+                  ? "Te avisaremos 2 horas antes del partido."
+                  : spotsMissingForConfirmation > 0
+                    ? `Faltan ${spotsMissingForConfirmation} jugadores para confirmar. Te avisaremos 2 horas antes si se alcanza el minimo.`
+                    : "Te avisaremos 2 horas antes del partido."}
+              </p>
+            </div>
+
+            {description ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="mb-3 text-lg font-semibold text-slate-800">Sobre este partido</h3>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600">{description}</p>
+              </div>
+            ) : null}
+
+            <div className="space-y-3">
+              {(() => {
+                if (canOpenChat) {
+                  return (
+                    <button
+                      onClick={() => router.push(`/match/${id}/chat`)}
+                      className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-8 py-4 text-base font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                    >
+                      <MessageSquare className="h-5 w-5" />
+                      Abrir chat
+                    </button>
+                  );
+                }
+                if (!isFull) {
+                  return (
+                    <button
+                      onClick={startJoinFlow}
+                      disabled={joining}
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-8 py-4 text-base font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <CheckCircle className="h-5 w-5" />
+                      {joining ? "Confirmando..." : match.pricePerSpot > 0 ? `Tomar cupo - ${priceLabel}` : "Tomar cupo gratis"}
+                    </button>
+                  );
+                }
+                return (
+                  <div className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-100 px-8 py-4 text-base font-semibold text-slate-600">
+                    <AlertCircle className="h-5 w-5 text-amber-600" />
+                    Partido completo
+                  </div>
+                );
+              })()}
+              {viewer?.canDelete ? (
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-8 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:hidden"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deleting ? "Eliminando..." : "Eliminar partido"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const rosterSection = (
+    <section className="mt-8">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
+        <div className="p-6 sm:p-8 space-y-8">
+          {renderSummaryHeader(false)}
+          <div className="space-y-8" id="jugadores">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-800">Formaciones</h3>
+                  <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
+                </div>
+                {(() => {
+                  if (isFull) {
+                    return (
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                        Partido completo
+                      </span>
+                    );
+                  }
+                  if (viewer?.hasJoined) {
+                    return viewerTeamLabel ? (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                        Inscrito en el {viewerTeamLabel.toLowerCase()}
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                        Ya estás inscrito
+                      </span>
+                    );
+                  }
+                  return (
+                    <button
+                      onClick={startJoinFlow}
+                      disabled={joining}
+                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Elegir mi posición
+                    </button>
+                  );
+                })()}
+              </div>
+              <div className={`grid gap-6 ${formationData.teams.length > 1 ? "md:grid-cols-2" : ""}`}>
+                {formationData.teams.map((team) => (
+                  <FormationBoard
+                    key={team.team}
+                    teamLabel={team.label}
+                    formationName={team.formationName}
+                    slots={team.slots}
+                    bench={team.bench}
+                  />
+                ))}
+                {formationData.teams.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    Aún no hay formaciones disponibles para este partido.
+                  </div>
+                ) : null}
+              </div>
+              {viewer?.hasJoined && viewerTeamLabel ? (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                  Tu cupo está confirmado en el {viewerTeamLabel.toLowerCase()}.
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-800">Jugadores</h3>
+                  <p className="text-sm text-slate-500">Listado de confirmados y reservas</p>
+                </div>
+                <span className="text-sm text-slate-600">{paidCount} confirmados / {totalSpots} cupos</span>
+              </div>
+              <ul className="mt-6 space-y-3">
+                {(match.players ?? []).length > 0 ? (
+                  (match.players ?? []).map((p: any, idx: number) => {
+                    const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
+                    const isGuest = Boolean(p.isGuest);
+                    const nameLabel = isGuest ? `${playerName} (invitado)` : playerName;
+                    const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
+                    const normalizedTeam = normalizeTeam(p.team ?? p.user?.team ?? null);
+                    return (
+                      <li
+                        key={`${playerName}-${idx}`}
+                        className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex flex-wrap items-center gap-3 text-slate-800">
+                          <span className="font-semibold">{nameLabel}</span>
+                          {positionKey ? (
+                            <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
+                              {posicionES[positionKey]}
+                            </span>
+                          ) : null}
+                          {normalizedTeam ? (
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                normalizedTeam === "CLARO" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {normalizedTeam === "CLARO" ? "Claro" : "Oscuro"}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className={`text-sm font-medium ${p.status === "PAID" ? "text-emerald-600" : "text-slate-500"}`}>
+                          {p.status === "PAID" ? "Confirmado" : "Reservado"}
+                        </span>
+                      </li>
+                    );
+                  })
+                ) : (
+                  <li className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+                    Aún no hay jugadores inscritos.
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
@@ -550,12 +854,12 @@ export default function MatchDetailPage() {
               <button
                 onClick={() => {
                   setActiveTab("about");
-                  const el = document.getElementById(mapSectionId);
-                  if (el) {
-                    window.requestAnimationFrame(() => {
+                  window.requestAnimationFrame(() => {
+                    const el = document.getElementById(mapSectionId);
+                    if (el) {
                       el.scrollIntoView({ behavior: "smooth", block: "start" });
-                    });
-                  }
+                    }
+                  });
                 }}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
                 aria-label="Ver mapa"
@@ -591,281 +895,8 @@ export default function MatchDetailPage() {
       </header>
 
       <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 pb-20">
-        <section id={mapSectionId} className="mt-8">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
-            {showAbout ? (
-              <div className="h-[420px] w-full bg-gray-100">
-                {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-gray-200" />}
-              </div>
-            ) : null}
-            <div className="p-6 sm:p-8 space-y-8">
-              <div className={`flex flex-col gap-6 md:flex-row md:items-start md:justify-between ${showAbout ? "" : "md:items-center"}`}>
-                <div className="space-y-4">
-                  <p className={`text-sm font-semibold uppercase tracking-wider ${isFull ? "text-red-600" : isAlmostFull ? "text-amber-600" : "text-emerald-600"}`}>
-                    {spotsHeadline}
-                  </p>
-                  <h2 className="text-3xl font-semibold leading-tight text-slate-900">{match.title}</h2>
-                  {match.organizer ? (
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                      <span className="text-xs uppercase tracking-wide text-slate-500">Organiza</span>
-                      <Link href={`/usuarios/${match.organizer.id}`} className="font-semibold text-slate-900 underline-offset-4 hover:underline">
-                        {match.organizer.name}
-                      </Link>
-                      <AddFriendButton
-                        targetId={match.organizer.id}
-                        targetName={match.organizer.name}
-                        initialStatus={initialFriendStatus}
-                        initialFriendId={organizerFriendship.friendId ?? null}
-                        size="sm"
-                      />
-                    </div>
-                  ) : null}
-                  <div className="flex flex-wrap items-center gap-2 text-slate-600">
-                    <MapPin className="h-4 w-4 text-emerald-600" />
-                    <span>{match.venueName ? `${match.venueName}${match.comuna ? `, ${match.comuna}` : ""}` : match.comuna}</span>
-                  </div>
-                </div>
-                {showAbout ? (
-                  <div className="flex flex-col items-start md:items-end gap-3">
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
-                      {nivelES[match.level as keyof typeof nivelES]}
-                    </span>
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-right text-emerald-700 shadow-inner">
-                      <p className="flex items-center justify-end gap-2 text-xs uppercase tracking-wide">Valor por cupo</p>
-                      <p className="mt-2 text-2xl font-semibold">{priceLabel}</p>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className={showAbout ? "space-y-8" : "hidden"} id="detalle">
-                <div>
-                  <h3 className="mb-4 text-xl font-semibold text-slate-800">Resumen</h3>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {overviewItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                              <Icon className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-wide text-slate-500">{item.label}</p>
-                              <p className="text-lg font-semibold text-slate-900">{item.value}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-800">Estado del partido</span>
-                      <span className={`${isFull ? "bg-red-100 text-red-700" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"} rounded-full px-3 py-1 text-xs font-semibold`}>
-                        {matchStatusLabel}
-                      </span>
-                    </div>
-                    <span className="text-sm text-slate-600">{availableSpots} {availableSpots === 1 ? "cupo" : "cupos"} disponibles</span>
-                  </div>
-                  <div className="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${Math.max(progressPercent, 4)}%` }} />
-                    <div className="absolute inset-y-0 w-px bg-slate-400/70" style={{ left: `calc(${minMarkerPercent}% - 1px)` }} />
-                    <div className="absolute -top-9 flex -translate-x-1/2 items-center" style={{ left: `calc(${chipPercent}% )` }}>
-                      <span className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow">
-                        {matchStatusLabel}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex justify-between text-xs text-slate-500">
-                    {statusSteps.map((step) => (
-                      <span key={step.key} className={step.reached ? "text-emerald-600 font-medium" : undefined}>
-                        {step.label}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="mt-4 text-sm text-slate-600">
-                    {match.isConfirmed
-                      ? "Te avisaremos 2 horas antes del partido."
-                      : spotsMissingForConfirmation > 0
-                        ? `Faltan ${spotsMissingForConfirmation} jugadores para confirmar. Te avisaremos 2 horas antes si se alcanza el minimo.`
-                        : "Te avisaremos 2 horas antes del partido."}
-                  </p>
-                </div>
-
-                {description ? (
-                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <h3 className="mb-3 text-lg font-semibold text-slate-800">Sobre este partido</h3>
-                    <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600">{description}</p>
-                  </div>
-                ) : null}
-
-                <div className="space-y-3">
-                  {(() => {
-                    if (canOpenChat) {
-                      return (
-                        <button
-                          onClick={() => router.push(`/match/${id}/chat`)}
-                          className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-8 py-4 text-base font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                        >
-                          <MessageSquare className="h-5 w-5" />
-                          Abrir chat
-                        </button>
-                      );
-                    }
-                    if (!isFull) {
-                      return (
-                        <button
-                          onClick={startJoinFlow}
-                          disabled={joining}
-                          className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-8 py-4 text-base font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          <CheckCircle className="h-5 w-5" />
-                          {joining ? "Confirmando..." : match.pricePerSpot > 0 ? `Tomar cupo - ${priceLabel}` : "Tomar cupo gratis"}
-                        </button>
-                      );
-                    }
-                    return (
-                      <div className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-100 px-8 py-4 text-base font-semibold text-slate-600">
-                        <AlertCircle className="h-5 w-5 text-amber-600" />
-                        Partido completo
-                      </div>
-                    );
-                  })()}
-                  {viewer?.canDelete ? (
-                    <button
-                      onClick={handleDelete}
-                      disabled={deleting}
-                      className="flex w-full items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-8 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:hidden"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {deleting ? "Eliminando..." : "Eliminar partido"}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className={showRoster ? "space-y-8" : "hidden"} id="jugadores">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-xl font-semibold text-slate-800">Formaciones</h3>
-                      <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
-                    </div>
-                    {(() => {
-                      if (isFull) {
-                        return (
-                          <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
-                            Partido completo
-                          </span>
-                        );
-                      }
-                      if (viewer?.hasJoined) {
-                        return viewerTeamLabel ? (
-                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
-                            Inscrito en el {viewerTeamLabel.toLowerCase()}
-                          </span>
-                        ) : (
-                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
-                            Ya estás inscrito
-                          </span>
-                        );
-                      }
-                      return (
-                        <button
-                          onClick={startJoinFlow}
-                          disabled={joining}
-                          className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          <Pencil className="h-4 w-4" />
-                          Elegir mi posición
-                        </button>
-                      );
-                    })()}
-                  </div>
-                  <div className={`grid gap-6 ${formationData.teams.length > 1 ? "md:grid-cols-2" : ""}`}>
-                    {formationData.teams.map((team) => (
-                      <FormationBoard
-                        key={team.team}
-                        teamLabel={team.label}
-                        formationName={team.formationName}
-                        slots={team.slots}
-                        bench={team.bench}
-                      />
-                    ))}
-                    {formationData.teams.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                        Aún no hay formaciones disponibles para este partido.
-                      </div>
-                    ) : null}
-                  </div>
-                  {viewer?.hasJoined && viewerTeamLabel ? (
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                      Tu cupo está confirmado en el {viewerTeamLabel.toLowerCase()}.
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-xl font-semibold text-slate-800">Jugadores</h3>
-                      <p className="text-sm text-slate-500">Listado de confirmados y reservas</p>
-                    </div>
-                    <span className="text-sm text-slate-600">{paidCount} confirmados / {totalSpots} cupos</span>
-                  </div>
-                  <ul className="mt-6 space-y-3">
-                    {(match.players ?? []).length > 0 ? (
-                      (match.players ?? []).map((p: any, idx: number) => {
-                        const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
-                        const isGuest = Boolean(p.isGuest);
-                        const nameLabel = isGuest ? `${playerName} (invitado)` : playerName;
-                        const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
-                        const normalizedTeam = normalizeTeam(p.team ?? p.user?.team ?? null);
-                        return (
-                          <li
-                            key={`${playerName}-${idx}`}
-                            className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="flex flex-wrap items-center gap-3 text-slate-800">
-                              <span className="font-semibold">{nameLabel}</span>
-                              {positionKey ? (
-                                <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
-                                  {posicionES[positionKey]}
-                                </span>
-                              ) : null}
-                              {normalizedTeam ? (
-                                <span
-                                  className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                    normalizedTeam === "CLARO"
-                                      ? "bg-amber-100 text-amber-700"
-                                      : "bg-slate-200 text-slate-700"
-                                  }`}
-                                >
-                                  {normalizedTeam === "CLARO" ? "Claro" : "Oscuro"}
-                                </span>
-                              ) : null}
-                            </div>
-                            <span className={`text-sm font-medium ${p.status === "PAID" ? "text-emerald-600" : "text-slate-500"}`}>
-                              {p.status === "PAID" ? "Confirmado" : "Reservado"}
-                            </span>
-                          </li>
-                        );
-                      })
-                    ) : (
-                      <li className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-                        Aún no hay jugadores inscritos.
-                      </li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {showAbout ? aboutSection : null}
+        {showRoster ? rosterSection : null}
       </main>
 
       {toast && (
