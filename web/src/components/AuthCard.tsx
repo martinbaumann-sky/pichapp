@@ -14,8 +14,6 @@ type Props = {
   setName: (v: string) => void;
   comuna: string;
   setComuna: (v: string) => void;
-  position: string;
-  setPosition: (v: string) => void;
   showPassword: boolean;
   setShowPassword: (v: boolean) => void;
   loading: boolean;
@@ -35,8 +33,6 @@ export default function AuthCard({
   setName,
   comuna,
   setComuna,
-  position,
-  setPosition,
   showPassword,
   setShowPassword,
   loading,
@@ -72,9 +68,8 @@ export default function AuthCard({
 
         <form onSubmit={onSubmit} autoComplete="off" className="space-y-4">
           {tab === "signup" && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" className="input-field bg-white/5 text-white" />
-              <input value={position} onChange={(e) => setPosition(e.target.value)} placeholder="Posición (opcional)" className="input-field bg-white/5 text-white" />
             </div>
           )}
 

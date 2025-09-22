@@ -71,17 +71,33 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     const paidSpots = m.spots.filter((s: any) => s.status === "PAID");
     const userIds = Array.from(new Set(paidSpots.map((s: any) => s.userId).filter(Boolean)));
     let profiles: any[] = [];
+    let users: any[] = [];
     if (userIds.length > 0) {
-      profiles = await prisma.profile.findMany({ where: { userId: { in: userIds as any } } }).catch(() => []);
+      [profiles, users] = await Promise.all([
+        prisma.profile.findMany({ where: { userId: { in: userIds as any } } }).catch(() => []),
+        prisma.user.findMany({ where: { id: { in: userIds as any } }, select: { id: true, email: true } }).catch(() => []),
+      ]);
     }
     const profById: Record<string, any> = {};
     for (const p of profiles) profById[p.userId] = p;
+    const userEmailById: Record<string, string | null> = {};
+    for (const u of users) userEmailById[u.id] = u.email ?? null;
     const players = paidSpots.map((s: any, idx: number) => {
       const prof = s.userId ? profById[s.userId] : null;
       const user = prof ? { id: s.userId, name: prof.name, position: prof.position ?? null } : null;
       const position = s.position ?? (user ? user.position : null);
       const displayName = user?.name ?? `Jugador ${idx + 1}`;
-      return {`n        spotId: s.id,`n        user,`n        userId: s.userId ?? null,`n        displayName,`n        position,`n        team: s.team ?? null,`n        status: s.status,`n      };
+      const isGuest = user ? !userEmailById[user.id] : true;
+      return {
+        spotId: s.id,
+        user,
+        userId: s.userId ?? null,
+        displayName,
+        position,
+        team: s.team ?? null,
+        status: s.status,
+        isGuest,
+      };
     });
 
     const viewerId = await getSessionUserId();

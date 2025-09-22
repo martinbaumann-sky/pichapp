@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
     const name = String(body?.name || "").trim();
     const lastName = body?.lastName ? String(body.lastName) : null;
     const comuna = String(body?.comuna || "");
-    const position = body?.position ? String(body.position) : null;
     const rawPhone = body?.phone ? String(body.phone) : "";
     const defaultPhone = normalizeForStorage("+56 9 1234 5678") ?? "56900000000";
     const phone = normalizeForStorage(rawPhone) ?? defaultPhone;
@@ -58,7 +57,6 @@ export async function POST(req: NextRequest) {
             name: fullName || name,
             phone,
             comuna,
-            position: position as any,
           },
         },
       },

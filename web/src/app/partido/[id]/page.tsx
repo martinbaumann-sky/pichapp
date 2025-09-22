@@ -7,22 +7,33 @@ import AddFriendButton from "@/components/AddFriendButton";
 import type { FriendStatus } from "@/lib/friendship";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  Calendar,
-  MapPin,
-  Users,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Share2,
-  MessageSquare,
-  Trash2,
-  DollarSign,
-  Timer,\r\n  Pencil,\r\n} from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
-import\ \{\ sampleMatches\ }\ from\ "@/lib/samples";\r\nimport\ \{\ FormationBoard,\ type\ FormationPlayer,\ type\ FormationSlotView\ }\ from\ "@/components/match/FormationBoard";\r\nimport\ \{\ JoinFormationDialog,\ type\ JoinFormationTeam\ }\ from\ "@/components/match/JoinFormationDialog";\r\nimport\ \{\ assignPlayersToFormation,\ getFormationPreset\ }\ from\ "@/lib/formations";\r\nimport\ \{\ computeTeamCapacities,\ normalizeTeam,\ normalizePosition,\ TEAM_LABELS,\ type\ TeamKey,\ type\ PositionKey\ }\ from\ "@/lib/teams";
+import { sampleMatches } from "@/lib/samples";
+import { FormationBoard, type FormationPlayer, type FormationSlotView } from "@/components/match/FormationBoard";
+import { JoinFormationDialog, type JoinFormationTeam, type InviteFriendDraft } from "@/components/match/JoinFormationDialog";
+import { assignPlayersToFormation, getFormationPreset } from "@/lib/formations";
+import {
+  computeTeamCapacities,
+  normalizeTeam,
+  normalizePosition,
+  TEAM_LABELS,
+  TEAM_KEYS,
+  type TeamKey,
+  type PositionKey,
+} from "@/lib/teams";
+
+type NormalizedMatchPlayer = FormationPlayer & {
+  team: TeamKey | null;
+  status: string;
+};
+
+type FormationTeamView = JoinFormationTeam & {
+  availableSlots: number;
+  capacity: number;
+  totalPlayers: number;
+};
 
 export default function MatchDetailPage(props: any) {
   const routeParams = useParams() as any;
@@ -34,6 +45,17 @@ export default function MatchDetailPage(props: any) {
   const [activeTab, setActiveTab] = useState<"about" | "roster">("about");
   const { user } = useAuth();
   const router = useRouter();
+
+  const [joining, setJoining] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [joinSelectedTeam, setJoinSelectedTeam] = useState<TeamKey>("CLARO");
+  const [joinSelectedSlot, setJoinSelectedSlot] = useState<{ team: TeamKey; slotIndex: number; position: PositionKey } | null>(
+    null,
+  );
+  const [joinFriendCount, setJoinFriendCount] = useState(0);
+  const [joinFriends, setJoinFriends] = useState<InviteFriendDraft[]>([]);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const loadMatch = useCallback(async () => {
     setLoading(true);
@@ -70,38 +92,252 @@ export default function MatchDetailPage(props: any) {
     loadMatch();
   }, [loadMatch]);
 
-  const [joining, setJoining] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const formationData = useMemo(() => {
+    if (!match) {
+      return { teams: [] as FormationTeamView[], unassigned: [] as NormalizedMatchPlayer[] };
+    }
+    const capacities = computeTeamCapacities(match.totalSpots ?? 0);
+    const rawPlayers = Array.isArray(match.players) ? (match.players as any[]) : [];
+    const normalizedPlayers: NormalizedMatchPlayer[] = rawPlayers.map((player: any, idx: number) => {
+      const displayName =
+        typeof player.displayName === "string" && player.displayName.trim().length > 0
+          ? player.displayName
+          : player.user?.name ?? `Jugador ${idx + 1}`;
+      const position = normalizePosition(player.position ?? player.user?.position ?? null);
+      const team = normalizeTeam(player.team ?? player.user?.team ?? null);
+      return {
+        spotId: player.spotId ?? player.id ?? null,
+        userId: player.userId ?? player.user?.id ?? null,
+        displayName,
+        position,
+        team,
+        status: player.status ?? "PAID",
+      };
+    });
 
-  const handleJoin = async () => {
+    const playersByTeam: Record<TeamKey, NormalizedMatchPlayer[]> = {
+      CLARO: normalizedPlayers.filter((player) => player.team === "CLARO"),
+      OSCURO: normalizedPlayers.filter((player) => player.team === "OSCURO"),
+    };
+
+    const unassigned = normalizedPlayers.filter((player) => !player.team);
+
+    const teams = (TEAM_KEYS as readonly TeamKey[])
+      .map((teamKey) => {
+        const capacity = teamKey === "CLARO" ? capacities.claro : capacities.oscuro;
+        const players = playersByTeam[teamKey];
+        const shouldInclude = capacity > 0 || players.length > 0;
+        if (!shouldInclude) {
+          return null;
+        }
+        const effectiveSize = capacity > 0 ? capacity : Math.max(players.length, 1);
+        const preset = getFormationPreset(effectiveSize);
+        const assignment = assignPlayersToFormation(players, preset);
+        const allowNewPlayers = capacity > 0 && players.length < capacity;
+        const slots: FormationSlotView[] = assignment.slots.map((slot, index) => ({
+          index,
+          position: slot.position,
+          player: slot.player
+            ? {
+                spotId: slot.player.spotId ?? null,
+                userId: slot.player.userId ?? null,
+                displayName: slot.player.displayName,
+                position: slot.player.position ?? null,
+              }
+            : null,
+          isAvailable: allowNewPlayers && index < capacity && !slot.player,
+        }));
+        const bench: FormationPlayer[] = assignment.bench.map((player) => ({
+          spotId: player.spotId ?? null,
+          userId: player.userId ?? null,
+          displayName: player.displayName,
+          position: player.position ?? null,
+        }));
+        const availableSlots = slots.filter((slot) => slot.isAvailable).length;
+        return {
+          team: teamKey,
+          label: TEAM_LABELS[teamKey],
+          formationName: preset.name,
+          slots,
+          bench,
+          availableSlots,
+          capacity,
+          totalPlayers: players.length,
+        } as FormationTeamView;
+      })
+      .filter((team): team is FormationTeamView => team !== null);
+
+    return { teams, unassigned };
+  }, [match]);
+
+  const viewerTeamKey = useMemo(() => {
+    if (!user || !match) return null;
+    const players = Array.isArray(match.players) ? (match.players as any[]) : [];
+    const viewerSpot = players.find((player: any) => {
+      const candidateId = player.userId ?? player.user?.id ?? null;
+      return candidateId && candidateId === user.id;
+    });
+    if (!viewerSpot) return null;
+    return normalizeTeam(viewerSpot.team ?? viewerSpot.user?.team ?? null);
+  }, [match, user]);
+
+  const viewerTeamLabel = viewerTeamKey ? TEAM_LABELS[viewerTeamKey] : null;
+
+  const initializeJoinSelection = useCallback(() => {
+    const sorted = [...formationData.teams].sort((a, b) => b.availableSlots - a.availableSlots);
+    const preferred = sorted.find((team) => team.availableSlots > 0) ?? sorted[0] ?? null;
+    if (preferred) {
+      setJoinSelectedTeam(preferred.team);
+      const slot = preferred.slots.find((candidate) => candidate.isAvailable) ?? null;
+      if (slot) {
+        setJoinSelectedSlot({ team: preferred.team, slotIndex: slot.index, position: slot.position });
+        setJoinError(null);
+      } else {
+        setJoinSelectedSlot(null);
+        setJoinError("Este equipo ya está completo. Prueba con el otro equipo.");
+      }
+    } else {
+      setJoinSelectedTeam("CLARO");
+      setJoinSelectedSlot(null);
+      setJoinError("No quedan posiciones disponibles.");
+    }
+    setJoinFriendCount(0);
+    setJoinFriends([]);
+  }, [formationData]);
+
+  const startJoinFlow = useCallback(() => {
     if (!user) {
       setAuthOpen(true);
       return;
     }
+    initializeJoinSelection();
+    setJoinDialogOpen(true);
+  }, [user, initializeJoinSelection]);
+
+
+  const closeJoinDialog = useCallback(() => {
+    if (joining) return;
+    setJoinDialogOpen(false);
+    setJoinError(null);
+    setJoinSelectedSlot(null);
+    setJoinFriendCount(0);
+    setJoinFriends([]);
+  }, [joining]);
+
+  const handleSelectTeam = useCallback(
+    (team: TeamKey) => {
+      setJoinSelectedTeam(team);
+      const teamData = formationData.teams.find((candidate) => candidate.team === team);
+      if (teamData) {
+        const slot = teamData.slots.find((candidate) => candidate.isAvailable) ?? null;
+        if (slot) {
+          setJoinSelectedSlot({ team, slotIndex: slot.index, position: slot.position });
+          setJoinError(null);
+        } else {
+          setJoinSelectedSlot(null);
+          setJoinError("Este equipo ya está completo. Prueba con el otro equipo.");
+        }
+      } else {
+        setJoinSelectedSlot(null);
+      }
+    },
+    [formationData],
+  );
+
+  const handleSelectSlot = useCallback((team: TeamKey, slot: FormationSlotView) => {
+    setJoinSelectedTeam(team);
+    setJoinSelectedSlot({ team, slotIndex: slot.index, position: slot.position });
+    setJoinError(null);
+  }, []);
+
+  const handleConfirmJoin = useCallback(async () => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+    if (!joinSelectedSlot) {
+      setJoinError("Selecciona una posición disponible.");
+      return;
+    }
+    if (!friendsValid) {
+      setJoinError("Completa los datos de tus invitados antes de continuar.");
+      return;
+    }
     setJoining(true);
+    setJoinError(null);
     try {
+      const payloadFriends = friendEntries.map((friend) => ({
+        name: friend.name.trim(),
+        email: friend.email.trim(),
+        team: friend.team || null,
+        position: friend.position,
+      }));
       const res = await fetch(`/api/matches/${id}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          team: joinSelectedSlot.team,
+          position: joinSelectedSlot.position,
+          friends: payloadFriends,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.error || data?.message || "No se pudo confirmar el cupo");
       }
-      const successMessage = data?.message || (data?.alreadyJoined ? "Ya estabas inscrito en este partido." : "Cupo confirmado. Nos vemos en la cancha.");
+      const successMessage =
+        data?.message ||
+        (data?.alreadyJoined ? "Ya estabas inscrito en este partido." : "Cupo confirmado. Nos vemos en la cancha.");
       setToast(successMessage);
       setTimeout(() => setToast(null), 3000);
+      setJoinDialogOpen(false);
+      setJoinSelectedSlot(null);
+      setJoinFriendCount(0);
+      setJoinFriends([]);
       await loadMatch();
+      setActiveTab("roster");
     } catch (e: any) {
       const msg = e?.message ?? "No se pudo confirmar el cupo";
-      setToast(msg);
-      setTimeout(() => setToast(null), 3000);
+      setJoinError(msg);
     } finally {
       setJoining(false);
     }
-  };
+  }, [user, joinSelectedSlot, id, loadMatch, friendsValid, friendEntries]);
+
+  useEffect(() => {
+    if (!joinDialogOpen) return;
+    const teamData = formationData.teams.find((team) => team.team === joinSelectedTeam);
+    if (!teamData) {
+      if (formationData.teams.length > 0) {
+        initializeJoinSelection();
+      }
+      return;
+    }
+    if (joinSelectedSlot) {
+      const slotStillAvailable = teamData.slots.some(
+        (slot) => slot.index === joinSelectedSlot.slotIndex && slot.isAvailable,
+      );
+      if (!slotStillAvailable) {
+        if (teamData.availableSlots > 0) {
+          const nextSlot = teamData.slots.find((slot) => slot.isAvailable) ?? null;
+          if (nextSlot) {
+            setJoinSelectedSlot({ team: teamData.team, slotIndex: nextSlot.index, position: nextSlot.position });
+            setJoinError(null);
+          }
+        } else {
+          setJoinSelectedSlot(null);
+          setJoinError("Este equipo ya está completo. Prueba con el otro equipo.");
+        }
+      }
+    } else if (teamData.availableSlots > 0) {
+      const nextSlot = teamData.slots.find((slot) => slot.isAvailable) ?? null;
+      if (nextSlot) {
+        setJoinSelectedSlot({ team: teamData.team, slotIndex: nextSlot.index, position: nextSlot.position });
+        setJoinError(null);
+      }
+    }
+  }, [formationData, joinDialogOpen, joinSelectedSlot, joinSelectedTeam, initializeJoinSelection]);
 
   const handleDelete = async () => {
     if (!match?.viewer?.canDelete || deleting) return;
@@ -153,6 +389,50 @@ export default function MatchDetailPage(props: any) {
   const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
   const isFull = availableSpots === 0;
   const isAlmostFull = availableSpots <= 2;
+  const maxInvitableFriends = useMemo(() => Math.max(0, availableSpots - 1), [availableSpots]);
+
+  const handleFriendCountChange = useCallback(
+    (next: number) => {
+      const bounded = Math.max(0, Math.min(next, maxInvitableFriends));
+      setJoinFriendCount(bounded);
+      setJoinFriends((prev) => {
+        const draft = [...prev];
+        while (draft.length < bounded) {
+          draft.push({ name: "", email: "", team: "", position: "" });
+        }
+        return draft.slice(0, bounded);
+      });
+    },
+    [maxInvitableFriends],
+  );
+
+  const handleUpdateFriend = useCallback((index: number, draft: InviteFriendDraft) => {
+    setJoinFriends((prev) => {
+      const next = [...prev];
+      next[index] = draft;
+      return next;
+    });
+  }, []);
+
+  const friendEntries = useMemo(() => joinFriends.slice(0, joinFriendCount), [joinFriends, joinFriendCount]);
+
+  const friendsValid = useMemo(() => {
+    if (joinFriendCount === 0) return true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return friendEntries.every((friend) => {
+      const nameOk = friend.name.trim().length > 1;
+      const emailOk = emailRegex.test(friend.email.trim());
+      const positionOk = !!friend.position;
+      return nameOk && emailOk && positionOk;
+    });
+  }, [friendEntries, joinFriendCount]);
+
+  useEffect(() => {
+    if (joinFriendCount > maxInvitableFriends) {
+      setJoinFriendCount(maxInvitableFriends);
+      setJoinFriends((prev) => prev.slice(0, maxInvitableFriends));
+    }
+  }, [joinFriendCount, maxInvitableFriends]);
 
   if (loading) {
     return (
@@ -254,9 +534,12 @@ export default function MatchDetailPage(props: any) {
               ) : null}
               <button
                 onClick={() => {
+                  setActiveTab("about");
                   const el = document.getElementById(mapSectionId);
                   if (el) {
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    window.requestAnimationFrame(() => {
+                      el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    });
                   }
                 }}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
@@ -293,50 +576,52 @@ export default function MatchDetailPage(props: any) {
       </header>
 
       <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 pb-20">
-        <section id={mapSectionId} className="mt-8">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
-            <div className="h-[420px] w-full bg-gray-100">
-              {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-gray-200" />}
-            </div>
-            <div className="p-6 sm:p-8 space-y-8">
-              <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-                <div className="space-y-4">
-                  <p className={`text-sm font-semibold uppercase tracking-wider ${isFull ? "text-red-600" : isAlmostFull ? "text-amber-600" : "text-emerald-600"}`}>
-                    {spotsHeadline}
-                  </p>
-                  <h2 className="text-3xl font-semibold leading-tight text-slate-900">{match.title}</h2>
-                  {match.organizer ? (
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                      <span className="text-xs uppercase tracking-wide text-slate-500">Organiza</span>
-                      <Link href={`/usuarios/${match.organizer.id}`} className="font-semibold text-slate-900 underline-offset-4 hover:underline">
-                        {match.organizer.name}
-                      </Link>
-                      <AddFriendButton
-                        targetId={match.organizer.id}
-                        targetName={match.organizer.name}
-                        initialStatus={initialFriendStatus}
-                        initialFriendId={organizerFriendship.friendId ?? null}
-                        size="sm"
-                      />
-                    </div>
-                  ) : null}
-                  <div className="flex flex-wrap items-center gap-2 text-slate-600">
-                    <MapPin className="h-4 w-4 text-emerald-600" />
-                    <span>{match.venueName ? `${match.venueName}${match.comuna ? `, ${match.comuna}` : ""}` : match.comuna}</span>
-                  </div>
-                </div>
-                <div className="flex flex-col items-start md:items-end gap-3">
-                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
-                    {nivelES[match.level as keyof typeof nivelES]}
-                  </span>
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-right text-emerald-700 shadow-inner">
-                    <p className="flex items-center justify-end gap-2 text-xs uppercase tracking-wide">Valor por cupo</p>
-                    <p className="mt-2 text-2xl font-semibold">{priceLabel}</p>
-                  </div>
-                </div>
+        {activeTab === "about" ? (
+          <section id={mapSectionId} className="mt-8">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
+              <div className="h-[420px] w-full bg-gray-100">
+                {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-gray-200" />}
               </div>
+              <div className="p-6 sm:p-8 space-y-8">
+                <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-4">
+                    <p className={`text-sm font-semibold uppercase tracking-wider ${isFull ? "text-red-600" : isAlmostFull ? "text-amber-600" : "text-emerald-600"}`}>
+                      {spotsHeadline}
+                    </p>
+                    <h2 className="text-3xl font-semibold leading-tight text-slate-900">{match.title}</h2>
+                    {match.organizer ? (
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                        <span className="text-xs uppercase tracking-wide text-slate-500">Organiza</span>
+                        <Link href={`/usuarios/${match.organizer.id}`} className="font-semibold text-slate-900 underline-offset-4 hover:underline">
+                          {match.organizer.name}
+                        </Link>
+                        <AddFriendButton
+                          targetId={match.organizer.id}
+                          targetName={match.organizer.name}
+                          initialStatus={initialFriendStatus}
+                          initialFriendId={organizerFriendship.friendId ?? null}
+                          size="sm"
+                        />
+                      </div>
+                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2 text-slate-600">
+                      <MapPin className="h-4 w-4 text-emerald-600" />
+                      <span>{match.venueName ? `${match.venueName}${match.comuna ? `, ${match.comuna}` : ""}` : match.comuna}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-start md:items-end gap-3">
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+                      {nivelES[match.level as keyof typeof nivelES]}
+                    </span>
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-right text-emerald-700 shadow-inner">
+                      <p className="flex items-center justify-end gap-2 text-xs uppercase tracking-wide">Valor por cupo</p>
+                      <p className="mt-2 text-2xl font-semibold">{priceLabel}</p>
+                    </div>
+                  </div>
+                </div>
 
-              <div className={activeTab === "about" ? "space-y-8" : "hidden"} id="detalle">
+                <div className="space-y-8" id="detalle">
+                  <div>
                 <div>
                   <h3 className="mb-4 text-xl font-semibold text-slate-800">Resumen</h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -417,7 +702,7 @@ export default function MatchDetailPage(props: any) {
                     if (!isFull) {
                       return (
                         <button
-                          onClick={handleJoin}
+                          onClick={startJoinFlow}
                           disabled={joining}
                           className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-8 py-4 text-base font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
                         >
@@ -446,52 +731,127 @@ export default function MatchDetailPage(props: any) {
                 </div>
               </div>
 
-              <div className={activeTab === "roster" ? "space-y-8" : "hidden"} id="jugadores">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-xl font-semibold text-slate-800">Jugadores</h3>
-                      <p className="text-sm text-slate-500">Listado de confirmados y reservas</p>
-                    </div>
-                    <span className="text-sm text-slate-600">{paidCount} confirmados / {totalSpots} cupos</span>
-                  </div>
-                  <ul className="mt-6 space-y-3">
-                    {(match.players ?? []).length > 0 ? (
-                      (match.players ?? []).map((p: any, idx: number) => {
-                        const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
-                        const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
-                        return (
-                          <li key={`${playerName}-${idx}`} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex flex-wrap items-center gap-3 text-slate-800">
-                              <span className="font-semibold">{playerName}</span>
-                              {positionKey ? (
-                                <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
-                                  {posicionES[positionKey]}
-                                </span>
-                              ) : null}
-                              {p.team ? (
-                                <span className={`rounded-full px-3 py-1 text-xs font-medium ${p.team === "CLARO" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-700"}`}>
-                                  {p.team === "CLARO" ? "Claro" : "Oscuro"}
-                                </span>
-                              ) : null}
-                            </div>
-                            <span className={`text-sm font-medium ${p.status === "PAID" ? "text-emerald-600" : "text-slate-500"}`}>
-                              {p.status === "PAID" ? "Confirmado" : "Reservado"}
-                            </span>
-                          </li>
-                        );
-                      })
-                    ) : (
-                      <li className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-                        Aun no hay jugadores inscritos.
-                      </li>
-                    )}
-                  </ul>
-                </div>
               </div>
             </div>
           </div>
         </section>
+        ) : (
+          <section className="mt-8 space-y-6" id="jugadores">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-800">Formaciones</h3>
+                  <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
+                </div>
+                {(() => {
+                  if (isFull) {
+                    return (
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                        Partido completo
+                      </span>
+                    );
+                  }
+                  if (viewer?.hasJoined) {
+                    return viewerTeamLabel ? (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                        Inscrito en el {viewerTeamLabel.toLowerCase()}
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                        Ya estás inscrito
+                      </span>
+                    );
+                  }
+                  return (
+                    <button
+                      onClick={startJoinFlow}
+                      disabled={joining}
+                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Elegir mi posición
+                    </button>
+                  );
+                })()}
+              </div>
+              <div className={`grid gap-6 ${formationData.teams.length > 1 ? "md:grid-cols-2" : ""}`}>
+                {formationData.teams.map((team) => (
+                  <FormationBoard
+                    key={team.team}
+                    teamLabel={team.label}
+                    formationName={team.formationName}
+                    slots={team.slots}
+                    bench={team.bench}
+                  />
+                ))}
+                {formationData.teams.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    Aún no hay formaciones disponibles para este partido.
+                  </div>
+                ) : null}
+              </div>
+              {viewer?.hasJoined && viewerTeamLabel ? (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                  Tu cupo está confirmado en el {viewerTeamLabel.toLowerCase()}.
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-800">Jugadores</h3>
+                  <p className="text-sm text-slate-500">Listado de confirmados y reservas</p>
+                </div>
+                <span className="text-sm text-slate-600">{paidCount} confirmados / {totalSpots} cupos</span>
+              </div>
+              <ul className="mt-6 space-y-3">
+                {(match.players ?? []).length > 0 ? (
+                  (match.players ?? []).map((p: any, idx: number) => {
+                    const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
+                    const isGuest = Boolean(p.isGuest);
+                    const nameLabel = isGuest ? `${playerName} (invitado)` : playerName;
+                    const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
+                    const normalizedTeam = normalizeTeam(p.team ?? p.user?.team ?? null);
+                    return (
+                      <li
+                        key={`${playerName}-${idx}`}
+                        className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex flex-wrap items-center gap-3 text-slate-800">
+                          <span className="font-semibold">{nameLabel}</span>
+                          {positionKey ? (
+                            <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
+                              {posicionES[positionKey]}
+                            </span>
+                          ) : null}
+                          {normalizedTeam ? (
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                normalizedTeam === "CLARO"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {normalizedTeam === "CLARO" ? "Claro" : "Oscuro"}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className={`text-sm font-medium ${p.status === "PAID" ? "text-emerald-600" : "text-slate-500"}`}>
+                          {p.status === "PAID" ? "Confirmado" : "Reservado"}
+                        </span>
+                      </li>
+                    );
+                  })
+                ) : (
+                  <li className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+                    Aún no hay jugadores inscritos.
+                  </li>
+                )}
+              </ul>
+            </div>
+          </section>
+        )}
       </main>
 
       {toast && (
@@ -499,6 +859,26 @@ export default function MatchDetailPage(props: any) {
           {toast}
         </div>
       )}
+      <JoinFormationDialog
+        open={joinDialogOpen}
+        onClose={closeJoinDialog}
+        teams={formationData.teams}
+        selectedTeam={joinSelectedTeam}
+        onSelectTeam={handleSelectTeam}
+        selectedSlot={
+          joinSelectedSlot ? { team: joinSelectedSlot.team, slotIndex: joinSelectedSlot.slotIndex } : null
+        }
+        onSelectSlot={handleSelectSlot}
+        onConfirm={handleConfirmJoin}
+        confirmDisabled={!joinSelectedSlot || joining || !friendsValid}
+        loading={joining}
+        errorMessage={joinError}
+        maxFriends={maxInvitableFriends}
+        friendCount={joinFriendCount}
+        onFriendCountChange={handleFriendCountChange}
+        friends={joinFriends}
+        onUpdateFriend={handleUpdateFriend}
+      />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next={`/match/${id}`} />
     </div>
   );

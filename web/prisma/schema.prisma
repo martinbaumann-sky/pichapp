@@ -13,8 +13,6 @@ datasource db {
   provider = "postgresql"
   // Uses DATABASE_URL from your environment (.env)
   url       = env("DATABASE_URL")
-  // Optional: direct connection for migrations (recommended when using Accelerate/Data Proxy)
-  directUrl = env("DIRECT_URL")
 }
 
 /// Enums
@@ -98,6 +96,9 @@ model User {
 
   localPassword LocalPassword?
 
+  guestInvitesSent     GuestInvite[] @relation("GuestInviteInviter")
+  guestInvitesReceived GuestInvite[] @relation("GuestInviteGuest")
+
   // Friend relations
   friendsRequested Friend[] @relation("FriendRequester")
   friendsReceived  Friend[] @relation("FriendAddressee")
@@ -166,6 +167,7 @@ model Match {
   spots         Spot[]
   waitlist      WaitlistEntry[]
   payments      Payment[]
+  guestInvites  GuestInvite[]
 
   @@index([startsAt])
   @@index([comuna])
@@ -188,9 +190,31 @@ model Spot {
   match      Match       @relation(fields: [matchId], references: [id])
   user       User?       @relation(fields: [userId], references: [id])
   payment    Payment?    @relation("SpotPayment")
+  guestInvite GuestInvite?
 
   @@index([matchId, status])
   @@unique([matchId, userId])
+}
+
+model GuestInvite {
+  id          String    @id @default(uuid())
+  matchId     String
+  inviterId   String
+  guestUserId String
+  spotId      String   @unique
+  name        String
+  email       String
+  position    Position?
+  createdAt   DateTime @default(now())
+
+  match   Match @relation(fields: [matchId], references: [id])
+  inviter User  @relation("GuestInviteInviter", fields: [inviterId], references: [id])
+  guest   User  @relation("GuestInviteGuest", fields: [guestUserId], references: [id])
+  spot    Spot  @relation(fields: [spotId], references: [id])
+
+  @@index([matchId])
+  @@index([inviterId])
+  @@index([guestUserId])
 }
 
 model OrganizerRating {

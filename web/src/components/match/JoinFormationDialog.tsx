@@ -2,8 +2,17 @@
 
 import { Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import type { TeamKey } from "@/lib/teams";
+import type { PositionKey, TeamKey } from "@/lib/teams";
 import { FormationBoard, type FormationSlotView, type FormationPlayer } from "@/components/match/FormationBoard";
+import { TEAM_KEYS, TEAM_LABELS, POSITION_KEYS } from "@/lib/teams";
+import { posicionES } from "@/lib/i18n";
+
+export type InviteFriendDraft = {
+  name: string;
+  email: string;
+  team: TeamKey | "";
+  position: PositionKey | "";
+};
 
 export type JoinFormationTeam = {
   team: TeamKey;
@@ -27,6 +36,11 @@ export type JoinFormationDialogProps = {
   title?: string;
   description?: string;
   errorMessage?: string | null;
+  maxFriends?: number;
+  friendCount?: number;
+  onFriendCountChange?: (count: number) => void;
+  friends?: InviteFriendDraft[];
+  onUpdateFriend?: (index: number, draft: InviteFriendDraft) => void;
 };
 
 export function JoinFormationDialog({
@@ -43,7 +57,15 @@ export function JoinFormationDialog({
   title = "Elige tu posicion",
   description = "Selecciona equipo y posicion antes de confirmar tu cupo.",
   errorMessage = null,
+  maxFriends = 0,
+  friendCount = 0,
+  onFriendCountChange,
+  friends = [],
+  onUpdateFriend,
 }: JoinFormationDialogProps) {
+  const boundedFriendCount = Math.min(friendCount, maxFriends);
+  const canAdjustFriends = typeof onFriendCountChange === "function" && maxFriends > 0;
+
   return (
     <Transition.Root show={open} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={loading ? () => undefined : onClose}>
@@ -127,6 +149,108 @@ export function JoinFormationDialog({
                   {errorMessage ? (
                     <div className="rounded-full bg-red-100 px-4 py-2 text-center text-xs font-semibold text-red-700">
                       {errorMessage}
+                    </div>
+                  ) : null}
+
+                  {canAdjustFriends ? (
+                    <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h4 className="text-lg font-semibold text-slate-800">¿Quieres traer amigos?</h4>
+                          <p className="text-sm text-slate-500">Reserva cupos para tus invitados y asigna su posición.</p>
+                        </div>
+                        <div className="inline-flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => onFriendCountChange?.(Math.max(0, boundedFriendCount - 1))}
+                            disabled={boundedFriendCount <= 0 || loading}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 disabled:opacity-40"
+                            aria-label="Reducir invitados"
+                          >
+                            -
+                          </button>
+                          <span className="min-w-[2rem] text-center text-sm font-semibold text-slate-700">
+                            {boundedFriendCount}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onFriendCountChange?.(Math.min(maxFriends, boundedFriendCount + 1))}
+                            disabled={boundedFriendCount >= maxFriends || loading}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 disabled:opacity-40"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {boundedFriendCount > 0 ? (
+                        <div className="space-y-4">
+                          {friends.slice(0, boundedFriendCount).map((friend, idx) => (
+                            <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-4">
+                              <div className="mb-3 flex items-center justify-between">
+                                <p className="text-sm font-semibold text-slate-700">Invitado {idx + 1}</p>
+                                <span className="text-xs text-slate-400">Completa sus datos</span>
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="sm:col-span-2">
+                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</label>
+                                  <input
+                                    type="text"
+                                    value={friend.name}
+                                    onChange={(e) => onUpdateFriend?.(idx, { ...friend, name: e.target.value })}
+                                    placeholder="Nombre de tu amigo"
+                                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                                  />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Correo</label>
+                                  <input
+                                    type="email"
+                                    value={friend.email}
+                                    onChange={(e) => onUpdateFriend?.(idx, { ...friend, email: e.target.value })}
+                                    placeholder="amigo@correo.com"
+                                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Equipo</label>
+                                  <select
+                                    value={friend.team}
+                                    onChange={(e) => onUpdateFriend?.(idx, { ...friend, team: (e.target.value as TeamKey) || "" })}
+                                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                                  >
+                                    <option value="">Asignar automáticamente</option>
+                                    {TEAM_KEYS.map((key) => (
+                                      <option key={key} value={key}>
+                                        {TEAM_LABELS[key]}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Posición</label>
+                                  <select
+                                    value={friend.position}
+                                    onChange={(e) => onUpdateFriend?.(idx, { ...friend, position: (e.target.value as PositionKey) || "" })}
+                                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                                  >
+                                    <option value="">Seleccionar posición</option>
+                                    {POSITION_KEYS.filter((key) => key !== "ARQUERO").map((key) => (
+                                      <option key={key} value={key}>
+                                        {posicionES[key]}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      <p className="text-xs text-slate-400">
+                        Puedes invitar hasta {maxFriends} amigo{maxFriends === 1 ? "" : "s"} según los cupos disponibles.
+                      </p>
                     </div>
                   ) : null}
 
