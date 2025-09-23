@@ -67,7 +67,7 @@ export default function MatchDetailPage() {
         const data = await res.json();
         setMatch(data);
       } else {
-        const fallback = sampleMatches().find((m: any) => m.id === id);
+        const fallback: any = sampleMatches().find((m: any) => m.id === id);
         if (fallback) {
           setMatch({
             ...fallback,
@@ -77,7 +77,7 @@ export default function MatchDetailPage() {
         }
       }
     } catch (error) {
-      const fallback = sampleMatches().find((m: any) => m.id === id);
+      const fallback: any = sampleMatches().find((m: any) => m.id === id);
       if (fallback) {
         setMatch({
           ...fallback,
@@ -261,14 +261,22 @@ export default function MatchDetailPage() {
       setJoinError("Selecciona una posición disponible.");
       return;
     }
-    if (!friendsValid) {
+    const localFriendEntries = joinFriends.slice(0, joinFriendCount);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const localFriendsValid = joinFriendCount === 0 || localFriendEntries.every((friend) => {
+      const nameOk = friend.name.trim().length > 1;
+      const emailOk = emailRegex.test(friend.email.trim());
+      const positionOk = !!friend.position;
+      return nameOk && emailOk && positionOk;
+    });
+    if (!localFriendsValid) {
       setJoinError("Completa los datos de tus invitados antes de continuar.");
       return;
     }
     setJoining(true);
     setJoinError(null);
     try {
-      const payloadFriends = friendEntries.map((friend) => ({
+      const payloadFriends = localFriendEntries.map((friend) => ({
         name: friend.name.trim(),
         email: friend.email.trim(),
         team: friend.team || null,
@@ -305,7 +313,7 @@ export default function MatchDetailPage() {
     } finally {
       setJoining(false);
     }
-  }, [user, joinSelectedSlot, id, loadMatch, friendsValid, friendEntries]);
+  }, [user, joinSelectedSlot, id, loadMatch, joinFriends, joinFriendCount]);
 
   useEffect(() => {
     if (!joinDialogOpen) return;
