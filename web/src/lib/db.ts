@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import { getPrisma as getLazyPrisma } from "./prisma";
 
 const shouldSkipValidation =
   process.env.SKIP_PRISMA_ENV_VALIDATION === "1" ||
@@ -71,7 +72,7 @@ const getPrismaClient = () => {
   runEnsureColumnScript();
 
   if (!globalAny.__prisma__) {
-    globalAny.__prisma__ = new PrismaClient();
+    globalAny.__prisma__ = getLazyPrisma();
   }
 
   return globalAny.__prisma__;
