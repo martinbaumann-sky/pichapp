@@ -58,6 +58,8 @@ export default function MatchDetailPage() {
   const [joinFriendCount, setJoinFriendCount] = useState(0);
   const [joinFriends, setJoinFriends] = useState<InviteFriendDraft[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteTempCount, setInviteTempCount] = useState(0);
 
   const loadMatch = useCallback(async () => {
     setLoading(true);
@@ -185,6 +187,18 @@ export default function MatchDetailPage() {
 
   const viewerTeamLabel = viewerTeamKey ? TEAM_LABELS[viewerTeamKey] : null;
 
+  // Metrics needed across multiple callbacks
+  const totalSpots = Math.max(match?.totalSpots ?? 1, 1);
+  const minSpotsToConfirm = Math.max(match?.minSpotsToConfirm ?? totalSpots, 1);
+  const paidCount = match?.paid ?? 0;
+  const availableSpots = match?.available ?? 0;
+  const progressPercent = Math.min(100, (paidCount / totalSpots) * 100);
+  const minMarkerPercent = Math.min(100, (minSpotsToConfirm / totalSpots) * 100);
+  const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
+  const isFull = availableSpots === 0;
+  const isAlmostFull = availableSpots <= 2;
+  const maxInvitableFriends = useMemo(() => Math.max(0, availableSpots - 1), [availableSpots]);
+
   const initializeJoinSelection = useCallback(() => {
     const sorted = [...formationData.teams].sort((a, b) => b.availableSlots - a.availableSlots);
     const preferred = sorted.find((team) => team.availableSlots > 0) ?? sorted[0] ?? null;
@@ -212,9 +226,24 @@ export default function MatchDetailPage() {
       setAuthOpen(true);
       return;
     }
+    setInviteTempCount(0);
+    setInviteDialogOpen(true);
+  }, [user]);
+
+  const proceedFromInvite = useCallback(() => {
     initializeJoinSelection();
+    const bounded = Math.max(0, Math.min(inviteTempCount, maxInvitableFriends));
+    setJoinFriendCount(bounded);
+    setJoinFriends((prev) => {
+      const next = [...prev];
+      while (next.length < bounded) {
+        next.push({ name: "", email: "", team: "", position: "" });
+      }
+      return next.slice(0, bounded);
+    });
+    setInviteDialogOpen(false);
     setJoinDialogOpen(true);
-  }, [user, initializeJoinSelection]);
+  }, [initializeJoinSelection, inviteTempCount, maxInvitableFriends]);
 
 
   const closeJoinDialog = useCallback(() => {
@@ -390,16 +419,58 @@ export default function MatchDetailPage() {
     }
   };
 
-  const totalSpots = Math.max(match?.totalSpots ?? 1, 1);
-  const minSpotsToConfirm = Math.max(match?.minSpotsToConfirm ?? totalSpots, 1);
-  const paidCount = match?.paid ?? 0;
-  const availableSpots = match?.available ?? 0;
-  const progressPercent = Math.min(100, (paidCount / totalSpots) * 100);
-  const minMarkerPercent = Math.min(100, (minSpotsToConfirm / totalSpots) * 100);
-  const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
-  const isFull = availableSpots === 0;
-  const isAlmostFull = availableSpots <= 2;
-  const maxInvitableFriends = useMemo(() => Math.max(0, availableSpots - 1), [availableSpots]);
+  const handleLeave = useCallback(async () => {
+    if (!user || !match) {
+      setAuthOpen(true);
+      return;
+    }
+    const startsAt = match.startsAt ? new Date(match.startsAt) : null;
+    const withinCutoff = (() => {
+      if (!startsAt) return false;
+      const msUntil = startsAt.getTime() - Date.now();
+      return msUntil < 2 * 60 * 60 * 1000;
+    })();
+    if (withinCutoff) {
+      setToast("Ya no puedes bajarte. Faltan menos de 2 horas.");
+      setTimeout(() => setToast(null), 2500);
+      return;
+    }
+    const message = "Si te bajas, también se darán de baja tus invitados y se liberarán sus cupos. ¿Confirmas?";
+    const confirmed = typeof window !== "undefined" ? window.confirm(message) : true;
+    if (!confirmed) return;
+    try {
+      // Optimistic UI: marcar como no inscrito de inmediato
+      const prev = match;
+      setMatch((m: any) => {
+        if (!m) return m;
+        const nextPaid = Math.max(0, (m.paid ?? 0) - 1);
+        const nextAvailable = (m.available ?? 0) + 1;
+        const filteredPlayers = Array.isArray(m.players)
+          ? (m.players as any[]).filter((p) => (p.userId ?? p.user?.id) !== user.id)
+          : [];
+        return {
+          ...m,
+          paid: nextPaid,
+          available: nextAvailable,
+          players: filteredPlayers,
+          viewer: { ...(m.viewer ?? {}), hasJoined: false },
+        };
+      });
+      const res = await fetch(`/api/matches/${id}/leave`, { method: "POST", credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "No se pudo bajar del partido");
+      setToast(data?.message || "Te bajaste del partido");
+      setTimeout(() => setToast(null), 2500);
+      await loadMatch();
+    } catch (e: any) {
+      // Revert on error
+      await loadMatch();
+      setToast(e?.message || "No se pudo bajar del partido");
+      setTimeout(() => setToast(null), 2500);
+    }
+  }, [user, match, id, loadMatch]);
+
+  
 
   const handleFriendCountChange = useCallback(
     (next: number) => {
@@ -498,6 +569,18 @@ export default function MatchDetailPage() {
   const matchStatusLabel = isFull ? "Partido completo" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "Partido confirmado" : "En confirmacion";
   const chipPercent = isFull ? 100 : paidCount >= minSpotsToConfirm || match.isConfirmed ? Math.max(minMarkerPercent, progressPercent) : progressPercent;
   const description = (match.description ?? match.details ?? match.notes ?? "") as string;
+  const addressLabel = match.venueAddress || match.venueName || match.comuna || "Ubicación por confirmar";
+  const hasCoords = match.lat != null && match.lng != null && !isNaN(Number(match.lat)) && !isNaN(Number(match.lng));
+  const coordsString = hasCoords ? `${match.lat},${match.lng}` : null;
+  const directionsHref = (() => {
+    const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const destination = coordsString ?? addressLabel;
+    if (!destination) return undefined;
+    if (isIOS) {
+      return `http://maps.apple.com/?daddr=${encodeURIComponent(destination)}`;
+    }
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`;
+  })();
   const statusSteps = [
     { key: "scheduled", label: "Agendado", reached: true },
     { key: "confirmed", label: "Confirmado", reached: paidCount >= minSpotsToConfirm || !!match.isConfirmed },
@@ -587,12 +670,146 @@ export default function MatchDetailPage() {
 
       <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 pb-20">
         {activeTab === "about" ? (
-          <section id={mapSectionId} className="mt-8">
+          <section id={mapSectionId} className="mt-8 space-y-6">
             <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
               <div className="h-[420px] w-full bg-gray-100">
                 {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-gray-200" />}
               </div>
             </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-800">¿Quieres jugar?</h3>
+                  <p className="text-sm text-slate-500">Reserva tu cupo. Podrás invitar amigos en el siguiente paso.</p>
+                </div>
+                {(() => {
+                  if (isFull) {
+                    return (
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">Partido completo</span>
+                    );
+                  }
+                  if (viewer?.hasJoined) {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleLeave}
+                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Bajarse del partido
+                        </button>
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">Ya estás inscrito</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <button
+                      onClick={startJoinFlow}
+                      disabled={joining}
+                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      Tomar cupo
+                    </button>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-800">{match.title ?? "Partido"}</h2>
+                  <p className="text-sm text-slate-500 flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-emerald-600" />
+                    <span className="truncate max-w-[70vw] sm:max-w-[60ch]">
+                      {addressLabel}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {directionsHref ? (
+                    <a
+                      href={directionsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      <MapPin className="h-4 w-4" />
+                      Cómo llegar
+                    </a>
+                  ) : null}
+                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${isFull ? "bg-slate-100 text-slate-700 border border-slate-200" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
+                    {matchStatusLabel}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {overviewItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <item.icon className="h-5 w-5 text-emerald-600" />
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{item.label}</p>
+                      <p className="font-medium text-slate-800">{item.value}</p>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white text-[10px] font-bold">$</span>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Valor</p>
+                    <p className="font-medium text-slate-800">{priceLabel}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <MapPin className="h-5 w-5 text-emerald-600" />
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Dirección</p>
+                    <p className="font-medium text-slate-800 leading-snug" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {addressLabel}
+                    </p>
+                    {directionsHref ? (
+                      <a href={directionsHref} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold text-emerald-700 hover:underline">Cómo llegar</a>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <Users className="h-5 w-5 text-emerald-600" />
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Cupos</p>
+                    <p className="font-medium text-slate-800">{paidCount} / {totalSpots}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className={`font-medium ${isFull ? "text-slate-700" : isAlmostFull ? "text-amber-700" : "text-emerald-700"}`}>{spotsHeadline}</span>
+                  {spotsMissingForConfirmation > 0 && !match.isConfirmed ? (
+                    <span className="text-xs text-slate-500">Faltan {spotsMissingForConfirmation} para confirmar</span>
+                  ) : null}
+                </div>
+                <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="absolute left-0 top-0 h-full bg-emerald-500 transition-all" style={{ width: `${chipPercent}%` }} />
+                  <div className="absolute left-0 top-0 h-full bg-emerald-200 opacity-50" style={{ width: `${progressPercent}%` }} />
+                  <div className="absolute top-1/2 h-5 -translate-y-1/2" style={{ left: `calc(${minMarkerPercent}% - 0.5rem)` }}>
+                    <div className="h-5 w-5 rounded-full border-2 border-white bg-amber-500 shadow" title="Mínimo para confirmar" />
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                  <span>Agendado</span>
+                  <span>Confirmado</span>
+                  <span>Completo</span>
+                </div>
+              </div>
+            </div>
+
+            {description ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-slate-800">Descripción</h3>
+                <p className="mt-2 whitespace-pre-wrap text-slate-700">{description}</p>
+              </div>
+            ) : null}
           </section>
         ) : (
           <section className="mt-8 space-y-6" id="jugadores">
@@ -738,6 +955,54 @@ export default function MatchDetailPage() {
         friends={joinFriends}
         onUpdateFriend={handleUpdateFriend}
       />
+      {inviteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setInviteDialogOpen(false)} />
+          <div className="relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-slate-800">¿Quieres invitar amigos?</h3>
+            <p className="mt-1 text-sm text-slate-600">Elige cuántos amigos traerás además de tu cupo.</p>
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={() => setInviteTempCount(Math.max(0, inviteTempCount - 1))}
+                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
+                aria-label="disminuir"
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min={0}
+                max={maxInvitableFriends}
+                value={inviteTempCount}
+                onChange={(e) => setInviteTempCount(Math.max(0, Math.min(Number(e.target.value) || 0, maxInvitableFriends)))}
+                className="w-20 rounded-lg border border-slate-200 bg-white p-2 text-center text-slate-800"
+              />
+              <button
+                onClick={() => setInviteTempCount(Math.min(maxInvitableFriends, inviteTempCount + 1))}
+                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
+                aria-label="aumentar"
+              >
+                +
+              </button>
+              <span className="text-sm text-slate-500">máx. {maxInvitableFriends}</span>
+            </div>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setInviteDialogOpen(false)}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={proceedFromInvite}
+                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
+              >
+                Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next={`/match/${id}`} />
     </div>
   );
