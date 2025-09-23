@@ -15,25 +15,14 @@ function makePreset(code: string, slots: PositionKey[]): FormationPreset {
 }
 
 const PRESETS: Record<number, FormationPreset> = {
-<<<<<<< HEAD
   4: makePreset("1-1-1", ["ARQUERO", "DEFENSA", "VOLANTE", "DELANTERO"]),
   5: makePreset("2-1-1", ["ARQUERO", "DEFENSA", "DEFENSA", "VOLANTE", "DELANTERO"]),
   6: makePreset("2-2-1", ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "DELANTERO"]),
-  7: makePreset("3-2-1", ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "DELANTERO"]),
-  8: makePreset("3-3-1", ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO"]),
+  7: makePreset("2-2-2", ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "LATERAL", "VOLANTE", "VOLANTE", "DELANTERO"]),
+  8: makePreset("3-2-2", ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "DELANTERO", "DELANTERO"]),
   9: makePreset("3-3-2", ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO", "DELANTERO"]),
   10: makePreset("3-4-2", ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO", "DELANTERO"]),
   11: makePreset("4-3-3", ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO", "DELANTERO", "DELANTERO"]),
-=======
-  4: { code: "1-1-1", name: "1-1-1", slots: ["ARQUERO", "DEFENSA", "VOLANTE", "DELANTERO"] },
-  5: { code: "2-1-1", name: "2-1-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "VOLANTE", "DELANTERO"] },
-  6: { code: "2-2-1", name: "2-2-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "DELANTERO"] },
-  7: { code: "3-2-1", name: "3-2-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "DELANTERO"] },
-  8: { code: "3-3-1", name: "3-3-1", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO"] },
-  9: { code: "3-3-2", name: "3-3-2", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO", "DELANTERO"] },
-  10: { code: "3-4-2", name: "3-4-2", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO", "DELANTERO"] },
-  11: { code: "4-3-3", name: "4-3-3", slots: ["ARQUERO", "DEFENSA", "DEFENSA", "LATERAL", "LATERAL", "VOLANTE", "VOLANTE", "VOLANTE", "DELANTERO", "DELANTERO", "DELANTERO"] },
->>>>>>> 798dfd9d32fbb69361c0dfa6ccaad19804205fcf
 };
 
 const FALLBACK_SLOTS = Array.from(POSITION_KEYS) as PositionKey[];

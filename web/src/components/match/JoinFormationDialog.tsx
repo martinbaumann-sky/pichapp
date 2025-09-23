@@ -165,14 +165,9 @@ export function JoinFormationDialog({
                             onClick={() => onFriendCountChange?.(Math.max(0, boundedFriendCount - 1))}
                             disabled={boundedFriendCount <= 0 || loading}
                             className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 disabled:opacity-40"
-<<<<<<< HEAD
                             aria-label="Reducir invitados"
                           >
                             -
-=======
-                          >
-                            −
->>>>>>> 798dfd9d32fbb69361c0dfa6ccaad19804205fcf
                           </button>
                           <span className="min-w-[2rem] text-center text-sm font-semibold text-slate-700">
                             {boundedFriendCount}

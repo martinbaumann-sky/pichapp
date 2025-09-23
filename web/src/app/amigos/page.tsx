@@ -37,17 +37,12 @@ export default function AmigosPage() {
       fetch('/api/friends?status=ACCEPTED', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ items: [] })),
       fetch('/api/friends?pending=incoming', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ items: [] })),
     ]);
-<<<<<<< HEAD
     const acceptedItems = Array.isArray(acc.items) ? (acc.items as FriendItem[]) : [];
     const incomingItems = Array.isArray(inc.items)
       ? (inc.items as FriendItem[]).filter((item) => !item.isRequester)
       : [];
     setFriends(acceptedItems);
     setIncoming(incomingItems);
-=======
-    setFriends(acc.items || []);
-    setIncoming(inc.items || []);
->>>>>>> 798dfd9d32fbb69361c0dfa6ccaad19804205fcf
   };
 
   useEffect(() => { if (user) refresh(); }, [user]);
