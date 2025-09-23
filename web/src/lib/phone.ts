@@ -1,26 +1,36 @@
+export const normalizePhone = (input: string): string => (input ? String(input).replace(/\D+/g, "") : "");
+
+export const formatPhoneCL = (value: string): string => {
+  const digits = normalizePhone(value);
+  if (!digits) return "";
+  const local = digits.length > 9 ? digits.slice(-9) : digits;
+  if (local.length < 9) {
+    return local;
+  }
+
+  const prefix = digits.length > 9 ? `+${digits.slice(0, digits.length - 9)} ` : "+56 ";
+  const first = local.charAt(0);
+  const middle = local.slice(1, 5);
+  const end = local.slice(5);
+  return `${prefix}${first} ${middle} ${end}`.trim();
+};
+
 export function digitsOnly(input: string): string {
-  return String(input || "").replace(/\D+/g, "");
+  return normalizePhone(input);
 }
 
 // Returns the last 9 digits (Chile local) to compare flexibly
 export function last9(input: string): string {
-  const d = digitsOnly(input);
-  return d.slice(-9);
+  return normalizePhone(input).slice(-9);
 }
 
 export function normalizeForDisplay(phone: string): string {
-  const d = digitsOnly(phone);
-  if (d.length >= 9) {
-    const nine = d.slice(-9);
-    // Format as +56 9 XXXX XXXX if possible
-    const cc = d.length > 9 ? "+" + d.slice(0, d.length - 9) + " " : "+56 ";
-    return `${cc}${nine[0]} ${nine.slice(1,5)} ${nine.slice(5)}`;
-  }
-  return phone;
+  const formatted = formatPhoneCL(phone);
+  return formatted || phone;
 }
 
 export function normalizeForStorage(phone: string): string | null {
-  const digits = digitsOnly(phone);
+  const digits = normalizePhone(phone);
   if (digits.length < 7) return null;
   if (digits.length > 11) {
     return digits.slice(-11);
@@ -32,7 +42,7 @@ export function matchesByLastDigits(phone: string | null | undefined, target: st
   if (!phone) return false;
   const normalizedTarget = last9(target);
   if (normalizedTarget.length === 0) return false;
-  const candidate = digitsOnly(phone);
+  const candidate = normalizePhone(phone);
   if (candidate.length < normalizedTarget.length) return false;
   return candidate.endsWith(normalizedTarget);
 }
