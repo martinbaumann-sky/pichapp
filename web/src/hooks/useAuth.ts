@@ -44,7 +44,12 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     try {
-      await fetch("/api/auth/local/signout", { method: "POST" });
+      const res = await fetch("/api/auth/signout", { method: "POST", credentials: "include" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        const message = payload?.error || `HTTP ${res.status}`;
+        throw new Error(message);
+      }
       setUser(null);
       if (typeof window !== "undefined") {
         window.location.href = "/";

@@ -5,6 +5,7 @@ import { createMatchSchema, listMatchesSchema } from "@/lib/validator";
 import { requireUserId } from "@/lib/auth";
 import { streetViewUrl, searchPlace, extractComunaFromText } from "@/lib/places";
 import { buildStaticMapUrl } from "@/lib/maps";
+import { normalizeForStorage } from "@/lib/phone";
 
 export const runtime = 'nodejs';
 
@@ -31,9 +32,10 @@ export async function POST(req: NextRequest) {
       .filter((p: any) => p && typeof p === 'object' && String(p.name || '').trim().length > 0)
       .map((p: any) => {
         const pos = String(p.position || '').trim().toUpperCase();
+        const normalizedPhone = typeof p.phone === 'string' ? normalizeForStorage(p.phone) : null;
         return {
           name: String(p.name).trim(),
-          phone: p.phone ? String(p.phone).trim() : undefined,
+          phone: normalizedPhone ?? undefined,
           email: p.email ? String(p.email).trim() : undefined,
           position: allowedPositions.has(pos) ? pos : undefined,
           team: p.team ? String(p.team).trim() : undefined,
@@ -154,7 +156,7 @@ export async function POST(req: NextRequest) {
             await prisma.$executeRaw`INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${null}, ${false})`;
             const newProfileId = crypto.randomUUID();
             const name = player?.name ? String(player.name) : `Jugador ${i + 1}`;
-            const phone = player?.phone ? String(player.phone) : "";
+            const phone = player?.phone ? normalizeForStorage(player.phone) : null;
             const position = player?.position ? String(player.position) : null;
             await prisma.$executeRaw`INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${name}, ${phone}, ${match.comuna || ""}, ${position}::"Position")`;
             await prisma.spot.update({ where: { id: spot.id }, data: { status: "PAID", userId: newUserId, team: player?.team ?? null, position } });
