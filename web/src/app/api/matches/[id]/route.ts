@@ -21,6 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           id: true,
           title: true,
           organizerId: true,
+          organizer: { select: { id: true, profile: { select: { name: true } } } },
           comuna: true,
           startsAt: true,
           durationMins: true,
@@ -33,17 +34,33 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           lat: true,
           lng: true,
           coverImageUrl: true,
-          spots: { select: { id: true, status: true, userId: true, position: true, team: true } },
+          spots: {
+            select: {
+              id: true,
+              status: true,
+              userId: true,
+              position: true,
+              team: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  profile: { select: { name: true, position: true } },
+                },
+              },
+              guestInvite: { select: { inviterId: true, guestUserId: true } },
+            },
+          },
         },
       });
     } catch {
-      // Fallback para clientes sin regenerar: reintentar sin el campo
       m = await prisma.match.findUnique({
         where: { id },
         select: {
           id: true,
           title: true,
           organizerId: true,
+          organizer: { select: { id: true, profile: { select: { name: true } } } },
           comuna: true,
           startsAt: true,
           durationMins: true,
@@ -55,13 +72,29 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           lat: true,
           lng: true,
           coverImageUrl: true,
-          spots: { select: { id: true, status: true, userId: true, position: true, team: true } },
+          spots: {
+            select: {
+              id: true,
+              status: true,
+              userId: true,
+              position: true,
+              team: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  profile: { select: { name: true, position: true } },
+                },
+              },
+              guestInvite: { select: { inviterId: true, guestUserId: true } },
+            },
+          },
         },
       });
     }
     if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-    const viewerId = await getSessionUserId();
+    const viewerId = await getSessionUserId().catch(() => null);
     let viewerIsAdmin = false;
     if (viewerId) {
       try {
@@ -70,49 +103,26 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       } catch {}
     }
 
-    const inviteRecords = await prisma.guestInvite
-      .findMany({
-        where: { matchId: id },
-        select: { spotId: true, inviterId: true, guestUserId: true },
-      })
-      .catch(() => []);
-    const inviteBySpotId = new Map<string, { inviterId: string; guestUserId: string | null }>();
-    for (const invite of inviteRecords) {
-      if (invite.spotId) {
-        inviteBySpotId.set(invite.spotId, { inviterId: invite.inviterId, guestUserId: invite.guestUserId });
-      }
-    }
+    const spots = Array.isArray(m.spots) ? m.spots : [];
+    const paidSpots = spots.filter((s: any) => s.status === "PAID");
+    const availableSpots = spots.filter((s: any) => s.status === "AVAILABLE");
+    const paid = paidSpots.length;
+    const available = availableSpots.length;
+    const rawMinSpots = (m as any).minSpotsToConfirm;
+    const minRequired = typeof rawMinSpots === "number" && rawMinSpots > 0 ? rawMinSpots : m.totalSpots;
 
-    // counts
-    const paid = m.spots.filter((s: any) => s.status === "PAID").length;
-    const available = m.spots.filter((s: any) => s.status === "AVAILABLE").length;
-    const minRequired = typeof (m as any).minSpotsToConfirm === 'number' && (m as any).minSpotsToConfirm > 0 ? (m as any).minSpotsToConfirm : m.totalSpots;
-
-    // organizer name
-    const profile = await prisma.profile.findUnique({ where: { userId: m.organizerId } }).catch(() => null);
-
-    // Build confirmed players list (spots PAID): name + position
-    const paidSpots = m.spots.filter((s: any) => s.status === "PAID");
-    const userIds = Array.from(new Set(paidSpots.map((s: any) => s.userId).filter(Boolean)));
-    let profiles: any[] = [];
-    let users: any[] = [];
-    if (userIds.length > 0) {
-      [profiles, users] = await Promise.all([
-        prisma.profile.findMany({ where: { userId: { in: userIds as any } } }).catch(() => []),
-        prisma.user.findMany({ where: { id: { in: userIds as any } }, select: { id: true, email: true } }).catch(() => []),
-      ]);
-    }
-    const profById: Record<string, any> = {};
-    for (const p of profiles) profById[p.userId] = p;
-    const userEmailById: Record<string, string | null> = {};
-    for (const u of users) userEmailById[u.id] = u.email ?? null;
     const players = paidSpots.map((s: any, idx: number) => {
-      const prof = s.userId ? profById[s.userId] : null;
-      const user = prof ? { id: s.userId, name: prof.name, position: prof.position ?? null } : null;
-      const position = s.position ?? (user ? user.position : null);
-      const displayName = user?.name ?? `Jugador ${idx + 1}`;
-      const isGuest = user ? !userEmailById[user.id] : true;
-      const inviteInfo = inviteBySpotId.get(s.id) ?? null;
+      const profile = s.user?.profile ?? null;
+      const userId = s.userId ?? s.user?.id ?? null;
+      const profileName = typeof profile?.name === "string" ? profile.name.trim() : "";
+      const hasProfile = Boolean(userId && profileName.length > 0);
+      const displayName = hasProfile ? profileName : `Jugador ${idx + 1}`;
+      const position = s.position ?? (hasProfile ? profile?.position ?? null : null);
+      const user = hasProfile
+        ? { id: userId as string, name: profileName, position: profile?.position ?? null }
+        : null;
+      const isGuest = hasProfile ? !(s.user?.email ?? null) : true;
+      const inviteInfo = s.guestInvite ?? null;
       const invitedByUserId = inviteInfo?.inviterId ?? null;
       const invitedByViewer = invitedByUserId ? invitedByUserId === viewerId : false;
       return {
@@ -179,15 +189,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       paid,
       available,
       isConfirmed: paid >= minRequired,
-      organizer: profile ? { id: m.organizerId, name: profile.name } : null,
+      organizer: m.organizer?.profile?.name ? { id: m.organizerId, name: m.organizer.profile.name } : null,
       organizerFriendship,
       players,
       viewer,
     };
 
-    const response = NextResponse.json(out);
-    response.headers.set("Cache-Control", "no-store");
-    return response;
+    return NextResponse.json(out, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (err) {
     return NextResponse.json({ error: "error" }, { status: 500 });
   }
