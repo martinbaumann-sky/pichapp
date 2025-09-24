@@ -527,7 +527,7 @@ export default function ExplorePage() {
             {items.map((match) => (
               <Link
                 key={match.id}
-                href={`/match/${match.id}`}
+                href={`/partido/${match.id}`}
                 className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
               >
                 <div className="h-48 w-full">

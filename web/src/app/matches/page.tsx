@@ -106,7 +106,7 @@ export default function MatchesPage() {
           {items.map((match) => (
             <Link
               key={match.id}
-              href={`/match/${match.id}`}
+              href={`/partido/${match.id}`}
               className="group bg-white rounded-xl shadow-sm hover:shadow-lg border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-300"
             >
               {/* Match Image */}
