@@ -68,7 +68,7 @@ export function JoinFormationDialog({
 
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={loading ? () => undefined : onClose}>
+      <Dialog as="div" className="relative z-[2000]" onClose={loading ? () => undefined : onClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-200"
@@ -78,10 +78,10 @@ export function JoinFormationDialog({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-slate-900/30 backdrop-blur" />
+          <div className="fixed inset-0 z-[2000] bg-slate-900/50 backdrop-blur-sm" />
         </Transition.Child>
 
-        <div className="fixed inset-0 overflow-y-auto">
+        <div className="fixed inset-0 z-[2001] overflow-y-auto">
           <div className="flex min-h-full items-center justify-center px-4 py-6">
             <Transition.Child
               as={Fragment}
@@ -138,6 +138,7 @@ export function JoinFormationDialog({
                             formationName={team.formationName}
                             slots={team.slots}
                             bench={team.bench}
+                            variant={team.team === "OSCURO" ? "dark" : "light"}
                             selectedSlotIndex={selectedSlot && selectedSlot.team === team.team ? selectedSlot.slotIndex ?? null : null}
                             onSelectSlot={(slot) => onSelectSlot(team.team, slot)}
                           />

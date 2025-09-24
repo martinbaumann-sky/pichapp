@@ -879,6 +879,7 @@ export default function MatchDetailPage() {
                     formationName={team.formationName}
                     slots={team.slots}
                     bench={team.bench}
+                    variant={team.team === "OSCURO" ? "dark" : "light"}
                   />
                 ))}
                 {formationData.teams.length === 0 ? (
@@ -977,9 +978,9 @@ export default function MatchDetailPage() {
         onUpdateFriend={handleUpdateFriend}
       />
       {inviteDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setInviteDialogOpen(false)} />
-          <div className="relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
+        <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setInviteDialogOpen(false)} />
+          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
             <h3 className="text-lg font-semibold text-slate-800">¿Quieres invitar amigos?</h3>
             <p className="mt-1 text-sm text-slate-600">Elige cuántos amigos traerás además de tu cupo.</p>
             <div className="mt-4 flex items-center gap-3">

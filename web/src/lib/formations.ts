@@ -122,13 +122,42 @@ export type FormationAssignment<TPlayer extends { position?: PositionKey | null 
 };
 
 export function assignPlayersToFormation<TPlayer extends { position?: PositionKey | null }>(players: TPlayer[], preset: FormationPreset): FormationAssignment<TPlayer> {
-  const remaining = [...players];
+  // Copiamos para no mutar el arreglo original
+  const remaining: TPlayer[] = [...players];
+
+  // 1) Asignar coincidencias exactas por posición
   const slots = preset.slots.map((slotPosition, index) => {
-    const exactIndex = remaining.findIndex((player) => player.position === slotPosition);
-    const pickIndex = exactIndex >= 0 ? exactIndex : remaining.findIndex(() => true);
-    const player = pickIndex >= 0 ? remaining.splice(pickIndex, 1)[0] : null;
-    return { index, position: slotPosition, player };
-  });
+    const exactIdx = remaining.findIndex((p) => p.position === slotPosition);
+    const player = exactIdx >= 0 ? remaining.splice(exactIdx, 1)[0] : null;
+    return { index, position: slotPosition, player } as const;
+  }).map((s) => ({ ...s }));
+
+  // 2) Rellenar los slots restantes, priorizando NO poner jugadores de campo en ARQUERO
+  for (let i = 0; i < slots.length; i += 1) {
+    if (slots[i].player) continue;
+    const isGoalkeeperSlot = slots[i].position === "ARQUERO";
+
+    if (isGoalkeeperSlot) {
+      // Intentar encontrar un arquero; si no hay, dejar vacío (que quede libre)
+      const gkIdx = remaining.findIndex((p) => p.position === "ARQUERO");
+      if (gkIdx >= 0) {
+        slots[i].player = remaining.splice(gkIdx, 1)[0];
+      }
+      continue;
+    }
+
+    // Para puestos de campo, tomar cualquier jugador NO arquero primero
+    let pickIdx = remaining.findIndex((p) => p.position && p.position !== "ARQUERO");
+    if (pickIdx < 0) {
+      // Si solo quedan arqueros, permite colocarlos en puestos de campo para completar
+      pickIdx = remaining.findIndex(() => true);
+    }
+    if (pickIdx >= 0) {
+      slots[i].player = remaining.splice(pickIdx, 1)[0];
+    }
+  }
+
+  // 3) Los que sobren van a la banca
   return { slots, bench: remaining };
 }
 
