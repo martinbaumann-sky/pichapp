@@ -4,10 +4,13 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const userId = await requireUserId();
-    const matchId = params.id;
+    const { id: matchId } = await params;
     if (!matchId) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
     const match = await prisma.match.findUnique({ where: { id: matchId }, select: { startsAt: true } });

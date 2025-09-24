@@ -6,11 +6,13 @@ import { normalizeTeam } from "@/lib/teams";
 
 export const dynamic = "force-dynamic";
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string; spotId: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; spotId: string }> },
+) {
   try {
     const actorId = await requireUserId();
-    const matchId = params.id;
-    const spotId = params.spotId;
+    const { id: matchId, spotId } = await params;
 
     const spot = await prisma.spot.findUnique({
       where: { id: spotId },

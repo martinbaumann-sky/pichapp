@@ -4,9 +4,12 @@ import { getPublicUserSummary } from "@/lib/user-summary";
 
 export const runtime = 'nodejs';
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
-    const userId = params.id;
+    const { id: userId } = await params;
     if (!userId) {
       return NextResponse.json({ error: 'id requerido' }, { status: 400 });
     }

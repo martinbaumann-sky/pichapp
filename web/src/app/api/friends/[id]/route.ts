@@ -35,10 +35,13 @@ function shapeFriend(currentUserId: string, rec: any) {
   };
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const userId = await requireUserId();
-    const id = params.id;
+    const { id } = await params;
     const json = await req.json().catch(() => ({}));
     const action = String(json?.action || '').toLowerCase();
 
@@ -75,10 +78,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const userId = await requireUserId();
-    const id = params.id;
+    const { id } = await params;
     const rec = await prisma.friend.findUnique({ where: { id } });
     if (!rec) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
     if (rec.requesterId !== userId && rec.addresseeId !== userId) return NextResponse.json({ error: 'Prohibido' }, { status: 403 });
