@@ -66,7 +66,11 @@ export default function MatchDetailPage() {
   const loadMatch = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/matches/${id}`, { cache: "no-store" });
+      const ts = Date.now();
+      const res = await fetch(`/api/matches/${id}?t=${ts}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       if (res.ok) {
         const data = await res.json();
         setMatch(data);

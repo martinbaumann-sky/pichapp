@@ -1,10 +1,12 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { streetViewUrl } from "@/lib/places";
 import { buildStaticMapUrl } from "@/lib/maps";
 import { getSessionUserId } from "@/lib/auth-core";
 import { requireUserId } from "@/lib/auth";
 import { resolveFriendship } from "@/lib/friendship";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -183,7 +185,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       viewer,
     };
 
-    return NextResponse.json(out);
+    const response = NextResponse.json(out);
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (err) {
     return NextResponse.json({ error: "error" }, { status: 500 });
   }
