@@ -27,6 +27,8 @@ import {
 type NormalizedMatchPlayer = FormationPlayer & {
   team: TeamKey | null;
   status: string;
+  invitedByViewer?: boolean;
+  invitedByUserId?: string | null;
 };
 
 type FormationTeamView = JoinFormationTeam & {
@@ -64,7 +66,11 @@ export default function MatchDetailPage() {
   const loadMatch = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/matches/${id}`, { cache: "no-store" });
+      const ts = Date.now();
+      const res = await fetch(`/api/matches/${id}?t=${ts}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       if (res.ok) {
         const data = await res.json();
         setMatch(data);
@@ -116,6 +122,8 @@ export default function MatchDetailPage() {
         position,
         team,
         status: player.status ?? "PAID",
+        invitedByViewer: Boolean(player.invitedByViewer),
+        invitedByUserId: player.invitedByUserId ?? null,
       };
     });
 
@@ -439,15 +447,28 @@ export default function MatchDetailPage() {
     const confirmed = typeof window !== "undefined" ? window.confirm(message) : true;
     if (!confirmed) return;
     try {
-      // Optimistic UI: marcar como no inscrito de inmediato
-      const prev = match;
+      // Optimistic UI: marcar como no inscrito de inmediato y remover invitados
       setMatch((m: any) => {
         if (!m) return m;
-        const nextPaid = Math.max(0, (m.paid ?? 0) - 1);
-        const nextAvailable = (m.available ?? 0) + 1;
-        const filteredPlayers = Array.isArray(m.players)
-          ? (m.players as any[]).filter((p) => (p.userId ?? p.user?.id) !== user.id)
-          : [];
+        const playersArray = Array.isArray(m.players) ? (m.players as any[]) : [];
+        const viewerId = user.id;
+        let removedCount = 0;
+        const filteredPlayers = playersArray.filter((player: any) => {
+          const candidateId = player?.userId ?? player?.user?.id ?? null;
+          const invitedByViewer = Boolean(player?.invitedByViewer);
+          const invitedByUserId = player?.invitedByUserId ?? null;
+          const shouldRemove =
+            (candidateId && candidateId === viewerId) ||
+            invitedByViewer ||
+            (invitedByUserId && invitedByUserId === viewerId);
+          if (shouldRemove) {
+            removedCount += 1;
+            return false;
+          }
+          return true;
+        });
+        const nextPaid = removedCount > 0 ? Math.max(0, (m.paid ?? 0) - removedCount) : m.paid ?? 0;
+        const nextAvailable = removedCount > 0 ? (m.available ?? 0) + removedCount : m.available ?? 0;
         return {
           ...m,
           paid: nextPaid,

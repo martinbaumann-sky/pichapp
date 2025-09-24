@@ -1,10 +1,12 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { streetViewUrl } from "@/lib/places";
 import { buildStaticMapUrl } from "@/lib/maps";
 import { getSessionUserId } from "@/lib/auth-core";
 import { requireUserId } from "@/lib/auth";
 import { resolveFriendship } from "@/lib/friendship";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -59,6 +61,28 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     }
     if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
 
+    const viewerId = await getSessionUserId();
+    let viewerIsAdmin = false;
+    if (viewerId) {
+      try {
+        const viewer = await prisma.user.findUnique({ where: { id: viewerId }, select: { isAdmin: true } });
+        viewerIsAdmin = !!viewer?.isAdmin;
+      } catch {}
+    }
+
+    const inviteRecords = await prisma.guestInvite
+      .findMany({
+        where: { matchId: id },
+        select: { spotId: true, inviterId: true, guestUserId: true },
+      })
+      .catch(() => []);
+    const inviteBySpotId = new Map<string, { inviterId: string; guestUserId: string | null }>();
+    for (const invite of inviteRecords) {
+      if (invite.spotId) {
+        inviteBySpotId.set(invite.spotId, { inviterId: invite.inviterId, guestUserId: invite.guestUserId });
+      }
+    }
+
     // counts
     const paid = m.spots.filter((s: any) => s.status === "PAID").length;
     const available = m.spots.filter((s: any) => s.status === "AVAILABLE").length;
@@ -88,6 +112,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       const position = s.position ?? (user ? user.position : null);
       const displayName = user?.name ?? `Jugador ${idx + 1}`;
       const isGuest = user ? !userEmailById[user.id] : true;
+      const inviteInfo = inviteBySpotId.get(s.id) ?? null;
+      const invitedByUserId = inviteInfo?.inviterId ?? null;
+      const invitedByViewer = invitedByUserId ? invitedByUserId === viewerId : false;
       return {
         spotId: s.id,
         user,
@@ -97,17 +124,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         team: s.team ?? null,
         status: s.status,
         isGuest,
+        invitedByUserId,
+        invitedByViewer,
       };
     });
-
-    const viewerId = await getSessionUserId();
-    let viewerIsAdmin = false;
-    if (viewerId) {
-      try {
-        const viewer = await prisma.user.findUnique({ where: { id: viewerId }, select: { isAdmin: true } });
-        viewerIsAdmin = !!viewer?.isAdmin;
-      } catch {}
-    }
 
     const viewer = viewerId
       ? {
@@ -165,7 +185,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       viewer,
     };
 
-    return NextResponse.json(out);
+    const response = NextResponse.json(out);
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (err) {
     return NextResponse.json({ error: "error" }, { status: 500 });
   }
