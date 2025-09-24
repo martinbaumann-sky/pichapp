@@ -27,10 +27,12 @@ export async function POST(
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const guestInvites = await tx.guestInvite.findMany({
-        where: { matchId, inviterId: userId },
-        select: { id: true, spotId: true, guestUserId: true },
-      });
+      const guestInvites = typeof (tx as any)?.guestInvite?.findMany === "function"
+        ? await (tx as any).guestInvite.findMany({
+            where: { matchId, inviterId: userId },
+            select: { id: true, spotId: true, guestUserId: true },
+          })
+        : [] as Array<{ id: string; spotId: string; guestUserId: string | null }>;
 
       const guestSpotIds = guestInvites.map((invite) => invite.spotId).filter(Boolean);
 
@@ -72,11 +74,10 @@ export async function POST(
         });
 
         if (invite) {
-          await tx.guestInvite.delete({ where: { id: invite.id } }).catch(() => null);
-          if (invite.guestUserId) {
-            await tx.profile.deleteMany({ where: { userId: invite.guestUserId } }).catch(() => null);
-            await tx.user.deleteMany({ where: { id: invite.guestUserId } }).catch(() => null);
+          if (typeof (tx as any)?.guestInvite?.delete === "function") {
+            await (tx as any).guestInvite.delete({ where: { id: invite.id } }).catch(() => null);
           }
+          // No eliminamos al usuario invitado, solo su invitación y liberamos su cupo
         }
       }
 
