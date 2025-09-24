@@ -5,6 +5,7 @@ import { buildStaticMapUrl } from "@/lib/maps";
 import { getSessionUserId } from "@/lib/auth-core";
 import { requireUserId } from "@/lib/auth";
 import { resolveFriendship } from "@/lib/friendship";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -16,15 +17,13 @@ export async function GET(
     const { id } = await params;
     if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
-    let m = null as any;
-    try {
-      m = await prisma.match.findUnique({
+    const match = await prisma.match
+      .findUnique({
         where: { id },
         select: {
           id: true,
           title: true,
           organizerId: true,
-          organizer: { select: { id: true, profile: { select: { name: true } } } },
           comuna: true,
           startsAt: true,
           durationMins: true,
@@ -37,65 +36,53 @@ export async function GET(
           lat: true,
           lng: true,
           coverImageUrl: true,
-          spots: {
-            select: {
-              id: true,
-              status: true,
-              userId: true,
-              position: true,
-              team: true,
-              user: {
-                select: {
-                  id: true,
-                  email: true,
-                  profile: { select: { name: true, position: true } },
-                },
+        },
+      })
+      .catch(() => null);
+
+    if (!match) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+    const [organizerUser, rawSpots, inviteRows] = await Promise.all([
+      prisma.user
+        .findUnique({
+          where: { id: match.organizerId },
+          select: { id: true, profile: { select: { name: true } } },
+        })
+        .catch(() => null),
+      prisma.spot
+        .findMany({
+          where: { matchId: id },
+          select: {
+            id: true,
+            status: true,
+            userId: true,
+            position: true,
+            team: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                profile: { select: { name: true, position: true } },
               },
-              guestInvite: { select: { inviterId: true, guestUserId: true } },
             },
           },
-        },
-      });
-    } catch {
-      m = await prisma.match.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          title: true,
-          organizerId: true,
-          organizer: { select: { id: true, profile: { select: { name: true } } } },
-          comuna: true,
-          startsAt: true,
-          durationMins: true,
-          pricePerSpot: true,
-          totalSpots: true,
-          level: true,
-          venueName: true,
-          venueAddress: true,
-          lat: true,
-          lng: true,
-          coverImageUrl: true,
-          spots: {
-            select: {
-              id: true,
-              status: true,
-              userId: true,
-              position: true,
-              team: true,
-              user: {
-                select: {
-                  id: true,
-                  email: true,
-                  profile: { select: { name: true, position: true } },
-                },
-              },
-              guestInvite: { select: { inviterId: true, guestUserId: true } },
-            },
-          },
-        },
-      });
+          orderBy: { createdAt: "asc" },
+        })
+        .catch(() => []),
+      prisma.guestInvite
+        .findMany({
+          where: { matchId: id },
+          select: { spotId: true, inviterId: true, guestUserId: true, name: true },
+        })
+        .catch(() => []),
+    ]);
+
+    const invitesBySpot = new Map<string, (typeof inviteRows)[number]>();
+    for (const invite of inviteRows) {
+      if (invite?.spotId) {
+        invitesBySpot.set(invite.spotId, invite);
+      }
     }
-    if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
 
     const viewerId = await getSessionUserId().catch(() => null);
     let viewerIsAdmin = false;
@@ -106,26 +93,25 @@ export async function GET(
       } catch {}
     }
 
-    const spots = Array.isArray(m.spots) ? m.spots : [];
+    const spots = Array.isArray(rawSpots) ? rawSpots : [];
     const paidSpots = spots.filter((s: any) => s.status === "PAID");
     const availableSpots = spots.filter((s: any) => s.status === "AVAILABLE");
     const paid = paidSpots.length;
     const available = availableSpots.length;
-    const rawMinSpots = (m as any).minSpotsToConfirm;
-    const minRequired = typeof rawMinSpots === "number" && rawMinSpots > 0 ? rawMinSpots : m.totalSpots;
+    const rawMinSpots = (match as any).minSpotsToConfirm;
+    const minRequired = typeof rawMinSpots === "number" && rawMinSpots > 0 ? rawMinSpots : match.totalSpots;
 
     const players = paidSpots.map((s: any, idx: number) => {
       const profile = s.user?.profile ?? null;
       const userId = s.userId ?? s.user?.id ?? null;
       const profileName = typeof profile?.name === "string" ? profile.name.trim() : "";
       const hasProfile = Boolean(userId && profileName.length > 0);
-      const displayName = hasProfile ? profileName : `Jugador ${idx + 1}`;
+      const inviteInfo = invitesBySpot.get(s.id) ?? null;
+      const inviteName = typeof inviteInfo?.name === "string" ? inviteInfo.name.trim() : "";
+      const displayName = hasProfile ? profileName : inviteName || `Jugador ${idx + 1}`;
       const position = s.position ?? (hasProfile ? profile?.position ?? null : null);
-      const user = hasProfile
-        ? { id: userId as string, name: profileName, position: profile?.position ?? null }
-        : null;
-      const isGuest = hasProfile ? !(s.user?.email ?? null) : true;
-      const inviteInfo = s.guestInvite ?? null;
+      const user = hasProfile ? { id: userId as string, name: profileName, position: profile?.position ?? null } : null;
+      const isGuest = inviteInfo ? true : hasProfile ? !(s.user?.email ?? null) : true;
       const invitedByUserId = inviteInfo?.inviterId ?? null;
       const invitedByViewer = invitedByUserId ? invitedByUserId === viewerId : false;
       return {
@@ -144,55 +130,62 @@ export async function GET(
 
     const viewer = viewerId
       ? {
-          isOrganizer: viewerId === m.organizerId,
+          isOrganizer: viewerId === match.organizerId,
           isAdmin: viewerIsAdmin,
           hasJoined: paidSpots.some((s: any) => s.userId === viewerId),
-          canDelete: viewerId === m.organizerId || viewerIsAdmin,
+          canDelete: viewerId === match.organizerId || viewerIsAdmin,
         }
       : null;
 
-    let friendRecord = null as { id: string; status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'BLOCKED'; requesterId: string; addresseeId: string } | null;
-    if (viewerId && viewerId !== m.organizerId) {
+    let friendRecord = null as {
+      id: string;
+      status: "PENDING" | "ACCEPTED" | "REJECTED" | "BLOCKED";
+      requesterId: string;
+      addresseeId: string;
+    } | null;
+    if (viewerId && viewerId !== match.organizerId) {
       friendRecord = await prisma.friend.findFirst({
         where: {
           OR: [
-            { requesterId: viewerId, addresseeId: m.organizerId },
-            { requesterId: m.organizerId, addresseeId: viewerId },
+            { requesterId: viewerId, addresseeId: match.organizerId },
+            { requesterId: match.organizerId, addresseeId: viewerId },
           ],
         },
         select: { id: true, status: true, requesterId: true, addresseeId: true },
       });
     }
-    const organizerFriendship = resolveFriendship(viewerId, m.organizerId, friendRecord);
+    const organizerFriendship = resolveFriendship(viewerId, match.organizerId, friendRecord);
 
-    // cover image fallback
-    let cover = m.coverImageUrl as string | null | undefined;
+    let cover = match.coverImageUrl as string | null | undefined;
     if (!cover) {
-      if (typeof m.lat === "number" && typeof m.lng === "number") {
-        const sv = streetViewUrl(m.lat, m.lng);
-        cover = sv || buildStaticMapUrl({ lat: m.lat, lng: m.lng, width: 800, height: 400, pixelRatio: 1 }) || null;
+      if (typeof match.lat === "number" && typeof match.lng === "number") {
+        const sv = streetViewUrl(match.lat, match.lng);
+        cover = sv || buildStaticMapUrl({ lat: match.lat, lng: match.lng, width: 800, height: 400, pixelRatio: 1 }) || null;
       }
     }
 
     const out = {
-      id: m.id,
-      title: m.title,
-      comuna: m.comuna,
-      startsAt: m.startsAt,
-      durationMins: m.durationMins,
-      pricePerSpot: m.pricePerSpot,
-      totalSpots: m.totalSpots,
+      id: match.id,
+      title: match.title,
+      comuna: match.comuna,
+      startsAt: match.startsAt,
+      durationMins: match.durationMins,
+      pricePerSpot: match.pricePerSpot,
+      totalSpots: match.totalSpots,
       minSpotsToConfirm: minRequired,
-      level: m.level,
-      venueName: m.venueName,
-      venueAddress: m.venueAddress,
-      lat: m.lat,
-      lng: m.lng,
+      level: match.level,
+      venueName: match.venueName,
+      venueAddress: match.venueAddress,
+      lat: match.lat,
+      lng: match.lng,
       coverImageUrl: cover ?? null,
       paid,
       available,
       isConfirmed: paid >= minRequired,
-      organizer: m.organizer?.profile?.name ? { id: m.organizerId, name: m.organizer.profile.name } : null,
+      organizer:
+        organizerUser?.profile?.name && organizerUser.profile.name.trim().length > 0
+          ? { id: match.organizerId, name: organizerUser.profile.name.trim() }
+          : null,
       organizerFriendship,
       players,
       viewer,
@@ -201,8 +194,12 @@ export async function GET(
     return NextResponse.json(out, {
       headers: { "Cache-Control": "no-store" },
     });
-  } catch (err) {
-    return NextResponse.json({ error: "error" }, { status: 500 });
+  } catch (err: any) {
+    if (err instanceof Response) return err;
+    try {
+      console.error("[API] GET /api/matches/[id] error", err);
+    } catch {}
+    return NextResponse.json({ error: err?.message ?? "error" }, { status: 500 });
   }
 }
 
@@ -246,4 +243,3 @@ export async function DELETE(
     return NextResponse.json({ error: err?.message ?? "Error al eliminar partido" }, { status: 500 });
   }
 }
-
