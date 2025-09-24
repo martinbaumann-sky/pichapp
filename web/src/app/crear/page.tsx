@@ -188,32 +188,32 @@ export default function CreateMatchPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link 
               href="/"
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 touch-target"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-2xl font-bold text-black">Crear Nuevo Partido</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-black">Crear Nuevo Partido</h1>
           </div>
         </div>
       </header>
 
       {/* Form */}
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <form onSubmit={handleSubmit} className="space-y-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 lg:p-8">
+          <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
                          {/* Basic Info Section */}
              <div className="space-y-6">
                <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">
                 Información Básica
                </h2>
                
-               <div className="grid md:grid-cols-3 gap-6">
-                 <div className="space-y-2">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                 <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                    <label className="block text-sm font-medium text-gray-700">
                      Título del partido
                    </label>
@@ -222,7 +222,7 @@ export default function CreateMatchPage() {
                      name="title"
                      value={formData.title}
                      onChange={handleChange}
-                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                     className="input-field"
                      placeholder="Ej: Club Los Maitenes - Cancha 2"
                      required
                    />
@@ -238,7 +238,7 @@ export default function CreateMatchPage() {
                      name="fieldNumber"
                      value={formData.fieldNumber}
                      onChange={handleChange}
-                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                     className="input-field"
                      placeholder="Ej: Cancha 1, 2, 3..."
                    />
                    <p className="text-xs text-gray-500">Especifica el número o nombre de la cancha.</p>
@@ -308,7 +308,7 @@ export default function CreateMatchPage() {
                 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Cupos maximos disponibles
+                    Cupos máximos disponibles
                   </label>
                   <input
                     type="number"
@@ -325,7 +325,7 @@ export default function CreateMatchPage() {
 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Minimo de cupos para confirmar
+                    Mínimo de cupos para confirmar
                   </label>
                   <input
                     type="number"
@@ -337,7 +337,7 @@ export default function CreateMatchPage() {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
                   />
-                  <p className="text-xs text-gray-500">Te avisaremos cuando se alcance este minimo.</p>
+                  <p className="text-xs text-gray-500">Te avisaremos cuando se alcance este mínimo.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -457,10 +457,10 @@ export default function CreateMatchPage() {
             
 
             {/* Submit Button */}
-            <div className="pt-6 border-t border-gray-200">
+            <div className="pt-4 sm:pt-6 border-t border-gray-200">
               <button
                 type="submit"
-                className="w-full px-8 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="w-full btn-primary btn-mobile"
               >
                 Crear Partido
               </button>

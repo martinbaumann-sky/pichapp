@@ -62,6 +62,7 @@ export default function MatchDetailPage() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteTempCount, setInviteTempCount] = useState(0);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
   const loadMatch = useCallback(async () => {
     setLoading(true);
@@ -427,7 +428,7 @@ export default function MatchDetailPage() {
     }
   };
 
-  const handleLeave = useCallback(async () => {
+  const openLeaveConfirm = useCallback(() => {
     if (!user || !match) {
       setAuthOpen(true);
       return;
@@ -443,11 +444,14 @@ export default function MatchDetailPage() {
       setTimeout(() => setToast(null), 2500);
       return;
     }
-    const message = "Si te bajas, también se darán de baja tus invitados y se liberarán sus cupos. ¿Confirmas?";
-    const confirmed = typeof window !== "undefined" ? window.confirm(message) : true;
-    if (!confirmed) return;
+    setLeaveConfirmOpen(true);
+  }, [user, match]);
+
+  const performLeave = useCallback(async () => {
+    if (!user) return;
+    setLeaveConfirmOpen(false);
     try {
-      // Optimistic UI: marcar como no inscrito de inmediato y remover invitados
+      // Optimistic UI
       setMatch((m: any) => {
         if (!m) return m;
         const playersArray = Array.isArray(m.players) ? (m.players as any[]) : [];
@@ -484,12 +488,11 @@ export default function MatchDetailPage() {
       setTimeout(() => setToast(null), 2500);
       await loadMatch();
     } catch (e: any) {
-      // Revert on error
       await loadMatch();
       setToast(e?.message || "No se pudo bajar del partido");
       setTimeout(() => setToast(null), 2500);
     }
-  }, [user, match, id, loadMatch]);
+  }, [user, id, loadMatch]);
 
   
 
@@ -587,7 +590,7 @@ export default function MatchDetailPage() {
     : spotsLeft <= 3
       ? `${spotsLeft} ${spotsLeft === 1 ? "cupo disponible" : "cupos disponibles"}`
       : `${spotsLeft} cupos disponibles`;
-  const matchStatusLabel = isFull ? "Partido completo" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "Partido confirmado" : "En confirmacion";
+  const matchStatusLabel = isFull ? "Partido completo" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "Partido confirmado" : "En confirmación";
   const chipPercent = isFull ? 100 : paidCount >= minSpotsToConfirm || match.isConfirmed ? Math.max(minMarkerPercent, progressPercent) : progressPercent;
   const description = (match.description ?? match.details ?? match.notes ?? "") as string;
   const addressLabel = match.venueAddress || match.venueName || match.comuna || "Ubicación por confirmar";
@@ -714,7 +717,7 @@ export default function MatchDetailPage() {
                     return (
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={handleLeave}
+                          onClick={openLeaveConfirm}
                           className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                         >
                           Bajarse del partido
@@ -1020,6 +1023,29 @@ export default function MatchDetailPage() {
                 className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
               >
                 Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {leaveConfirmOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setLeaveConfirmOpen(false)} />
+          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-slate-800">¿Bajarte del partido?</h3>
+            <p className="mt-1 text-sm text-slate-600">Si te bajas, también se darán de baja tus invitados y se liberarán sus cupos.</p>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setLeaveConfirmOpen(false)}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={performLeave}
+                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
+              >
+                Confirmar
               </button>
             </div>
           </div>

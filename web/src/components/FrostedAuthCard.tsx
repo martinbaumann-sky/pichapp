@@ -225,11 +225,11 @@ export default function FrostedAuthCard({
           setVerificationError(d?.error || "Debes verificar tu correo para continuar.");
           return;
         }
-        throw new Error(d?.error || "Credenciales invalidas");
+        throw new Error(d?.error || "Credenciales inválidas");
       }
       navigateAfterAuth();
     } catch (e: any) {
-      setFormError(e?.message || "Credenciales invalidas");
+      setFormError(e?.message || "Credenciales inválidas");
     } finally {
       setLocalLoading(false);
     }
@@ -240,7 +240,7 @@ export default function FrostedAuthCard({
     event?.preventDefault();
     if (!pendingEmail) return;
     if (!verifyCode.trim()) {
-      setVerificationError("Ingresa el codigo que recibiste por correo");
+      setVerificationError("Ingresa el código que recibiste por correo");
       return;
     }
     try {
@@ -253,12 +253,12 @@ export default function FrostedAuthCard({
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setVerificationError(d?.error || "Codigo invalido");
+        setVerificationError(d?.error || "Código inválido");
         return;
       }
       navigateAfterAuth();
     } catch (e: any) {
-      setVerificationError(e?.message || "No se pudo verificar el codigo");
+      setVerificationError(e?.message || "No se pudo verificar el código");
     } finally {
       setVerifyLoading(false);
     }
@@ -276,15 +276,15 @@ export default function FrostedAuthCard({
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setVerificationError(d?.error || "No se pudo reenviar el codigo");
+        setVerificationError(d?.error || "No se pudo reenviar el código");
         return;
       }
-      setResendMessage(`Enviamos un nuevo codigo a ${pendingEmail}.`);
+      setResendMessage(`Enviamos un nuevo código a ${pendingEmail}.`);
       if (d?.expiresAt) {
         setLastExpiresAt(d.expiresAt as string);
       }
     } catch (e: any) {
-      setVerificationError(e?.message || "No se pudo reenviar el codigo");
+      setVerificationError(e?.message || "No se pudo reenviar el código");
     } finally {
       setResendLoading(false);
     }
@@ -322,10 +322,10 @@ export default function FrostedAuthCard({
           <div className="space-y-2">
             <h3 className="text-2xl font-semibold">Verifica tu correo</h3>
             <p className="text-white/80">
-              Enviamos un codigo a <span className="font-semibold">{pendingEmail}</span>. Ingresa los 6 digitos para confirmar tu cuenta.
+              Enviamos un código a <span className="font-semibold">{pendingEmail}</span>. Ingresa los 6 dígitos para confirmar tu cuenta.
             </p>
             {minutesLeft && (
-              <p className="text-xs text-white/60">El codigo vence en aproximadamente {minutesLeft} minuto{minutesLeft === 1 ? "" : "s"}.</p>
+              <p className="text-xs text-white/60">El código vence en aproximadamente {minutesLeft} minuto{minutesLeft === 1 ? "" : "s"}.</p>
             )}
             {resendMessage && <div className="text-xs text-emerald-200">{resendMessage}</div>}
             {verificationError && <div className="text-xs text-red-200">{verificationError}</div>}
@@ -340,7 +340,7 @@ export default function FrostedAuthCard({
               ref={verifyCodeRef}
               value={verifyCode}
               onChange={(e) => setVerifyCode(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="Ingresa el codigo"
+              placeholder="Ingresa el código"
               className="input-field bg-white text-black text-center tracking-[0.6em] text-lg"
             />
             <button
@@ -348,7 +348,7 @@ export default function FrostedAuthCard({
               disabled={verifyLoading || verifyCode.length < 4}
               className="btn-primary w-full"
             >
-              {verifyLoading ? "Verificando..." : "Confirmar codigo"}
+              {verifyLoading ? "Verificando..." : "Confirmar código"}
             </button>
           </form>
 
@@ -359,7 +359,7 @@ export default function FrostedAuthCard({
               disabled={resendLoading}
               className="underline underline-offset-4 decoration-white/30 hover:decoration-white"
             >
-              {resendLoading ? "Enviando..." : "Reenviar codigo"}
+              {resendLoading ? "Enviando..." : "Reenviar código"}
             </button>
             <button
               type="button"
@@ -422,12 +422,12 @@ export default function FrostedAuthCard({
                   tab === "login" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"
                 }`}
               >
-                Iniciar sesion
+                Iniciar sesión
               </button>
             </div>
           </div>
 
-          <h3 className="text-2xl font-semibold text-white mb-3">{tab === "signup" ? "Unete a PichangApp" : "Bienvenido"}</h3>
+              <h3 className="text-2xl font-semibold text-white mb-3">{tab === "signup" ? "Únete a PichangApp" : "Bienvenido"}</h3>
 
           {formError ? (
             <div className="mb-4 rounded-2xl border border-red-200/70 bg-red-50/90 px-4 py-3 text-sm font-medium text-red-700 shadow-sm">
@@ -456,10 +456,10 @@ export default function FrostedAuthCard({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tu@correo.com"
-                    className="input-field pl-12 bg-white text-black"
+                    className="input-field pl-12 bg-white text-black input-mobile"
                   />
                 </div>
-                <label className="text-sm text-white/80">Contrasena</label>
+                <label className="text-sm text-white/80">Contraseña</label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -473,7 +473,7 @@ export default function FrostedAuthCard({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="********"
-                    className="input-field pr-12 bg-white text-black"
+                    className="input-field pr-12 bg-white text-black input-mobile"
                   />
                   <button
                     type="button"
@@ -488,7 +488,7 @@ export default function FrostedAuthCard({
                   onClick={doLogin}
                   className="btn-primary w-full"
                 >
-                  {localLoading ? "Procesando..." : "Iniciar sesion"}
+                  {localLoading ? "Procesando..." : "Iniciar sesión"}
                 </button>
               </div>
             )}
@@ -502,14 +502,14 @@ export default function FrostedAuthCard({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Nombre"
-                    className="input-field bg-white text-black"
+                    className="input-field bg-white text-black input-mobile"
                   />
                   <input
                     ref={signupLastNameRef}
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Apellido"
-                    className="input-field bg-white text-black"
+                    className="input-field bg-white text-black input-mobile"
                   />
                 </div>
                 <div>
@@ -517,7 +517,7 @@ export default function FrostedAuthCard({
                   <select
                     value={comuna}
                     onChange={(e) => setComuna(e.target.value)}
-                    className="input-field bg-white text-black"
+                    className="input-field bg-white text-black input-mobile"
                   >
                     <option value="">Selecciona tu comuna</option>
                     {comunasRM.map((c) => (
@@ -535,7 +535,7 @@ export default function FrostedAuthCard({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+569..."
-                    className="input-field bg-white text-black"
+                    className="input-field bg-white text-black input-mobile"
                   />
                 </div>
                 <div className="relative">
@@ -555,7 +555,7 @@ export default function FrostedAuthCard({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tu@correo.com"
-                    className="input-field pl-12 bg-white text-black"
+                    className="input-field pl-12 bg-white text-black input-mobile"
                   />
                 </div>
                 <div className="relative">
@@ -570,8 +570,8 @@ export default function FrostedAuthCard({
                     ref={signupPasswordRef}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Crea una contrasena"
-                    className="input-field pr-12 bg-white text-black"
+                    placeholder="Crea una contraseña"
+                    className="input-field pr-12 bg-white text-black input-mobile"
                   />
                   <button
                     type="button"

@@ -146,7 +146,7 @@ function DashboardContent() {
 
             {/* Upcoming Matches */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-              <h2 className="text-xl font-semibold text-black mb-6">PrÃ³ximos Partidos</h2>
+              <h2 className="text-xl font-semibold text-black mb-6">Próximos Partidos</h2>
               <div className="space-y-4">
                 {organizerData.nextMatch ? (
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
@@ -157,7 +157,7 @@ function DashboardContent() {
                       <div>
                         <h3 className="font-medium text-black">{organizerData.nextMatch.title}</h3>
                         <p className="text-sm text-gray-600">{new Intl.DateTimeFormat("es-CL", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(organizerData.nextMatch.startsAt))} â€¢ {organizerData.nextMatch.comuna}</p>
-                        <p className="text-xs text-gray-500 mt-1">Minimo {organizerData.nextMatch.minSpotsToConfirm || organizerData.nextMatch.totalSpots} jugadores - {organizerData.nextMatch.isConfirmed ? 'Confirmado' : `Faltan ${Math.max(0, (organizerData.nextMatch.minSpotsToConfirm || organizerData.nextMatch.totalSpots) - organizerData.nextMatch.paid)}`}</p>
+                        <p className="text-xs text-gray-500 mt-1">Mínimo {organizerData.nextMatch.minSpotsToConfirm || organizerData.nextMatch.totalSpots} jugadores - {organizerData.nextMatch.isConfirmed ? 'Confirmado' : `Faltan ${Math.max(0, (organizerData.nextMatch.minSpotsToConfirm || organizerData.nextMatch.totalSpots) - organizerData.nextMatch.paid)}`}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -169,7 +169,7 @@ function DashboardContent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500">No tienes partidos prÃ³ximos como organizador.</div>
+                  <div className="text-sm text-gray-500">No tienes partidos próximos como organizador.</div>
                 )}
               </div>
             </div>
@@ -196,7 +196,7 @@ function DashboardContent() {
                     <ClockIcon className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">PrÃ³ximo Partido</p>
+                    <p className="text-sm text-gray-500">Próximo Partido</p>
                     <p className="text-2xl font-bold text-black">{playerData.nextMatch ? new Intl.DateTimeFormat("es-CL", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).format(new Date(playerData.nextMatch.startsAt)) : "â€”"}</p>
                   </div>
                 </div>

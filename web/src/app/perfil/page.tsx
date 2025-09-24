@@ -118,8 +118,8 @@ export default function PerfilPage() {
           <label className="block text-sm font-medium mb-1">Celular</label>
           <div className="flex items-center"><span className="px-3 py-2 border rounded-l bg-gray-50 text-gray-700 border-r-0 whitespace-nowrap w-16 flex items-center justify-center">+569</span><input value={form.phone} onChange={e=>setForm({...form, phone:e.target.value.replace(/\D/g, "").slice(0,8)})} className="w-full border px-3 py-2 rounded" placeholder="XXXXXXXX" inputMode="numeric" maxLength={8} required />
           </div>
-          <p className="text-xs text-gray-500 mt-1">8 dÃ­gitos, ej: 87654321</p>
-          {phonePreview && <p className="text-xs text-gray-500 mt-0.5">Se mostrarÃ¡ como {phonePreview}</p>}
+          <p className="text-xs text-gray-500 mt-1">8 dígitos, ej: 87654321</p>
+          {phonePreview && <p className="text-xs text-gray-500 mt-0.5">Se mostrará como {phonePreview}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Comuna</label>

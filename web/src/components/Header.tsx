@@ -90,20 +90,23 @@ export default function Header() {
   }, [notificationsOpen]);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/60 backdrop-blur-xl supports-[backdrop-filter]:bg-white/50 border-b">
-      <div className="container h-16 container-px flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 border-b border-gray-200/50 shadow-sm">
+      <div className="container h-16 lg:h-18 container-px flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-              <rect width="24" height="24" rx="6" fill="var(--brand-2)" />
-              <path d="M6 12h12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-              <circle cx="12" cy="12" r="2" fill="white" />
-            </svg>
-            <span className="font-bold text-lg tracking-tight">PichangApp</span>
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <div className="relative">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <rect width="24" height="24" rx="6" fill="var(--brand-2)" />
+                <path d="M6 12h12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="12" cy="12" r="2" fill="white" />
+              </svg>
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+            </div>
+            <span className="font-bold text-lg lg:text-xl tracking-tight bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">PichangApp</span>
           </Link>
         </div>
 
-        <nav className="hidden md:flex items-center gap-4">
+        <nav className="hidden md:flex items-center gap-2 lg:gap-4">
           {navLink("/explorar", "Explorar")}
           <button
             onClick={() => {
@@ -113,14 +116,15 @@ export default function Header() {
                 setAuthInitialTab("signup");
               } else router.push("/organizar");
             }}
-            className="btn-primary"
+            className="btn-primary btn-mobile-sm lg:btn-mobile"
           >
-            Crear partido
+            <span className="hidden lg:inline">Crear partido</span>
+            <span className="lg:hidden">Crear</span>
           </button>
         </nav>
 
         {/* Perfil / Auth */}
-        <div className="relative flex items-center gap-2">
+        <div className="relative flex items-center gap-1 lg:gap-2">
           {!user ? (
             <button
               aria-label="perfil"
@@ -130,7 +134,7 @@ export default function Header() {
                 setAuthInitialTab("login");
                 setAuthOpen(true);
               }}
-              className="p-2 rounded-full hover:bg-gray-100"
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors touch-target"
             >
               <UserIcon className="w-5 h-5" />
             </button>
@@ -142,14 +146,14 @@ export default function Header() {
                     type="button"
                     onClick={() => setNotificationsOpen(true)}
                     className={cn(
-                      "relative p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition",
+                      "relative p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target",
                       notificationsOpen && "bg-gray-100"
                     )}
                     aria-label="notificaciones"
                   >
                     <Bell className="w-5 h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] rounded-full bg-[var(--brand-2)] px-1 text-center text-[10px] font-semibold leading-4 text-white shadow">
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-4 text-white shadow-lg animate-pulse">
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
@@ -229,7 +233,7 @@ export default function Header() {
                 <DropdownMenu.Trigger asChild>
                   <button
                     onClick={() => setMenuOpen(true)}
-                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition"
+                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
                   >
                     <UserIcon className="w-5 h-5" />
                   </button>
@@ -297,7 +301,7 @@ export default function Header() {
 
         {/* Mobile */}
         <div className="md:hidden flex items-center">
-          <button onClick={() => setMobileOpen((v) => !v)} className="p-2 rounded-md">
+          <button onClick={() => setMobileOpen((v) => !v)} className="p-2 rounded-md hover:bg-gray-100 transition-colors touch-target">
             <svg
               width="22"
               height="22"
@@ -329,11 +333,11 @@ export default function Header() {
           >
             <div className="container container-px pb-4">
               <div className="flex flex-col gap-2">
-                <Link href="/explorar" className="px-4 py-2 rounded-xl text-sm bg-white/90">
-                  Explorar
+                <Link href="/explorar" className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target">
+                  Explorar partidos
                 </Link>
-                <Link href="/amigos" className="px-4 py-2 rounded-xl text-sm bg-white/90">
-                  Amigos
+                <Link href="/amigos" className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target">
+                  Mis amigos
                 </Link>
                 <button
                   onClick={() => {
@@ -343,7 +347,7 @@ export default function Header() {
                       setAuthInitialTab("signup");
                     } else router.push("/organizar");
                   }}
-                  className="btn-primary"
+                  className="btn-primary btn-mobile"
                 >
                   Crear partido
                 </button>

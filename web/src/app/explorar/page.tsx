@@ -385,25 +385,25 @@ export default function ExplorePage() {
       transition={{ duration: 0.28, ease: [0, 0, 0.2, 1] }}
     >
       {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-        <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-4">
+      <header className="border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-30">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4">
           <Link
             href="/"
-            className="rounded-lg p-2 transition-all duration-150 hover:-translate-y-0.5 hover:bg-gray-100"
+            className="rounded-lg p-2 transition-all duration-150 hover:-translate-y-0.5 hover:bg-gray-100 touch-target"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
+          <div className="flex-1">
             <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Explorar</p>
-            <h1 className="text-2xl font-bold text-black">Encuentra tu próximo partido</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-black">Encuentra tu próximo partido</h1>
           </div>
         </div>
       </header>
 
       {/* Filters */}
       <div className="relative z-20 border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-sm rounded-b-3xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-4 sm:px-6 sm:py-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-5 px-4 sm:px-5 lg:px-6 py-4 sm:py-5">
+          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
                 <Filter className="h-3.5 w-3.5" />
@@ -413,12 +413,12 @@ export default function ExplorePage() {
                 Ajusta la ubicación, fecha y nivel para descubrir partidos que se ajusten a tu energía del día.
               </p>
             </div>
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 shadow-sm">
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 shadow-sm">
               Nos encontramos en beta: todas las reservas están disponibles sin costo durante este lanzamiento.
             </div>
           </div>
 
-          <div className="grid gap-2.5 sm:gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-2 sm:gap-2.5 lg:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <FluidFilterDropdown
               label="Comuna"
               value={filters.comuna}
@@ -507,15 +507,15 @@ export default function ExplorePage() {
       </div>
 
       {/* Matches Grid */}
-      <main className="relative z-10 mx-auto max-w-7xl px-5 pt-2 pb-6 sm:pt-2 lg:pt-3 sm:px-6">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 sm:px-5 lg:px-8 xl:px-12 pt-2 pb-6 sm:pt-2 lg:pt-4 xl:pt-6">
         {fetchError && items.length === 0 ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center text-red-600">
-            <p className="text-lg font-semibold">{fetchError}</p>
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 sm:px-6 py-8 sm:py-10 text-center text-red-600">
+            <p className="text-base sm:text-lg font-semibold">{fetchError}</p>
             <p className="mt-2 text-sm text-red-500">Revisa tu conexión o inténtalo nuevamente en unos segundos.</p>
             <Button
               type="button"
               onClick={handleRetry}
-              className="mt-5 h-10 rounded-lg bg-black px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-900"
+              className="mt-4 sm:mt-5 btn-primary btn-mobile"
             >
               Reintentar carga
             </Button>
@@ -523,7 +523,7 @@ export default function ExplorePage() {
         ) : null}
 
         {items.length > 0 && (
-          <div className="grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 xl:gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((match) => (
               <Link
                 key={match.id}
@@ -534,9 +534,9 @@ export default function ExplorePage() {
                   <MiniMap lat={match.lat} lng={match.lng} title={match.title} id={match.id} />
                 </div>
 
-                <div className="space-y-4 p-6">
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-xl font-semibold text-black transition-colors duration-200 group-hover:text-gray-700">
+                <div className="space-y-3 sm:space-y-4 lg:space-y-5 p-4 sm:p-6 lg:p-8">
+                  <div className="flex items-start justify-between gap-2 lg:gap-3">
+                    <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-black transition-colors duration-200 group-hover:text-gray-700 leading-tight">
                       {match.venueName ? `${match.title} - ${match.venueName}` : match.title}
                     </h3>
                     <LevelBadge level={match.level as keyof typeof nivelES} />
