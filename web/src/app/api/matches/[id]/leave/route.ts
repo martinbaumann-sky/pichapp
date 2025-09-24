@@ -27,15 +27,25 @@ export async function POST(
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      const guestInvites = await tx.guestInvite.findMany({
+        where: { matchId, inviterId: userId },
+        select: { id: true, spotId: true, guestUserId: true },
+      });
+
+      const guestSpotIds = guestInvites.map((invite) => invite.spotId).filter(Boolean);
+
+      const orConditions: any[] = [{ userId }];
+      if (guestSpotIds.length > 0) {
+        orConditions.push({ id: { in: guestSpotIds } });
+      }
+
       const spots = await tx.spot.findMany({
         where: {
           matchId,
           status: { in: ["PAID", "RESERVED"] },
-          OR: [{ userId }, { guestInvite: { inviterId: userId } }],
+          OR: orConditions,
         },
-        include: {
-          guestInvite: { select: { id: true, inviterId: true, guestUserId: true } },
-        },
+        select: { id: true, userId: true },
       });
 
       if (spots.length === 0) {
@@ -45,17 +55,23 @@ export async function POST(
       let viewerSpots = 0;
       let guestSpots = 0;
 
+      const inviteBySpotId = new Map<string, { id: string; guestUserId: string | null }>();
+      for (const invite of guestInvites) {
+        if (!invite?.spotId) continue;
+        inviteBySpotId.set(invite.spotId, { id: invite.id, guestUserId: invite.guestUserId });
+      }
+
       for (const spot of spots) {
         if (spot.userId === userId) viewerSpots += 1;
-        if (spot.guestInvite && spot.guestInvite.inviterId === userId) guestSpots += 1;
+        const invite = inviteBySpotId.get(spot.id);
+        if (invite) guestSpots += 1;
 
         await tx.spot.update({
           where: { id: spot.id },
           data: { status: "AVAILABLE", userId: null, team: null, position: null, holdUntil: null },
         });
 
-        const invite = spot.guestInvite;
-        if (invite && invite.id) {
+        if (invite) {
           await tx.guestInvite.delete({ where: { id: invite.id } }).catch(() => null);
           if (invite.guestUserId) {
             await tx.profile.deleteMany({ where: { userId: invite.guestUserId } }).catch(() => null);
