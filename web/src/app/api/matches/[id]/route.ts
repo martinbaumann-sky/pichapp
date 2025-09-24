@@ -36,54 +36,35 @@ export async function GET(
           lat: true,
           lng: true,
           coverImageUrl: true,
+          organizer: { select: { id: true, profile: { select: { name: true } } } },
+          spots: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              status: true,
+              userId: true,
+              position: true,
+              team: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  profile: { select: { name: true, position: true } },
+                },
+              },
+              guestInvite: {
+                select: { inviterId: true, guestUserId: true, name: true },
+              },
+            },
+          },
         },
       })
       .catch(() => null);
 
     if (!match) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-    const [organizerUser, rawSpots, inviteRows] = await Promise.all([
-      prisma.user
-        .findUnique({
-          where: { id: match.organizerId },
-          select: { id: true, profile: { select: { name: true } } },
-        })
-        .catch(() => null),
-      prisma.spot
-        .findMany({
-          where: { matchId: id },
-          select: {
-            id: true,
-            status: true,
-            userId: true,
-            position: true,
-            team: true,
-            user: {
-              select: {
-                id: true,
-                email: true,
-                profile: { select: { name: true, position: true } },
-              },
-            },
-          },
-          orderBy: { createdAt: "asc" },
-        })
-        .catch(() => []),
-      prisma.guestInvite
-        .findMany({
-          where: { matchId: id },
-          select: { spotId: true, inviterId: true, guestUserId: true, name: true },
-        })
-        .catch(() => []),
-    ]);
-
-    const invitesBySpot = new Map<string, (typeof inviteRows)[number]>();
-    for (const invite of inviteRows) {
-      if (invite?.spotId) {
-        invitesBySpot.set(invite.spotId, invite);
-      }
-    }
-
+    const organizerUser = match.organizer;
+    const spots = Array.isArray(match.spots) ? match.spots : [];
     const viewerId = await getSessionUserId().catch(() => null);
     let viewerIsAdmin = false;
     if (viewerId) {
@@ -93,7 +74,6 @@ export async function GET(
       } catch {}
     }
 
-    const spots = Array.isArray(rawSpots) ? rawSpots : [];
     const paidSpots = spots.filter((s: any) => s.status === "PAID");
     const availableSpots = spots.filter((s: any) => s.status === "AVAILABLE");
     const paid = paidSpots.length;
@@ -103,10 +83,10 @@ export async function GET(
 
     const players = paidSpots.map((s: any, idx: number) => {
       const profile = s.user?.profile ?? null;
-      const userId = s.userId ?? s.user?.id ?? null;
+      const inviteInfo = s.guestInvite ?? null;
+      const userId = s.userId ?? s.user?.id ?? inviteInfo?.guestUserId ?? null;
       const profileName = typeof profile?.name === "string" ? profile.name.trim() : "";
       const hasProfile = Boolean(userId && profileName.length > 0);
-      const inviteInfo = invitesBySpot.get(s.id) ?? null;
       const inviteName = typeof inviteInfo?.name === "string" ? inviteInfo.name.trim() : "";
       const displayName = hasProfile ? profileName : inviteName || `Jugador ${idx + 1}`;
       const position = s.position ?? (hasProfile ? profile?.position ?? null : null);
@@ -132,7 +112,9 @@ export async function GET(
       ? {
           isOrganizer: viewerId === match.organizerId,
           isAdmin: viewerIsAdmin,
-          hasJoined: paidSpots.some((s: any) => s.userId === viewerId),
+          hasJoined: paidSpots.some(
+            (s: any) => s.userId === viewerId || s.guestInvite?.guestUserId === viewerId,
+          ),
           canDelete: viewerId === match.organizerId || viewerIsAdmin,
         }
       : null;
