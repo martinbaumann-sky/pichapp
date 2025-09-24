@@ -8,9 +8,12 @@ import { resolveFriendship } from "@/lib/friendship";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
-    const id = params.id;
+    const { id } = await params;
     if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
     let m = null as any;
@@ -203,10 +206,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const userId = await requireUserId();
-    const id = params.id;
+    const { id } = await params;
     if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
     const match = await prisma.match.findUnique({ where: { id }, select: { organizerId: true } });
