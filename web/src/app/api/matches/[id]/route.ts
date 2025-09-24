@@ -90,12 +90,30 @@ export async function GET(
       } catch {}
     }
 
+<<<<<<< HEAD
     const paidSpots = spots.filter((s: any) => s.status === "PAID");
     const availableSpots = spots.filter((s: any) => s.status === "AVAILABLE");
     const paid = paidSpots.length;
     const available = availableSpots.length;
     const rawMinSpots = (match as any).minSpotsToConfirm;
     const minRequired = typeof rawMinSpots === "number" && rawMinSpots > 0 ? rawMinSpots : match.totalSpots;
+=======
+    const inviteRecords =
+      typeof (prisma as any)?.guestInvite?.findMany === "function"
+        ? await (prisma as any).guestInvite
+            .findMany({
+              where: { matchId: id },
+              select: { spotId: true, inviterId: true, guestUserId: true },
+            })
+            .catch(() => [])
+        : [];
+    const inviteBySpotId = new Map<string, { inviterId: string; guestUserId: string | null }>();
+    for (const invite of inviteRecords) {
+      if (invite.spotId) {
+        inviteBySpotId.set(invite.spotId, { inviterId: invite.inviterId, guestUserId: invite.guestUserId });
+      }
+    }
+>>>>>>> c9e8048aa40269ad5b45685fdb3507f1d9146d50
 
     const players = paidSpots.map((s: any, idx: number) => {
       const profile = s.user?.profile ?? null;
