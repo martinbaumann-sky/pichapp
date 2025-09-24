@@ -60,11 +60,25 @@ export async function GET(
             profile: { select: { name: true, position: true } },
           },
         },
-        guestInvite: {
-          select: { inviterId: true, guestUserId: true, name: true },
-        },
       },
     });
+
+    const guestInvites = await prisma.guestInvite
+      .findMany({
+        where: { matchId: id },
+        select: { spotId: true, inviterId: true, guestUserId: true, name: true },
+      })
+      .catch(() => []);
+
+    const inviteBySpotId = new Map<string, { inviterId: string; guestUserId: string; name: string }>();
+    for (const invite of guestInvites) {
+      if (!invite?.spotId) continue;
+      inviteBySpotId.set(invite.spotId, {
+        inviterId: invite.inviterId,
+        guestUserId: invite.guestUserId,
+        name: invite.name,
+      });
+    }
 
     const organizerUser = match.organizer;
     const viewerId = await getSessionUserId().catch(() => null);
@@ -85,7 +99,7 @@ export async function GET(
 
     const players = paidSpots.map((s: any, idx: number) => {
       const profile = s.user?.profile ?? null;
-      const inviteInfo = s.guestInvite ?? null;
+      const inviteInfo = inviteBySpotId.get(s.id) ?? null;
       const userId = s.userId ?? s.user?.id ?? inviteInfo?.guestUserId ?? null;
       const profileName = typeof profile?.name === "string" ? profile.name.trim() : "";
       const hasProfile = Boolean(userId && profileName.length > 0);
@@ -114,9 +128,11 @@ export async function GET(
       ? {
           isOrganizer: viewerId === match.organizerId,
           isAdmin: viewerIsAdmin,
-          hasJoined: paidSpots.some(
-            (s: any) => s.userId === viewerId || s.guestInvite?.guestUserId === viewerId,
-          ),
+          hasJoined: paidSpots.some((s: any) => {
+            if (s.userId === viewerId) return true;
+            const invite = inviteBySpotId.get(s.id);
+            return invite?.guestUserId === viewerId;
+          }),
           canDelete: viewerId === match.organizerId || viewerIsAdmin,
         }
       : null;
