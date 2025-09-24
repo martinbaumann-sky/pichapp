@@ -68,12 +68,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       } catch {}
     }
 
-    const inviteRecords = await prisma.guestInvite
-      .findMany({
-        where: { matchId: id },
-        select: { spotId: true, inviterId: true, guestUserId: true },
-      })
-      .catch(() => []);
+    const inviteRecords =
+      typeof (prisma as any)?.guestInvite?.findMany === "function"
+        ? await (prisma as any).guestInvite
+            .findMany({
+              where: { matchId: id },
+              select: { spotId: true, inviterId: true, guestUserId: true },
+            })
+            .catch(() => [])
+        : [];
     const inviteBySpotId = new Map<string, { inviterId: string; guestUserId: string | null }>();
     for (const invite of inviteRecords) {
       if (invite.spotId) {
