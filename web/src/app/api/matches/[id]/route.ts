@@ -8,6 +8,7 @@ import { resolveFriendship } from "@/lib/friendship";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const runtime = "nodejs";
 
 export async function GET(
   _req: NextRequest,
@@ -17,54 +18,55 @@ export async function GET(
     const { id } = await params;
     if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
-    const match = await prisma.match
-      .findUnique({
-        where: { id },
-        select: {
-          id: true,
-          title: true,
-          organizerId: true,
-          comuna: true,
-          startsAt: true,
-          durationMins: true,
-          pricePerSpot: true,
-          totalSpots: true,
-          minSpotsToConfirm: true,
-          level: true,
-          venueName: true,
-          venueAddress: true,
-          lat: true,
-          lng: true,
-          coverImageUrl: true,
-          organizer: { select: { id: true, profile: { select: { name: true } } } },
-          spots: {
-            orderBy: { createdAt: "asc" },
-            select: {
-              id: true,
-              status: true,
-              userId: true,
-              position: true,
-              team: true,
-              user: {
-                select: {
-                  id: true,
-                  email: true,
-                  profile: { select: { name: true, position: true } },
-                },
-              },
-              guestInvite: {
-                select: { inviterId: true, guestUserId: true, name: true },
-              },
-            },
+    const match = await prisma.match.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        organizerId: true,
+        comuna: true,
+        startsAt: true,
+        durationMins: true,
+        pricePerSpot: true,
+        totalSpots: true,
+        minSpotsToConfirm: true,
+        level: true,
+        venueName: true,
+        venueAddress: true,
+        lat: true,
+        lng: true,
+        coverImageUrl: true,
+        organizer: { select: { id: true, profile: { select: { name: true } } } },
+      },
+    });
+
+    if (!match) {
+      return NextResponse.json({ error: "Partido no encontrado" }, { status: 404 });
+    }
+
+    const spots = await prisma.spot.findMany({
+      where: { matchId: id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        status: true,
+        userId: true,
+        position: true,
+        team: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: { select: { name: true, position: true } },
           },
         },
-      })
-      .catch(() => null);
-
-    if (!match) return NextResponse.json({ error: "not found" }, { status: 404 });
+        guestInvite: {
+          select: { inviterId: true, guestUserId: true, name: true },
+        },
+      },
+    });
 
     const organizerUser = match.organizer;
-    const spots = Array.isArray(match.spots) ? match.spots : [];
     const viewerId = await getSessionUserId().catch(() => null);
     let viewerIsAdmin = false;
     if (viewerId) {
