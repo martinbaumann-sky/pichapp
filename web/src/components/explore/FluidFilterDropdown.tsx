@@ -71,7 +71,11 @@ export function FluidFilterDropdown({
       if (option.disabled) return
       onValueChange(option.value)
       setHovered(null)
-      closeDropdown()
+      // Keep the dropdown open when the option provides inline content
+      // so the user can complete the interaction (e.g., choose a date).
+      if (!option.renderContent) {
+        closeDropdown()
+      }
     },
     [onValueChange, closeDropdown],
   )

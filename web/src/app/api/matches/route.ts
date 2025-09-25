@@ -36,9 +36,9 @@ export async function POST(req: NextRequest) {
         return {
           name: String(p.name).trim(),
           phone: normalizedPhone ?? undefined,
-          email: p.email ? String(p.email).trim() : undefined,
+          email: p.email ? String(p.email).trim().toLowerCase() : undefined,
           position: allowedPositions.has(pos) ? pos : undefined,
-          team: p.team ? String(p.team).trim() : undefined,
+          team: p.team ? String(p.team).trim().toUpperCase() : undefined,
         };
       });
 
@@ -153,13 +153,30 @@ export async function POST(req: NextRequest) {
           const player = occupiedPlayers[i];
           try {
             const newUserId = crypto.randomUUID();
-            await prisma.$executeRaw`INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${null}, ${false})`;
+            const email = player?.email ? String(player.email).trim().toLowerCase() : null;
+            await prisma.$executeRaw`INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${email}, ${false})`;
             const newProfileId = crypto.randomUUID();
             const name = player?.name ? String(player.name) : `Jugador ${i + 1}`;
             const phone = player?.phone ? normalizeForStorage(player.phone) : null;
             const position = player?.position ? String(player.position) : null;
             await prisma.$executeRaw`INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${name}, ${phone}, ${match.comuna || ""}, ${position}::"Position")`;
-            await prisma.spot.update({ where: { id: spot.id }, data: { status: "PAID", userId: newUserId, team: player?.team ?? null, position: position ? (position as any) : undefined } });
+            const team = player?.team ? String(player.team).trim().toUpperCase() : null;
+            await prisma.spot.update({ where: { id: spot.id }, data: { status: "PAID", userId: newUserId, team: team, position: position ? (position as any) : undefined } });
+            if (email) {
+              try {
+                await (prisma as any)?.guestInvite?.create?.({
+                  data: {
+                    matchId: match.id,
+                    inviterId: organizerId,
+                    spotId: spot.id,
+                    guestUserId: newUserId,
+                    name,
+                    email,
+                    position: position ? (position as any) : null,
+                  },
+                }).catch(() => null);
+              } catch {}
+            }
           } catch {
             // ignorar fallos individuales
           }

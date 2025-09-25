@@ -5,6 +5,7 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DateTimePicker from "@/components/DateTimePicker";
 import dynamic from "next/dynamic";
 import { nivelES } from "@/lib/i18n";
+import { TEAM_KEYS, TEAM_LABELS } from "@/lib/teams";
 import { staticMapUrl } from "@/lib/maps";
 import { streetViewUrl } from "@/lib/places";
 import { AnimatePresence, motion } from "framer-motion";
@@ -42,9 +43,10 @@ export default function CreateMatchWizard() {
   const [step, setStep] = useState(0);
   const [prevStep, setPrevStep] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [occupiedDetails, setOccupiedDetails] = useState<Array<{ name: string; email: string; position: string }>>([]);
+  const [occupiedDetails, setOccupiedDetails] = useState<Array<{ name: string; email: string; position: string; team?: string }>>([]);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [friends, setFriends] = useState<any[]>([]);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<Form>({
     title: "",
     level: "INTERMEDIATE",
@@ -311,26 +313,82 @@ export default function CreateMatchWizard() {
               <button type="button" className="px-3 py-1.5 text-sm rounded-lg border" onClick={()=>setFriendsOpen((v)=>!v)}>{friendsOpen? 'Ocultar' : 'Ver amigos'}</button>
             </div>
             {friendsOpen && (
-              <div className="grid sm:grid-cols-2 gap-3">
-                {friends.map((f:any)=> (
-                  <button key={f.id} type="button" onClick={()=>{
-                    const name = f.user?.name || 'Amigo';
-                    const email = f.user?.email || '';
-                    const position = f.user?.position || '';
-                    setOccupiedDetails((prev)=>[...prev, { name, email, position }]);
-                    setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
-                  }} className="flex items-center justify-between p-3 rounded-xl border hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">⚽</div>
-                      <div>
-                        <div className="text-sm font-medium">{f.user?.name}</div>
-                        <div className="text-xs text-gray-500">{f.user?.comuna || '—'}{f.user?.position ? ` • ${f.user.position}`: ''}</div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-600">Agregar</div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">También puedes invitar manualmente a alguien que no esté en tu lista.</div>
+                  <button
+                    type="button"
+                    onClick={()=>{
+                      setOccupiedDetails((prev)=>{
+                        const next = [...prev, { name: '', email: '', position: '', team: '' }];
+                        return next;
+                      });
+                      setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
+                    }}
+                    className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50"
+                  >
+                    Agregar invitado
                   </button>
-                ))}
-                {friends.length === 0 && <div className="text-xs text-gray-500">Aún no tienes amigos. Agrégalos por su número en la pestaña “Amigos”.</div>}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {friends.map((f:any)=> {
+                    const id = String(f.id);
+                    const isSelected = selectedFriendIds.has(id);
+                    const name = f.user?.name || 'Amigo';
+                    const email = f.user?.email || f.email || '';
+                    const position = f.user?.position || '';
+                    return (
+                      <div key={id} className={`flex items-center justify-between p-3 rounded-xl border ${isSelected? 'bg-emerald-50 border-emerald-200' : 'hover:bg-gray-50'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">⚽</div>
+                          <div>
+                            <div className="text-sm font-medium">{name}</div>
+                            <div className="text-xs text-gray-500">{f.user?.comuna || '—'}{position ? ` • ${position}`: ''}</div>
+                          </div>
+                        </div>
+                        {isSelected ? (
+                          <button
+                            type="button"
+                            className="text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+                            onClick={()=>{
+                              setSelectedFriendIds((prev)=>{
+                                const next = new Set(prev);
+                                next.delete(id);
+                                return next;
+                              });
+                              setOccupiedDetails((prev)=>{
+                                const idx = prev.findIndex((p:any)=> p.friendId === id);
+                                if (idx >= 0) {
+                                  const next = [...prev];
+                                  next.splice(idx,1);
+                                  return next;
+                                }
+                                return prev;
+                              });
+                              setForm((prev)=>({ ...prev, occupiedSpots: Math.max(0, (prev.occupiedSpots||0) - 1) }));
+                            }}
+                          >Quitar</button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-xs px-2 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                            onClick={()=>{
+                              setSelectedFriendIds((prev)=>{
+                                const next = new Set(prev);
+                                if (next.has(id)) return next;
+                                next.add(id);
+                                return next;
+                              });
+                              setOccupiedDetails((prev)=>[...prev, { friendId: id, name, email, position, team: '' } as any]);
+                              setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
+                            }}
+                          >Agregar</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {friends.length === 0 && <div className="text-xs text-gray-500">Aún no tienes amigos. Agrégalos por su número en la pestaña “Amigos”.</div>}
+                </div>
               </div>
             )}
           </div>
@@ -338,14 +396,14 @@ export default function CreateMatchWizard() {
             <div className="mt-2 space-y-3">
               <div className="text-sm text-gray-700 font-medium">Datos de jugadores ocupados por el organizador</div>
               {Array.from({ length: form.occupiedSpots }).map((_, idx) => (
-                <div key={idx} className="grid md:grid-cols-3 gap-3 border rounded p-3">
+                <div key={idx} className="grid md:grid-cols-3 gap-3 border rounded-2xl p-4 bg-white">
                   <input
                     type="text"
                     placeholder={`Nombre jugador ${idx+1}`}
                     value={occupiedDetails[idx]?.name || ""}
                     onChange={(e)=>{
                       const next = [...occupiedDetails];
-                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"" }), name: e.target.value };
+                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"", team: "" }), name: e.target.value };
                       setOccupiedDetails(next);
                     }}
                     className="w-full border px-3 py-2 rounded"
@@ -356,27 +414,57 @@ export default function CreateMatchWizard() {
                     value={occupiedDetails[idx]?.email || ""}
                     onChange={(e)=>{
                       const next = [...occupiedDetails];
-                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"" }), email: e.target.value };
+                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"", team: "" }), email: e.target.value };
                       setOccupiedDetails(next);
                     }}
                     className="w-full border px-3 py-2 rounded"
                   />
-                  <select
-                    value={occupiedDetails[idx]?.position || ""}
-                    onChange={(e)=>{
-                      const next = [...occupiedDetails];
-                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"" }), position: e.target.value };
-                      setOccupiedDetails(next);
-                    }}
-                    className="w-full border px-3 py-2 rounded"
-                  >
-                    <option value="">Posición</option>
-                    <option value="ARQUERO">Arquero</option>
-                    <option value="DEFENSA">Defensa</option>
-                    <option value="LATERAL">Lateral</option>
-                    <option value="VOLANTE">Volante</option>
-                    <option value="DELANTERO">Delantero</option>
-                  </select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      value={occupiedDetails[idx]?.team || ""}
+                      onChange={(e)=>{
+                        const next = [...occupiedDetails];
+                        next[idx] = { ...(next[idx]||{ name:"", email:"", position:"", team: "" }), team: e.target.value };
+                        setOccupiedDetails(next);
+                      }}
+                      className="w-full border px-3 py-2 rounded"
+                    >
+                      <option value="">Equipo</option>
+                      {TEAM_KEYS.map((key)=> (
+                        <option key={key} value={key}>{TEAM_LABELS[key]}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={occupiedDetails[idx]?.position || ""}
+                      onChange={(e)=>{
+                        const next = [...occupiedDetails];
+                        next[idx] = { ...(next[idx]||{ name:"", email:"", position:"", team: "" }), position: e.target.value };
+                        setOccupiedDetails(next);
+                      }}
+                      className="w-full border px-3 py-2 rounded"
+                    >
+                      <option value="">Posición</option>
+                      <option value="ARQUERO">Arquero</option>
+                      <option value="DEFENSA">Defensa</option>
+                      <option value="LATERAL">Lateral</option>
+                      <option value="VOLANTE">Volante</option>
+                      <option value="DELANTERO">Delantero</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-3 flex justify-end">
+                    <button
+                      type="button"
+                      className="text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+                      onClick={()=>{
+                        setOccupiedDetails((prev)=>{
+                          const next = [...prev];
+                          next.splice(idx,1);
+                          return next;
+                        });
+                        setForm((prev)=>({ ...prev, occupiedSpots: Math.max(0, (prev.occupiedSpots||0) - 1) }));
+                      }}
+                    >Quitar jugador</button>
+                  </div>
                 </div>
               ))}
               <p className="text-xs text-gray-500">Estos datos no son obligatorios en esta etapa.</p>
