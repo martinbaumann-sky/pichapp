@@ -20,6 +20,7 @@ import {
   normalizePosition,
   TEAM_LABELS,
   TEAM_KEYS,
+  POSITION_KEYS,
   type TeamKey,
   type PositionKey,
 } from "@/lib/teams";
@@ -304,13 +305,32 @@ export default function MatchDetailPage() {
     const localFriendsValid = joinFriendCount === 0 || localFriendEntries.every((friend) => {
       const nameOk = friend.name.trim().length > 1;
       const emailOk = emailRegex.test(friend.email.trim());
-      const positionOk = !!friend.position;
-      return nameOk && emailOk && positionOk;
+      return nameOk && emailOk;
     });
     if (!localFriendsValid) {
       setJoinError("Completa los datos de tus invitados antes de continuar.");
       return;
     }
+    const teamPositionPool = new Map<TeamKey, PositionKey[]>();
+    formationData.teams.forEach((team) => {
+      const availablePositions = team.slots.filter((slot) => slot.isAvailable).map((slot) => slot.position);
+      const fallbackPositions = team.slots.map((slot) => slot.position);
+      const pool = availablePositions.length > 0 ? availablePositions : fallbackPositions;
+      teamPositionPool.set(team.team, [...pool]);
+    });
+    const defaultTeam = joinSelectedSlot.team;
+    const defaultPosition = joinSelectedSlot.position;
+    const resolveRandomPosition = (preferredTeam: TeamKey | null): PositionKey => {
+      const teamKey = preferredTeam && teamPositionPool.has(preferredTeam) ? preferredTeam : defaultTeam;
+      const pool = teamPositionPool.get(teamKey) ?? [...POSITION_KEYS];
+      if (pool.length === 0) {
+        return defaultPosition;
+      }
+      const randomIndex = Math.floor(Math.random() * pool.length);
+      const [selected] = pool.splice(randomIndex, 1);
+      teamPositionPool.set(teamKey, pool);
+      return selected ?? defaultPosition;
+    };
     setJoining(true);
     setJoinError(null);
     try {
@@ -318,7 +338,11 @@ export default function MatchDetailPage() {
         name: friend.name.trim(),
         email: friend.email.trim(),
         team: friend.team || null,
-        position: friend.position,
+        position:
+          friend.position ||
+          resolveRandomPosition(
+            TEAM_KEYS.includes(friend.team as TeamKey) ? (friend.team as TeamKey) : null,
+          ),
       }));
       const res = await fetch(`/api/matches/${id}/join`, {
         method: "POST",
@@ -351,7 +375,15 @@ export default function MatchDetailPage() {
     } finally {
       setJoining(false);
     }
-  }, [user, joinSelectedSlot, id, loadMatch, joinFriends, joinFriendCount]);
+  }, [
+    user,
+    joinSelectedSlot,
+    id,
+    loadMatch,
+    joinFriends,
+    joinFriendCount,
+    formationData,
+  ]);
 
   useEffect(() => {
     if (!joinDialogOpen) return;
@@ -527,8 +559,7 @@ export default function MatchDetailPage() {
     return friendEntries.every((friend) => {
       const nameOk = friend.name.trim().length > 1;
       const emailOk = emailRegex.test(friend.email.trim());
-      const positionOk = !!friend.position;
-      return nameOk && emailOk && positionOk;
+      return nameOk && emailOk;
     });
   }, [friendEntries, joinFriendCount]);
 
