@@ -56,14 +56,16 @@ export default function Header() {
       <Link
         href={href}
         className={cn(
-          "relative px-3 py-2 rounded-full text-sm font-medium transition-all duration-150",
-          active ? "text-black" : "text-gray-700 hover:bg-gray-100 hover:-translate-y-0.5"
+          "relative rounded-full px-3 py-2 text-sm font-medium transition-all duration-150",
+          active
+            ? "text-[color:var(--brand-1)] font-semibold"
+            : "text-[color:var(--fg-muted)] hover:-translate-y-0.5 hover:bg-white/80 hover:text-[color:var(--brand-1)]"
         )}
       >
         {active && (
           <motion.span
             layoutId="navActiveBg"
-            className="absolute inset-0 rounded-full bg-gray-100 shadow-sm"
+            className="absolute inset-0 rounded-full border border-[color:var(--brand-1)]/20 bg-[color:var(--brand-1)]/10 shadow-[0_8px_20px_rgba(0,105,137,0.18)]"
             transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.2 }}
           />
         )}
@@ -90,19 +92,19 @@ export default function Header() {
   }, [notificationsOpen]);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 border-b border-gray-200/50 shadow-sm">
-      <div className="container h-16 lg:h-18 container-px flex items-center justify-between">
+    <header className="sticky top-0 z-40 border-b border-[color:var(--border)]/60 bg-white/75 shadow-[0_8px_30px_rgba(0,72,92,0.08)] backdrop-blur-xl supports-[backdrop-filter]:bg-white/60">
+      <div className="container container-px flex h-16 items-center justify-between lg:h-18">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <Link href="/" className="flex items-center gap-3 transition-all duration-150 hover:-translate-y-0.5">
             <div className="relative">
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                <rect width="24" height="24" rx="6" fill="var(--brand-2)" />
+                <rect width="24" height="24" rx="6" fill="var(--brand-1)" />
                 <path d="M6 12h12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
                 <circle cx="12" cy="12" r="2" fill="white" />
               </svg>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full border-2 border-white animate-pulse"></div>
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-brand-light rounded-full border-2 border-white animate-pulse"></div>
             </div>
-            <span className="font-bold text-lg lg:text-xl tracking-tight bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">PichangApp</span>
+            <span className="font-bold text-lg lg:text-xl tracking-tight text-[color:var(--fg)]">PichangApp</span>
           </Link>
         </div>
 
@@ -134,7 +136,7 @@ export default function Header() {
                 setAuthInitialTab("login");
                 setAuthOpen(true);
               }}
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors touch-target"
+              className="p-2 rounded-full hover:bg-white/70 transition-colors touch-target"
             >
               <UserIcon className="w-5 h-5" />
             </button>
@@ -146,8 +148,8 @@ export default function Header() {
                     type="button"
                     onClick={() => setNotificationsOpen(true)}
                     className={cn(
-                      "relative p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target",
-                      notificationsOpen && "bg-gray-100"
+                      "relative p-2 rounded-full hover:bg-white/70 focus:outline-none focus:ring-2 focus:ring-brand/20 transition-colors touch-target",
+                      notificationsOpen && "bg-white/70"
                     )}
                     aria-label="notificaciones"
                   >

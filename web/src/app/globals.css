@@ -24,22 +24,26 @@
 
 @layer base {
   :root {
-    --brand-1: #06b6d4; /* cyan-500 */
-    --brand-2: #0b8f3d; /* cancha green */
-    --brand-3: #059669; /* emerald-600 */
-    --bg: #ffffff;
-    --bg-subtle: #f8fafc;
-    --bg-muted: #f1f5f9;
-    --fg: #0f172a;
-    --fg-muted: #475569;
-    --fg-subtle: #64748b;
-    --border: #e2e8f0;
-    --border-muted: #f1f5f9;
-    --ring: #0f172a;
-    --glass: rgba(255,255,255,0.8);
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --brand-1: #006989;
+    --brand-2: #005570;
+    --brand-3: #2d8ea8;
+    --brand-soft: rgba(0, 105, 137, 0.12);
+    --accent-1: #3cb3cf;
+    --bg: #eaebed;
+    --bg-subtle: #f4f5f7;
+    --bg-muted: #dfe3e7;
+    --surface: rgba(255, 255, 255, 0.82);
+    --surface-strong: rgba(255, 255, 255, 0.92);
+    --fg: #0f2a32;
+    --fg-muted: #45606d;
+    --fg-subtle: #6a838f;
+    --border: #c9d3d9;
+    --border-muted: #d8e0e5;
+    --ring: #006989;
+    --glass: rgba(234, 235, 237, 0.8);
+    --shadow-sm: 0 1px 2px 0 rgb(15 42 50 / 0.04);
+    --shadow-md: 0 10px 30px rgb(0 54 74 / 0.08);
+    --shadow-lg: 0 20px 48px rgb(0 54 74 / 0.12);
     /* levels */
     --level-beginner: #10b981; /* emerald-500 */
     --level-intermediate: #f59e0b; /* amber-500 */
@@ -62,26 +66,40 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     color: var(--fg);
-    background:
-      radial-gradient(1400px 600px at 50% -10%, rgba(6,182,212,0.05), transparent 60%),
-      radial-gradient(800px 400px at 80% 20%, rgba(11,143,61,0.03), transparent 50%),
-      linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg) 70%);
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(40% 30% at 15% 10%, rgba(0, 105, 137, 0.18), transparent 70%),
+      radial-gradient(55% 45% at 80% 0%, rgba(60, 179, 207, 0.16), transparent 75%),
+      linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg) 55%, #d6dbe0 100%);
     min-height: 100vh;
     line-height: 1.6;
   }
 
-  ::selection { 
-    background: rgba(6, 182, 212, 0.15); 
-    color: var(--fg); 
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(28% 32% at 75% 78%, rgba(255, 255, 255, 0.7), transparent 80%),
+      radial-gradient(20% 22% at 5% 65%, rgba(0, 105, 137, 0.08), transparent 75%);
+    mix-blend-mode: screen;
+    opacity: 0.7;
+    z-index: -1;
+  }
+
+  ::selection {
+    background: rgba(0, 105, 137, 0.2);
+    color: white;
   }
 
   * { 
     outline: none; 
   }
   
-  *:focus-visible { 
-    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2); 
-    border-color: transparent; 
+  *:focus-visible {
+    box-shadow: 0 0 0 3px rgba(0, 105, 137, 0.2);
+    border-color: transparent;
   }
   
   /* Improved typography */
@@ -98,33 +116,33 @@
 
 @layer components {
   /* Buttons - Enhanced with professional styling */
-  .btn { 
-    @apply inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200 active:scale-[0.98]; 
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200 active:scale-[0.98];
     min-height: 44px; /* iOS touch target minimum */
     min-width: 44px;
     box-shadow: var(--shadow-sm);
   }
   .btn-primary {
     @apply btn text-white shadow-lg;
-    background: linear-gradient(135deg, var(--brand-1) 0%, var(--brand-2) 100%);
-    box-shadow: 0 8px 24px rgba(11, 143, 61, 0.15), var(--shadow-sm);
+    background: linear-gradient(135deg, var(--brand-1) 0%, var(--brand-3) 100%);
+    box-shadow: 0 16px 40px rgba(0, 105, 137, 0.22), var(--shadow-sm);
   }
   .btn-primary:hover {
-    background: linear-gradient(135deg, #0891b2 0%, #0a7a37 100%);
-    box-shadow: 0 12px 32px rgba(11, 143, 61, 0.2), var(--shadow-md);
-    transform: translateY(-1px);
+    background: linear-gradient(135deg, #007da3 0%, #00495c 100%);
+    box-shadow: 0 24px 52px rgba(0, 105, 137, 0.25), var(--shadow-md);
+    transform: translateY(-2px);
   }
-  .btn-outline { 
-    @apply btn border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white; 
+  .btn-outline {
+    @apply btn border border-[color:var(--border)] bg-white/80 text-[color:var(--brand-1)] hover:border-[color:var(--brand-1)] hover:bg-[color:var(--brand-1)] hover:text-white;
     box-shadow: var(--shadow-sm);
   }
   .btn-outline:hover {
     box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
   }
-  .btn-ghost { @apply btn text-gray-700 hover:bg-gray-100; }
-  .btn-secondary { 
-    @apply btn border border-gray-200 text-gray-800 bg-white hover:shadow-md; 
+  .btn-ghost { @apply btn text-[color:var(--fg-muted)] hover:bg-white/70; }
+  .btn-secondary {
+    @apply btn border border-[color:var(--border)] text-[color:var(--fg)] bg-white/90 backdrop-blur-sm hover:border-[color:var(--brand-1)] hover:text-[color:var(--brand-1)];
     box-shadow: var(--shadow-sm);
   }
   
@@ -133,8 +151,8 @@
   .btn-mobile-sm { @apply btn px-6 py-3 text-sm min-h-[44px]; }
 
   /* Cards - Enhanced with professional shadows and spacing */
-  .card { 
-    @apply bg-white rounded-2xl shadow-sm border border-gray-200 transition-all duration-300; 
+  .card {
+    @apply rounded-2xl border border-[color:var(--border)]/70 bg-[color:var(--surface)] backdrop-blur-md transition-all duration-300;
     box-shadow: var(--shadow-sm);
   }
   .card-hover { 
@@ -143,8 +161,8 @@
   .card-hover:hover {
     box-shadow: var(--shadow-lg);
   }
-  .glass-card { 
-    @apply bg-white/60 backdrop-blur-md rounded-2xl border border-white/40 p-4 shadow-md; 
+  .glass-card {
+    @apply rounded-3xl border border-white/50 bg-white/65 p-5 shadow-md backdrop-blur-xl;
     box-shadow: var(--shadow-md);
   }
   
@@ -153,14 +171,14 @@
   .card-desktop { @apply card p-8 mx-0 my-4; }
 
   /* Inputs - Enhanced with professional styling */
-  .input-field { 
-    @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200 bg-white placeholder:text-gray-400; 
+  .input-field {
+    @apply w-full px-4 py-3 border border-[color:var(--border)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)]/20 focus:border-transparent transition-all duration-200 bg-white placeholder:text-[color:var(--fg-subtle)];
     min-height: 44px; /* iOS touch target */
     font-size: 16px; /* Prevents zoom on iOS */
     box-shadow: var(--shadow-sm);
   }
   .input-field:focus {
-    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1), var(--shadow-sm);
+    box-shadow: 0 0 0 3px rgba(0, 105, 137, 0.15), var(--shadow-sm);
     border-color: var(--brand-1);
   }
   .select-field { @apply input-field appearance-none bg-no-repeat bg-right pr-10; }
@@ -171,7 +189,19 @@
   .input-desktop { @apply input-field py-3 px-4 text-sm; }
 
   /* Links */
-  .link { @apply underline decoration-gray-300 underline-offset-[6px] hover:decoration-gray-800 transition-colors; }
+  .link { @apply underline decoration-[color:var(--brand-1)]/30 underline-offset-[6px] hover:text-[color:var(--brand-1)] transition-colors; }
+
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--brand-1)] shadow-sm;
+  }
+
+  .feature-pill {
+    @apply inline-flex items-center gap-2 rounded-full border border-[color:var(--border)]/60 bg-white/80 px-4 py-2 text-sm font-medium text-[color:var(--fg-muted)];
+  }
+
+  .stat-card {
+    @apply flex flex-col gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-5 py-4 text-left shadow-sm backdrop-blur;
+  }
 
   /* Mobile-specific utilities */
   .mobile-padding { @apply px-4 py-3; }
@@ -183,18 +213,18 @@
 
   /* Professional utilities */
   .text-gradient {
-    background: linear-gradient(135deg, var(--brand-1) 0%, var(--brand-2) 100%);
+    background: linear-gradient(135deg, var(--brand-1) 0%, var(--brand-3) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   
   .shadow-brand {
-    box-shadow: 0 8px 24px rgba(11, 143, 61, 0.15);
+    box-shadow: 0 12px 30px rgba(0, 105, 137, 0.18);
   }
   
   .shadow-brand-lg {
-    box-shadow: 0 12px 32px rgba(11, 143, 61, 0.2);
+    box-shadow: 0 18px 42px rgba(0, 105, 137, 0.25);
   }
   
   .border-gradient {

@@ -16,26 +16,29 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          DEFAULT: "#06b6d4", // cyan-500
-          600: "#0891b2",
-          700: "#0e7490",
+          DEFAULT: "#006989",
+          600: "#005570",
+          700: "#003f52",
+          light: "#2d8ea8",
         },
         accent: {
-          DEFAULT: "#0b8f3d", // cancha green
-          600: "#0a7a37",
-          700: "#096a31",
+          DEFAULT: "#2d8ea8",
+          50: "#e0f1f6",
+          100: "#c7e4ee",
+          200: "#9ecedf",
+          600: "#1f6f84",
         },
         bg: {
-          DEFAULT: "#ffffff",
-          subtle: "#f8fafc",
-          card: "#ffffff",
+          DEFAULT: "#eaebed",
+          subtle: "#f4f5f7",
+          card: "#fdfdfe",
         },
         fg: {
-          DEFAULT: "#0f172a",
-          muted: "#475569",
+          DEFAULT: "#0f2a32",
+          muted: "#45606d",
         },
-        border: "#e5e7eb",
-        ring: "#0f172a",
+        border: "#c9d3d9",
+        ring: "#006989",
       },
       borderRadius: {
         xl: "0.875rem",
