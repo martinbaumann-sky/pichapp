@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import clsx from "clsx";
 import { staticMapUrl } from "@/lib/maps";
 
 type Suggestion = { 
@@ -14,31 +15,41 @@ type Suggestion = {
 };
 
 type Props = {
-  value: string;
-  onChange?: (v: { 
-    venueName?: string; 
-    venueAddress?: string; 
-    lat?: number; 
-    lng?: number; 
-    display?: string; 
-    place_id?: string; 
-    photoUrl?: string; 
-    comuna?: string 
+  value?: string;
+  onChange?: (v: {
+    venueName?: string;
+    venueAddress?: string;
+    lat?: number;
+    lng?: number;
+    display?: string;
+    place_id?: string;
+    photoUrl?: string;
+    comuna?: string;
   }) => void;
   // Backward-compat alias used by older code
-  onSelect?: (v: { 
-    venueName?: string; 
-    venueAddress?: string; 
-    lat?: number; 
-    lng?: number; 
-    display?: string; 
-    place_id?: string; 
-    photoUrl?: string; 
-    comuna?: string 
+  onSelect?: (v: {
+    venueName?: string;
+    venueAddress?: string;
+    lat?: number;
+    lng?: number;
+    display?: string;
+    place_id?: string;
+    photoUrl?: string;
+    comuna?: string;
   }) => void;
+  placeholder?: string;
+  className?: string;
+  inputClassName?: string;
 };
 
-export default function AddressAutocomplete({ value, onChange, onSelect }: Props) {
+export default function AddressAutocomplete({
+  value = "",
+  onChange,
+  onSelect,
+  placeholder = "Buscar dirección, lugar, comuna o punto de referencia...",
+  className,
+  inputClassName,
+}: Props) {
   const [inputValue, setInputValue] = useState(value);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -80,13 +91,19 @@ export default function AddressAutocomplete({ value, onChange, onSelect }: Props
   }, []);
 
   useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  useEffect(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (!selectedSuggestion) {
       timeoutRef.current = setTimeout(() => {
         searchSuggestions(inputValue);
       }, 200); // más ágil
     }
-    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, [inputValue, selectedSuggestion, searchSuggestions]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,7 +171,7 @@ export default function AddressAutocomplete({ value, onChange, onSelect }: Props
     : null;
 
   return (
-    <div className="address-autocomplete relative">
+    <div className={clsx("address-autocomplete relative", className)}>
       <input
         type="text"
         value={inputValue}
@@ -162,10 +179,12 @@ export default function AddressAutocomplete({ value, onChange, onSelect }: Props
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         onFocus={() => { if (suggestions.length > 0 && !selectedSuggestion) setIsOpen(true); }}
-        placeholder="Buscar dirección, lugar, comuna o punto de referencia..."
-        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200 ${
-          selectedSuggestion ? 'border-green-500 bg-green-50' : 'border-gray-300'
-        }`}
+        placeholder={placeholder}
+        className={clsx(
+          "w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200",
+          selectedSuggestion ? "border-green-500 bg-green-50" : "border-gray-300",
+          inputClassName,
+        )}
       />
 
       {isOpen && (
