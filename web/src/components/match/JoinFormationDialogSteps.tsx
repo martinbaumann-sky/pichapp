@@ -6,6 +6,7 @@ import type { PositionKey, TeamKey } from "@/lib/teams";
 import { FormationBoard, type FormationSlotView, type FormationPlayer } from "@/components/match/FormationBoard";
 import { TEAM_KEYS, TEAM_LABELS, POSITION_KEYS } from "@/lib/teams";
 import { posicionES } from "@/lib/i18n";
+import { AlertTriangle, ShieldCheck, Users } from "lucide-react";
 
 export type InviteFriendDraft = {
   name: string;
@@ -283,46 +284,123 @@ export function JoinFormationDialogSteps({
   );
 
   const renderConfirmStep = () => {
-    const selectedTeamData = teams.find(t => t.team === selectedTeam);
-    const selectedSlotData = selectedTeamData?.slots.find(s => s.index === selectedSlot?.slotIndex);
-    
+    const selectedTeamData = teams.find((t) => t.team === selectedTeam);
+    const selectedSlotData = selectedTeamData?.slots.find((s) => s.index === selectedSlot?.slotIndex);
+    const friendEntries = friends.slice(0, friendCount);
+    const hasFriends = friendCount > 0 && friendEntries.length > 0;
+
     return (
       <div className="space-y-6">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <h4 className="font-semibold text-slate-800 mb-3">Tu posición</h4>
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">
-              {selectedTeamData?.label}
-            </span>
-            <span className="text-slate-600">
-              {selectedSlotData?.position ? posicionES[selectedSlotData.position] : "Posición"}
-            </span>
+        <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white p-6 shadow-inner">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+                <ShieldCheck className="h-6 w-6" />
+              </span>
+              <div>
+                <h4 className="text-base font-semibold text-emerald-900">Tu inscripción</h4>
+                <p className="text-sm text-emerald-700">
+                  Confirma que la información sea correcta antes de reservar tu cupo.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col rounded-2xl border border-emerald-100 bg-white/80 p-4 shadow-sm">
+              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-500">Equipo</span>
+              <span className="mt-1 text-sm font-semibold text-emerald-900">
+                {selectedTeamData?.label ?? "Equipo a confirmar"}
+              </span>
+              <span className="mt-1 text-xs text-emerald-600">
+                {selectedTeamData
+                  ? `${selectedTeamData.totalPlayers}/${selectedTeamData.capacity} jugadores`
+                  : "Se confirmará al finalizar"}
+              </span>
+            </div>
+            <div className="flex flex-col rounded-2xl border border-emerald-100 bg-white/80 p-4 shadow-sm">
+              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-500">Posición</span>
+              <span className="mt-1 text-sm font-semibold text-emerald-900">
+                {selectedSlotData?.position ? posicionES[selectedSlotData.position] : "Sin posición"}
+              </span>
+              <span className="mt-1 text-xs text-emerald-600">
+                {selectedSlotData?.position ? "Reserva inmediata" : "Se asignará automáticamente"}
+              </span>
+            </div>
           </div>
         </div>
 
-        {friendCount > 0 && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <h4 className="font-semibold text-slate-800 mb-3">Amigos invitados ({friendCount})</h4>
-            <div className="space-y-2">
-              {friends.slice(0, friendCount).map((friend, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">{friend.name}</span>
-                  <span className="text-slate-500">{friend.email}</span>
-                </div>
-              ))}
+        {hasFriends && (
+          <div className="rounded-3xl border border-slate-200 bg-slate-50/90 p-6 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900/5 text-slate-700">
+                <Users className="h-6 w-6" />
+              </span>
+              <div className="flex-1">
+                <h4 className="text-base font-semibold text-slate-800">
+                  Amigos invitados ({friendCount})
+                </h4>
+                <p className="mt-1 text-sm text-slate-600">
+                  Verifica que los datos estén correctos antes de confirmar.
+                </p>
+                <ul className="mt-4 space-y-3">
+                  {friendEntries.map((friend, index) => {
+                    const teamLabel =
+                      friend.team && TEAM_LABELS[friend.team as TeamKey]
+                        ? TEAM_LABELS[friend.team as TeamKey]
+                        : "Equipo a confirmar";
+                    const hasPreferredPosition = Boolean(friend.position);
+                    return (
+                      <li
+                        key={`${friend.email}-${index}`}
+                        className="rounded-2xl border border-white/60 bg-white p-4 shadow-sm"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">
+                              {friend.name.trim() || `Amigo ${index + 1}`}
+                            </p>
+                            <p className="text-xs text-slate-500">{friend.email}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                              {teamLabel}
+                            </span>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                hasPreferredPosition
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              {hasPreferredPosition
+                                ? posicionES[friend.position as PositionKey]
+                                : "Posición aleatoria"}
+                            </span>
+                          </div>
+                        </div>
+                        {!hasPreferredPosition && (
+                          <p className="mt-2 text-xs italic text-slate-500">
+                            Sin preferencia seleccionada: asignaremos una posición disponible al confirmar.
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
           </div>
         )}
 
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white p-6 shadow-inner">
           <div className="flex items-start gap-3">
-            <div className="h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-xs font-bold text-white">!</span>
-            </div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+            </span>
             <div className="text-sm text-amber-800">
-              <p className="font-medium">Importante</p>
+              <p className="font-semibold">Importante</p>
               <p className="mt-1">
-                Al confirmar, tu cupo quedará reservado. Si tienes amigos invitados, 
+                Al confirmar, tu cupo quedará reservado. Si tienes amigos invitados,
                 también se reservarán sus cupos automáticamente.
               </p>
             </div>
