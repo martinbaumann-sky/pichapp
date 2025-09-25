@@ -59,6 +59,7 @@ export const listMatchesSchema = z
   .object({
     comuna: z.string().optional(),
     from: z.string().optional(),
+    to: z.string().optional(),
     level: levelEnum.optional(),
   })
   .passthrough();

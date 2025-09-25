@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
             const phone = player?.phone ? normalizeForStorage(player.phone) : null;
             const position = player?.position ? String(player.position) : null;
             await prisma.$executeRaw`INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${name}, ${phone}, ${match.comuna || ""}, ${position}::"Position")`;
-            await prisma.spot.update({ where: { id: spot.id }, data: { status: "PAID", userId: newUserId, team: player?.team ?? null, position } });
+            await prisma.spot.update({ where: { id: spot.id }, data: { status: "PAID", userId: newUserId, team: player?.team ?? null, position: position ? (position as any) : undefined } });
           } catch {
             // ignorar fallos individuales
           }
@@ -202,10 +202,25 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
     const pageSize = Math.min(24, Math.max(1, Number(searchParams.get("pageSize") ?? "24")));
 
+    const now = new Date();
+    let effectiveFrom: Date;
+    if (from) {
+      const fromDate = new Date(from);
+      if (isNaN(fromDate.getTime())) {
+        return NextResponse.json(
+          { error: "Fecha inválida", details: "El parámetro 'from' debe ser una fecha ISO válida" },
+          { status: 400 }
+        );
+      }
+      effectiveFrom = new Date(Math.max(fromDate.getTime(), now.getTime()));
+    } else {
+      effectiveFrom = now;
+    }
+
     const where: any = {
       public: true,
       status: { in: ["PUBLISHED", "FULL"] },
-      startsAt: { gte: from ? new Date(from) : new Date() },
+      startsAt: { gte: effectiveFrom },
       ...(comuna ? { comuna } : {}),
       ...(level ? { level } : {}),
     };

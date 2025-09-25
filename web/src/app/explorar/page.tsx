@@ -259,7 +259,7 @@ export default function ExplorePage() {
       },
       {
         value: "today",
-        label: "Jugar hoy",
+        label: "Hoy",
         description: "Encuentra partidos para las próximas horas",
         icon: Calendar,
         accent: "bg-sky-100 text-sky-700",
@@ -546,8 +546,8 @@ export default function ExplorePage() {
                     <div className="flex items-start gap-2 text-gray-600">
                       <MapPin className="mt-0.5 h-4 w-4" />
                       <div className="flex flex-col leading-tight">
-                        <span>{match.comuna}</span>
-                        {match.venueAddress && <span className="text-sm text-gray-500">{match.venueAddress}</span>}
+                        <span className="font-medium">{match.venueName || 'Cancha'}</span>
+                        <span className="text-sm text-gray-500">{match.comuna}</span>
                       </div>
                     </div>
 
