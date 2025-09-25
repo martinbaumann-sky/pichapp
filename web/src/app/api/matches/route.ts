@@ -33,12 +33,15 @@ export async function POST(req: NextRequest) {
       .map((p: any) => {
         const pos = String(p.position || '').trim().toUpperCase();
         const normalizedPhone = typeof p.phone === 'string' ? normalizeForStorage(p.phone) : null;
+        const rawUserId = typeof p.userId === 'string' ? p.userId.trim() : '';
+        const userId = rawUserId.length > 0 ? rawUserId : null;
         return {
           name: String(p.name).trim(),
           phone: normalizedPhone ?? undefined,
           email: p.email ? String(p.email).trim().toLowerCase() : undefined,
           position: allowedPositions.has(pos) ? pos : undefined,
           team: p.team ? String(p.team).trim().toUpperCase() : undefined,
+          ...(userId ? { userId } : {}),
         };
       });
 
@@ -152,17 +155,73 @@ export async function POST(req: NextRequest) {
           const spot = spots[i];
           const player = occupiedPlayers[i];
           try {
-            const newUserId = crypto.randomUUID();
-            const email = player?.email ? String(player.email).trim().toLowerCase() : null;
-            await prisma.$executeRaw`INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${email}, ${false})`;
-            const newProfileId = crypto.randomUUID();
+            const providedEmail = player?.email ? String(player.email).trim().toLowerCase() : null;
+            const providedUserId = player?.userId ? String(player.userId).trim() : null;
+
+            let targetUserId: string | null = null;
+            if (providedUserId) {
+              try {
+                const existing = await prisma.user.findUnique({ where: { id: providedUserId }, select: { id: true } });
+                if (existing?.id) targetUserId = existing.id;
+              } catch {}
+            }
+
+            if (!targetUserId && providedEmail) {
+              try {
+                const existingByEmail = await prisma.user.findUnique({ where: { email: providedEmail }, select: { id: true } });
+                if (existingByEmail?.id) targetUserId = existingByEmail.id;
+              } catch {}
+            }
+
+            const team = player?.team ? String(player.team).trim().toUpperCase() : null;
+            const rawPosition = player?.position ? String(player.position) : null;
+            const normalizedPosition = rawPosition ? rawPosition : null;
             const name = player?.name ? String(player.name) : `Jugador ${i + 1}`;
             const phone = player?.phone ? normalizeForStorage(player.phone) : null;
-            const position = player?.position ? String(player.position) : null;
-            await prisma.$executeRaw`INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${name}, ${phone}, ${match.comuna || ""}, ${position}::"Position")`;
-            const team = player?.team ? String(player.team).trim().toUpperCase() : null;
-            await prisma.spot.update({ where: { id: spot.id }, data: { status: "PAID", userId: newUserId, team: team, position: position ? (position as any) : undefined } });
-            if (email) {
+
+            if (targetUserId) {
+              await prisma.spot.update({
+                where: { id: spot.id },
+                data: {
+                  status: "PAID",
+                  userId: targetUserId,
+                  team: team ? (team as any) : undefined,
+                  position: normalizedPosition ? (normalizedPosition as any) : undefined,
+                },
+              });
+
+              if (providedEmail) {
+                try {
+                  await (prisma as any)?.guestInvite?.create?.({
+                    data: {
+                      matchId: match.id,
+                      inviterId: organizerId,
+                      spotId: spot.id,
+                      guestUserId: targetUserId,
+                      name,
+                      email: providedEmail,
+                      position: normalizedPosition ? (normalizedPosition as any) : null,
+                    },
+                  }).catch(() => null);
+                } catch {}
+              }
+              continue;
+            }
+
+            const newUserId = crypto.randomUUID();
+            await prisma.$executeRaw`INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${providedEmail}, ${false})`;
+            const newProfileId = crypto.randomUUID();
+            await prisma.$executeRaw`INSERT INTO "public"."Profile" ("id", "userId", "name", "phone", "comuna", "position") VALUES (${newProfileId}, ${newUserId}, ${name}, ${phone}, ${match.comuna || ""}, ${normalizedPosition}::"Position")`;
+            await prisma.spot.update({
+              where: { id: spot.id },
+              data: {
+                status: "PAID",
+                userId: newUserId,
+                team: team ? (team as any) : undefined,
+                position: normalizedPosition ? (normalizedPosition as any) : undefined,
+              },
+            });
+            if (providedEmail) {
               try {
                 await (prisma as any)?.guestInvite?.create?.({
                   data: {
@@ -171,8 +230,8 @@ export async function POST(req: NextRequest) {
                     spotId: spot.id,
                     guestUserId: newUserId,
                     name,
-                    email,
-                    position: position ? (position as any) : null,
+                    email: providedEmail,
+                    position: normalizedPosition ? (normalizedPosition as any) : null,
                   },
                 }).catch(() => null);
               } catch {}

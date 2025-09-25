@@ -337,6 +337,7 @@ export default function CreateMatchWizard() {
                     const name = f.user?.name || 'Amigo';
                     const email = f.user?.email || f.email || '';
                     const position = f.user?.position || '';
+                    const userId = f.user?.id || null;
                     return (
                       <div key={id} className={`flex items-center justify-between p-3 rounded-xl border ${isSelected? 'bg-emerald-50 border-emerald-200' : 'hover:bg-gray-50'}`}>
                         <div className="flex items-center gap-3">
@@ -379,7 +380,7 @@ export default function CreateMatchWizard() {
                                 next.add(id);
                                 return next;
                               });
-                              setOccupiedDetails((prev)=>[...prev, { friendId: id, name, email, position, team: '' } as any]);
+                              setOccupiedDetails((prev)=>[...prev, { friendId: id, userId: userId || undefined, name, email, position, team: '' } as any]);
                               setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
                             }}
                           >Agregar</button>

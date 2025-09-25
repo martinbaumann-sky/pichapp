@@ -43,6 +43,7 @@ function shapeFriend(currentUserId: string, rec: any) {
     user: {
       id: other?.id,
       name: otherProfile?.name || other?.email || 'Usuario',
+      email: other?.email || null,
       comuna: otherProfile?.comuna || '',
       position: otherProfile?.position || null,
       phone: otherProfile?.phone || null,
