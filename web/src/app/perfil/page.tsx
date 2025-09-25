@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { comunasRM } from "@/lib/comunas-rm";
-import { posicionES } from "@/lib/i18n";
 import { normalizeForDisplay } from "@/lib/phone";
 
 export default function PerfilPage() {
   const { user, loading, signOut, checkSession } = useAuth();
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", comuna: "", position: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", comuna: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -27,7 +26,6 @@ export default function PerfilPage() {
           firstName: firstNameUser,
           lastName: lastNameUser,
           comuna: user.comuna ?? "",
-          position: user.position ?? "",
           phone: phoneFromUser || prev.phone,
         }));
       } catch {}
@@ -46,7 +44,6 @@ export default function PerfilPage() {
           lastName,
           phone: phone8,
           comuna: profile?.comuna ?? user.comuna ?? "",
-          position: profile?.position ?? "",
         });
       }
     }
@@ -88,7 +85,6 @@ export default function PerfilPage() {
         name: fullName,
         phone: `+569 ${digits.replace(/(\d{4})(\d{4})/, "$1 $2")}`,
         comuna: form.comuna,
-        position: form.position || null,
       }),
     });
     setSaving(false);
@@ -126,13 +122,6 @@ export default function PerfilPage() {
           <select value={form.comuna} onChange={e=>setForm({...form, comuna:e.target.value})} className="w-full border px-3 py-2 rounded" required>
             <option value="">Selecciona tu comuna</option>
             {comunasRM.map(c => (<option key={c} value={c}>{c}</option>))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">PosiciÃ³n</label>
-          <select value={form.position} onChange={e=>setForm({...form, position:e.target.value})} className="w-full border px-3 py-2 rounded">
-            <option value="">Selecciona tu posiciÃ³n (opcional))</option>
-            {Object.entries(posicionES).map(([k,v]) => (<option key={k} value={k}>{v}</option>))}
           </select>
         </div>
         <div className="flex items-center gap-3">

@@ -49,7 +49,7 @@ export const createMatchSchema = z.object({
     path: ["occupiedSpots"],
   })
   .refine((data) => data.minSpotsToConfirm <= data.totalSpots, {
-    message: "El minimo de cupos debe ser menor o igual al total de cupos",
+    message: "El mínimo de cupos debe ser menor o igual al total de cupos",
     path: ["minSpotsToConfirm"],
   });
 

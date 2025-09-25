@@ -49,7 +49,7 @@ export default async function UserProfilePage({ params }: PageProps) {  const { 
         <header className="bg-white border rounded-2xl shadow-sm p-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-black">{user.name}</h1>
-            <p className="text-gray-600 text-sm">Perfil publico de jugador</p>
+            <p className="text-gray-600 text-sm">Perfil público de jugador</p>
           </div>
           <AddFriendButton
             targetId={user.id}
@@ -60,10 +60,10 @@ export default async function UserProfilePage({ params }: PageProps) {  const { 
         </header>
 
         <section>
-          <h2 className="text-lg font-semibold text-black mb-4">Estadisticas</h2>
+          <h2 className="text-lg font-semibold text-black mb-4">Estadísticas</h2>
           <div className="grid gap-4 md:grid-cols-4">
             <StatCard label="Partidos organizados" value={stats.matchesOrganized} />
-            <StatCard label="Partidos proximos" value={stats.matchesUpcoming} />
+            <StatCard label="Partidos próximos" value={stats.matchesUpcoming} />
             <StatCard label="Partidos jugados" value={stats.matchesPlayed} />
             <StatCard label="Amigos" value={stats.friendsCount} />
           </div>

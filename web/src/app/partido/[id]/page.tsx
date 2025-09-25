@@ -12,7 +12,7 @@ import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
 import { FormationBoard, type FormationPlayer, type FormationSlotView } from "@/components/match/FormationBoard";
-import { JoinFormationDialog, type JoinFormationTeam, type InviteFriendDraft } from "@/components/match/JoinFormationDialog";
+import { JoinFormationDialogSteps, type JoinFormationTeam, type InviteFriendDraft } from "@/components/match/JoinFormationDialogSteps";
 import { assignPlayersToFormation, getFormationPreset } from "@/lib/formations";
 import {
   computeTeamCapacities,
@@ -613,7 +613,7 @@ export default function MatchDetailPage() {
   const overviewItems = [
     { icon: Calendar, label: "Fecha", value: dateLabel },
     { icon: Clock, label: "Horario", value: timeLabel },
-    { icon: Timer, label: "Duracion", value: durationLabel },
+    { icon: Timer, label: "Duración", value: durationLabel },
     { icon: Users, label: "Jugadores", value: `${minSpotsToConfirm} - ${totalSpots} jugadores` },
   ] as const;
 
@@ -701,7 +701,7 @@ export default function MatchDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="sticky top-20 z-10 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm backdrop-blur-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="text-xl font-semibold text-slate-800">¿Quieres jugar?</h3>
@@ -911,7 +911,8 @@ export default function MatchDetailPage() {
                   (match.players ?? []).map((p: any, idx: number) => {
                     const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
                     const isGuest = Boolean(p.isGuest);
-                    const nameLabel = isGuest ? `${playerName} (invitado)` : playerName;
+                    const isCurrentUser = user && (p.userId === user.id || p.user?.id === user.id);
+                    const nameLabel = (isGuest && !isCurrentUser) ? `${playerName} (invitado)` : playerName;
                     const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
                     const normalizedTeam = normalizeTeam(p.team ?? p.user?.team ?? null);
                     return (
@@ -960,7 +961,7 @@ export default function MatchDetailPage() {
           {toast}
         </div>
       )}
-      <JoinFormationDialog
+      <JoinFormationDialogSteps
         open={joinDialogOpen}
         onClose={closeJoinDialog}
         teams={formationData.teams}

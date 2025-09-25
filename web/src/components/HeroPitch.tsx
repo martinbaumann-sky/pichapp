@@ -2,7 +2,7 @@ type Props = { className?: string };
 
 export default function HeroPitch({ className }: Props) {
   return (
-    <svg viewBox="0 0 600 400" className={`${className} shadow-lg rounded-lg`} role="img" aria-label="Cancha de fútbol">
+    <svg viewBox="0 0 600 400" className={`${className} shadow-lg rounded-lg w-full h-auto`} role="img" aria-label="Cancha de fútbol">
       <defs>
         <linearGradient id="g1" x1="0" x2="1">
           <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.95" />

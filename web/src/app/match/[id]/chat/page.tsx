@@ -154,55 +154,146 @@ export default function MatchChatPage(props: any) {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Chat del partido</h1>
+    <div className="max-w-4xl mx-auto px-4 py-6">
+      {/* Header mejorado */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-brand to-accent rounded-full flex items-center justify-center">
+            <span className="text-white font-bold text-lg">⚽</span>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Chat del Partido</h1>
+            <p className="text-sm text-gray-500">Conecta con todos los participantes del partido</p>
+          </div>
+        </div>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <div ref={listRef} className="h-[60vh] overflow-y-auto p-4 space-y-4">
+      {/* Contenedor principal del chat */}
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
+        {/* Área de mensajes */}
+        <div ref={listRef} className="h-[65vh] overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50 to-white">
           {messages.length === 0 && (
-            <div className="text-sm text-gray-500">Aún no hay mensajes.</div>
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <span className="text-2xl">💬</span>
+              </div>
+              <p className="text-gray-500 text-lg font-medium">Aún no hay mensajes</p>
+              <p className="text-gray-400 text-sm">¡Sé el primero en escribir algo!</p>
+            </div>
           )}
+          
           {messages.map((m) => {
             const isMine = user && m.senderId === user.id;
             return (
-              <div key={m.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                {!isMine && (
-                  <div className="mr-3">
-                    <Avatar name={m.sender?.name ?? "J"} size={36} />
+              <div key={m.id} className={`flex ${isMine ? "justify-end" : "justify-start"} group`}>
+                <div className={`flex items-end space-x-3 max-w-[80%] ${isMine ? "flex-row-reverse space-x-reverse" : ""}`}>
+                  {/* Avatar */}
+                  <div className={`flex-shrink-0 ${isMine ? "ml-3" : "mr-3"}`}>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand to-accent flex items-center justify-center shadow-md">
+                      <Avatar name={m.sender?.name ?? (isMine ? "T" : "J")} size={40} />
+                    </div>
                   </div>
-                )}
-                <div className={`max-w-[75%] p-3 rounded-lg ${isMine ? "bg-black text-white rounded-br-none" : "bg-gray-100 text-gray-900 rounded-bl-none"}`}>
-                  <div className="text-sm font-medium mb-1">{m.sender?.name ?? (isMine ? "Tú" : "Jugador")}</div>
-                  <div className={`text-sm break-words whitespace-pre-wrap ${String(m.id).startsWith("temp-") ? "opacity-70 italic" : ""}`}>{m.text}</div>
-                  <div className="flex items-center justify-end gap-2">
-                    <div className="text-[11px] text-gray-400">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ""}</div>
-                    {m.status === "sending" && <div className="text-[11px] text-gray-500">Enviando…</div>}
-                    {m.status === "failed" && (
-                      <button onClick={() => retryMessage(m.id)} className="text-[11px] text-red-600 underline">Reintentar</button>
+                  
+                  {/* Burbuja de mensaje */}
+                  <div className="flex flex-col space-y-1">
+                    {/* Nombre del remitente */}
+                    {!isMine && (
+                      <div className="text-xs font-medium text-gray-600 px-1">
+                        {m.sender?.name ?? "Jugador"}
+                      </div>
                     )}
+                    
+                    {/* Contenido del mensaje */}
+                    <div className={`relative px-4 py-3 rounded-2xl shadow-sm transition-all duration-200 ${
+                      isMine 
+                        ? "bg-gradient-to-br from-brand to-accent text-white rounded-br-md" 
+                        : "bg-white text-gray-900 border border-gray-200 rounded-bl-md hover:shadow-md"
+                    }`}>
+                      <div className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${
+                        String(m.id).startsWith("temp-") ? "opacity-70 italic" : ""
+                      }`}>
+                        {m.text}
+                      </div>
+                      
+                      {/* Indicadores de estado */}
+                      <div className="flex items-center justify-end gap-2 mt-2">
+                        <div className={`text-xs ${
+                          isMine ? "text-white/80" : "text-gray-400"
+                        }`}>
+                          {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { 
+                            hour: "2-digit", 
+                            minute: "2-digit" 
+                          }) : ""}
+                        </div>
+                        
+                        {m.status === "sending" && (
+                          <div className="flex items-center space-x-1">
+                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                            <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                            <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                          </div>
+                        )}
+                        
+                        {m.status === "failed" && (
+                          <button 
+                            onClick={() => retryMessage(m.id)} 
+                            className="text-xs text-red-300 hover:text-red-200 underline transition-colors"
+                          >
+                            Reintentar
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                {isMine && (
-                  <div className="ml-3">
-                    <Avatar name={user?.name ?? "T"} size={36} />
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
 
-        <div className="p-3 border-t flex gap-2 items-center">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            className="flex-1 border rounded-xl px-4 py-2 resize-none h-10"
-            placeholder="Escribe un mensaje (Enter para enviar, Shift+Enter nueva línea)"
-          />
-          <button onClick={send} className="px-4 py-2 bg-black text-white rounded-full">Enviar</button>
+        {/* Área de entrada mejorada */}
+        <div className="p-4 bg-white border-t border-gray-100">
+          {error && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+          
+          <div className="flex items-end space-x-3">
+            <div className="flex-1 relative">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => { 
+                  if (e.key === "Enter" && !e.shiftKey) { 
+                    e.preventDefault(); 
+                    send(); 
+                  } 
+                }}
+                className="w-full px-4 py-3 border border-gray-200 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                placeholder="Escribe tu mensaje aquí..."
+                rows={1}
+                style={{ minHeight: '48px', maxHeight: '120px' }}
+              />
+            </div>
+            
+            <button 
+              onClick={send} 
+              disabled={!text.trim() || loading}
+              className="px-6 py-3 bg-gradient-to-r from-brand to-accent text-white rounded-2xl font-medium hover:from-brand-600 hover:to-accent-600 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              <span className="flex items-center space-x-2">
+                <span>Enviar</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </span>
+            </button>
+          </div>
+          
+          <div className="mt-2 text-xs text-gray-400 text-center">
+            Presiona Enter para enviar • Shift + Enter para nueva línea
+          </div>
         </div>
       </div>
     </div>

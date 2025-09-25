@@ -277,7 +277,7 @@ export default function CreateMatchWizard() {
                 }}
                 className="w-full border px-3 py-2 rounded"
               />
-              <p className="text-xs text-gray-500 mt-1">Avisamos a los jugadores cuando se alcance este minimo.</p>
+              <p className="text-xs text-gray-500 mt-1">Avisamos a los jugadores cuando se alcance este mínimo.</p>
             </div>
             <div>
               <label className="block text-sm text-gray-700 mb-1">Ocupados por el organizador</label>
@@ -315,7 +315,7 @@ export default function CreateMatchWizard() {
                 {friends.map((f:any)=> (
                   <button key={f.id} type="button" onClick={()=>{
                     const name = f.user?.name || 'Amigo';
-                    const email = '';
+                    const email = f.user?.email || '';
                     const position = f.user?.position || '';
                     setOccupiedDetails((prev)=>[...prev, { name, email, position }]);
                     setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
@@ -395,7 +395,7 @@ export default function CreateMatchWizard() {
             <p><span className="font-medium">Dirección:</span> {form.venueAddress || form.displayAddress || "-"}</p>
             <p><span className="font-medium">Fecha:</span> {form.startsAt ? new Date(form.startsAt).toLocaleString() : "-"}</p>
             <p><span className="font-medium">Duración:</span> {form.durationMins} min</p>
-            <p><span className="font-medium">Cupos:</span> {form.totalSpots} (minimo {form.minSpotsToConfirm}, ocupados {form.occupiedSpots})</p>
+            <p><span className="font-medium">Cupos:</span> {form.totalSpots} (mínimo {form.minSpotsToConfirm}, ocupados {form.occupiedSpots})</p>
             <p><span className="font-medium">Costo:</span> Reservas gratuitas en este lanzamiento</p>
           </div>
         </div>

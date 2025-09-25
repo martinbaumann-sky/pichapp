@@ -100,7 +100,7 @@ export default function Header() {
                 <path d="M6 12h12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
                 <circle cx="12" cy="12" r="2" fill="white" />
               </svg>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full border-2 border-white animate-pulse"></div>
             </div>
             <span className="font-bold text-lg lg:text-xl tracking-tight bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">PichangApp</span>
           </Link>
