@@ -92,18 +92,18 @@ export function FluidFilterDropdown({
           className={cn(
             "group h-12 w-full justify-between rounded-xl border border-transparent bg-white px-4 text-left shadow-sm",
             "transition-all duration-200 ease-in-out",
-            "hover:border-gray-200 hover:bg-white",
-            open ? "ring-2 ring-offset-2 ring-offset-white ring-gray-900/10" : "ring-0",
+            "hover:border-[color:var(--border)] hover:bg-white",
+            open ? "ring-2 ring-offset-2 ring-offset-white ring-[color:var(--brand-1)]/20" : "ring-0",
             buttonClassName,
           )}
         >
           <div className="flex flex-col text-left">
-            <span className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</span>
-            <span className="text-sm font-semibold text-gray-900">
+            <span className="text-xs font-medium uppercase tracking-wide text-[color:var(--fg-subtle)]">{label}</span>
+            <span className="text-sm font-semibold text-[color:var(--fg)]">
               {activeOption ? activeOption.label : placeholder}
             </span>
           </div>
-          <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }} className="text-gray-400">
+          <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }} className="text-[color:var(--fg-subtle)]">
             <ChevronDown className="h-4 w-4" />
           </motion.span>
         </Button>
@@ -120,14 +120,14 @@ export function FluidFilterDropdown({
             >
               <motion.div
                 layout
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl"
+                className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white shadow-xl"
                 initial={{ scale: 0.97, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.98, opacity: 0 }}
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
               >
                 {renderTop ? (
-                  <div className="border-b border-gray-100 bg-gray-50/60 p-3">{renderTop}</div>
+                  <div className="border-b border-[color:var(--border)]/70 bg-[color:var(--bg)]/60 p-3">{renderTop}</div>
                 ) : null}
                 <motion.ul
                   className={cn(
@@ -153,7 +153,7 @@ export function FluidFilterDropdown({
                             "relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2 text-left text-sm",
                             "transition-colors duration-150",
                             option.disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
-                            isSelected ? "text-gray-900" : "text-gray-500",
+                            isSelected ? "text-[color:var(--fg)]" : "text-[color:var(--fg-subtle)]",
                             optionClassName,
                           )}
                           onClick={() => handleSelect(option)}
@@ -167,14 +167,14 @@ export function FluidFilterDropdown({
                           {isHighlighted ? (
                             <motion.span
                               layoutId={`${label}-highlight`}
-                              className="absolute inset-0 -z-[1] rounded-xl bg-gray-100 shadow-[inset_0_1px_0_rgba(148,163,184,0.35)]"
+                              className="absolute inset-0 -z-[1] rounded-xl bg-[color:var(--bg-subtle)] shadow-[inset_0_1px_0_rgba(148,163,184,0.35)]"
                               transition={{ type: "spring", stiffness: 300, damping: 26, mass: 1 }}
                             />
                           ) : null}
                           {Icon ? (
                             <span
                               className={cn(
-                                "flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 text-gray-600",
+                                "flex h-8 w-8 items-center justify-center rounded-xl bg-[color:var(--bg-subtle)] text-[color:var(--fg-muted)]",
                                 option.accent,
                               )}
                             >
@@ -186,7 +186,7 @@ export function FluidFilterDropdown({
                               {option.label}
                             </span>
                             {option.description ? (
-                              <span className="truncate text-xs text-gray-500">{option.description}</span>
+                              <span className="truncate text-xs text-[color:var(--fg-subtle)]">{option.description}</span>
                             ) : null}
                           </div>
                         </motion.button>

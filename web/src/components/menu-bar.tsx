@@ -3,7 +3,6 @@
 import type * as React from "react"
 import { motion } from "framer-motion"
 import { Home, Bell } from "lucide-react"
-import { useTheme } from "next-themes"
 import { GearIcon, PersonIcon } from "@radix-ui/react-icons"
 
 interface MenuItem {
@@ -11,7 +10,6 @@ interface MenuItem {
   label: string
   href: string
   gradient: string
-  iconColor: string
 }
 
 const menuItems: MenuItem[] = [
@@ -19,29 +17,25 @@ const menuItems: MenuItem[] = [
     icon: <Home className="h-5 w-5" />,
     label: "Home",
     href: "#",
-    gradient: "radial-gradient(circle, rgba(59,130,246,0.15) 0%, rgba(37,99,235,0.06) 50%, rgba(29,78,216,0) 100%)",
-    iconColor: "text-blue-500",
+    gradient: "radial-gradient(circle, rgba(0,105,137,0.18) 0%, rgba(0,105,137,0.08) 45%, rgba(0,105,137,0) 100%)",
   },
   {
     icon: <Bell className="h-5 w-5" />,
     label: "Notifications",
     href: "#",
-    gradient: "radial-gradient(circle, rgba(249,115,22,0.15) 0%, rgba(234,88,12,0.06) 50%, rgba(194,65,12,0) 100%)",
-    iconColor: "text-orange-500",
+    gradient: "radial-gradient(circle, rgba(0,105,137,0.18) 0%, rgba(0,105,137,0.08) 45%, rgba(0,105,137,0) 100%)",
   },
   {
     icon: <GearIcon className="h-5 w-5" />,
     label: "Settings",
     href: "#",
-    gradient: "radial-gradient(circle, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.06) 50%, rgba(21,128,61,0) 100%)",
-    iconColor: "text-green-500",
+    gradient: "radial-gradient(circle, rgba(0,105,137,0.18) 0%, rgba(0,105,137,0.08) 45%, rgba(0,105,137,0) 100%)",
   },
   {
     icon: <PersonIcon className="h-5 w-5" />,
     label: "Profile",
     href: "#",
-    gradient: "radial-gradient(circle, rgba(239,68,68,0.15) 0%, rgba(220,38,38,0.06) 50%, rgba(185,28,28,0) 100%)",
-    iconColor: "text-red-500",
+    gradient: "radial-gradient(circle, rgba(0,105,137,0.18) 0%, rgba(0,105,137,0.08) 45%, rgba(0,105,137,0) 100%)",
   },
 ]
 
@@ -86,22 +80,14 @@ const sharedTransition = {
 }
 
 export function MenuBar() {
-  const { theme } = useTheme()
-
-  const isDarkTheme = theme === "dark"
-
   return (
     <motion.nav
-      className="p-2 rounded-2xl bg-gradient-to-b from-background/80 to-background/40 backdrop-blur-lg border border-border/40 shadow-lg relative overflow-hidden"
+      className="relative overflow-hidden rounded-2xl border border-[color:var(--border)]/60 bg-[color:var(--surface)]/80 p-2 shadow-[0_12px_30px_rgba(0,72,92,0.12)] backdrop-blur-lg"
       initial="initial"
       whileHover="hover"
     >
       <motion.div
-        className={`absolute -inset-2 bg-gradient-radial from-transparent ${
-          isDarkTheme
-            ? "via-blue-400/30 via-30% via-purple-400/30 via-60% via-red-400/30 via-90%"
-            : "via-blue-400/20 via-30% via-purple-400/20 via-60% via-red-400/20 via-90%"
-        } to-transparent rounded-3xl z-0 pointer-events-none`}
+        className="pointer-events-none absolute -inset-2 z-0 rounded-3xl bg-[radial-gradient(circle_at_center,rgba(0,105,137,0.25),transparent_70%)] opacity-0"
         variants={navGlowVariants}
       />
       <ul className="flex items-center gap-2 relative z-10">
@@ -124,24 +110,24 @@ export function MenuBar() {
               />
               <motion.a
                 href={item.href}
-                className="flex items-center gap-2 px-4 py-2 relative z-10 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl"
+                className="relative z-10 flex items-center gap-2 rounded-xl bg-transparent px-4 py-2 text-[color:var(--fg-muted)] transition-colors group-hover:text-[color:var(--fg)]"
                 variants={itemVariants}
                 transition={sharedTransition}
                 style={{ transformStyle: "preserve-3d", transformOrigin: "center bottom" }}
               >
-                <span className={`transition-colors duration-300 group-hover:${item.iconColor} text-foreground`}>
+                <span className="text-[color:var(--fg-muted)] transition-colors duration-300 group-hover:text-[color:var(--brand-1)]">
                   {item.icon}
                 </span>
                 <span>{item.label}</span>
               </motion.a>
               <motion.a
                 href={item.href}
-                className="flex items-center gap-2 px-4 py-2 absolute inset-0 z-10 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl"
+                className="absolute inset-0 z-10 flex items-center gap-2 rounded-xl bg-transparent px-4 py-2 text-[color:var(--fg-muted)] transition-colors group-hover:text-[color:var(--fg)]"
                 variants={backVariants}
                 transition={sharedTransition}
                 style={{ transformStyle: "preserve-3d", transformOrigin: "center top", rotateX: 90 }}
               >
-                <span className={`transition-colors duration-300 group-hover:${item.iconColor} text-foreground`}>
+                <span className="text-[color:var(--fg-muted)] transition-colors duration-300 group-hover:text-[color:var(--brand-1)]">
                   {item.icon}
                 </span>
                 <span>{item.label}</span>

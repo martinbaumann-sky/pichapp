@@ -71,7 +71,7 @@ export default function MatchMiniMap({ lat, lng, title, id }: Props) {
 
   if (lat == null || lng == null) {
     return (
-      <div className="h-48 w-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+      <div className="h-48 w-full bg-gradient-to-br from-[color:var(--bg-subtle)] to-white flex items-center justify-center">
         <img src="/globe.svg" alt="Ubicación" className="h-12 w-12 opacity-50" />
       </div>
     );

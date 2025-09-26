@@ -186,35 +186,35 @@ export default function CreateMatchPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[color:var(--bg)]">
       {/* Header */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-30">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <Link 
               href="/"
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 touch-target"
+              className="p-2 hover:bg-white/70 rounded-lg transition-colors duration-200 touch-target"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-xl sm:text-2xl font-bold text-black">Crear Nuevo Partido</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-[color:var(--fg)]">Crear Nuevo Partido</h1>
           </div>
         </div>
       </header>
 
       {/* Form */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 lg:p-8">
+        <div className="bg-white rounded-xl shadow-sm border border-[color:var(--border)] p-4 sm:p-6 lg:p-8">
           <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
                          {/* Basic Info Section */}
              <div className="space-y-6">
-               <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">
+               <h2 className="text-xl font-semibold text-[color:var(--fg)] border-b border-[color:var(--border)] pb-2">
                 Información Básica
                </h2>
                
                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                  <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-                   <label className="block text-sm font-medium text-gray-700">
+                   <label className="block text-sm font-medium text-[color:var(--fg)]">
                      Título del partido
                    </label>
                    <input
@@ -226,11 +226,11 @@ export default function CreateMatchPage() {
                      placeholder="Ej: Club Los Maitenes - Cancha 2"
                      required
                    />
-                   <p className="text-xs text-gray-500">Sugerencia: incluye nombre de cancha/club/estadio.</p>
+                   <p className="text-xs text-[color:var(--fg-subtle)]">Sugerencia: incluye nombre de cancha/club/estadio.</p>
                  </div>
                  
                  <div className="space-y-2">
-                   <label className="block text-sm font-medium text-gray-700">
+                   <label className="block text-sm font-medium text-[color:var(--fg)]">
                      Número de cancha (opcional)
                    </label>
                    <input
@@ -241,12 +241,12 @@ export default function CreateMatchPage() {
                      className="input-field"
                      placeholder="Ej: Cancha 1, 2, 3..."
                    />
-                   <p className="text-xs text-gray-500">Especifica el número o nombre de la cancha.</p>
+                   <p className="text-xs text-[color:var(--fg-subtle)]">Especifica el número o nombre de la cancha.</p>
                  </div>
                </div>
                
                <div className="space-y-2">
-                 <label className="block text-sm font-medium text-gray-700">
+                 <label className="block text-sm font-medium text-[color:var(--fg)]">
                    Lugar
                  </label>
                  <AddressAutocomplete
@@ -257,9 +257,9 @@ export default function CreateMatchPage() {
                    }}
                  />
                  {formData.venueName && (
-                   <p className="text-sm text-gray-600">
+                   <p className="text-sm text-[color:var(--fg-muted)]">
                     📍 Lugar seleccionado: <strong>{formData.venueName}</strong>
-                    {formData.comuna && <span className="text-blue-600"> • {formData.comuna}</span>}
+                    {formData.comuna && <span className="text-[color:var(--brand-1)]"> • {formData.comuna}</span>}
                   </p>
                  )}
                </div>
@@ -267,20 +267,20 @@ export default function CreateMatchPage() {
 
             {/* Date & Time Section */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">
+              <h2 className="text-xl font-semibold text-[color:var(--fg)] border-b border-[color:var(--border)] pb-2">
                 Fecha y Hora
               </h2>
               
               <div className="grid md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-[color:var(--fg)]">
                     Fecha y hora de inicio
                   </label>
                   <DateTimePicker value={formData.startsAt} onChange={handleDateTimeChange} />
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-[color:var(--fg)]">
                     Duración (minutos)
                   </label>
                   <input
@@ -291,23 +291,23 @@ export default function CreateMatchPage() {
                     step={5}
                     value={formData.durationMins}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                    className="w-full px-4 py-3 border border-[color:var(--border)]/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)] focus:border-transparent transition-all duration-200"
                   />
-                  <p className="text-xs text-gray-500">Entre 30 y 180 minutos</p>
+                  <p className="text-xs text-[color:var(--fg-subtle)]">Entre 30 y 180 minutos</p>
                 </div>
               </div>
             </div>
 
             {/* Details Section */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">
+              <h2 className="text-xl font-semibold text-[color:var(--fg)] border-b border-[color:var(--border)] pb-2">
                 Detalles del Partido
               </h2>
               
               <div className="grid md:grid-cols-3 gap-6">
                 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-[color:var(--fg)]">
                     Cupos máximos disponibles
                   </label>
                   <input
@@ -318,13 +318,13 @@ export default function CreateMatchPage() {
                     step={1}
                     value={formData.totalSpots}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                    className="w-full px-4 py-3 border border-[color:var(--border)]/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)] focus:border-transparent transition-all duration-200"
                   />
-                  <p className="text-xs text-gray-500">Entre 6 y 30 jugadores</p>
+                  <p className="text-xs text-[color:var(--fg-subtle)]">Entre 6 y 30 jugadores</p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-[color:var(--fg)]">
                     Mínimo de cupos para confirmar
                   </label>
                   <input
@@ -335,13 +335,13 @@ export default function CreateMatchPage() {
                     step={1}
                     value={formData.minSpotsToConfirm}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                    className="w-full px-4 py-3 border border-[color:var(--border)]/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)] focus:border-transparent transition-all duration-200"
                   />
-                  <p className="text-xs text-gray-500">Te avisaremos cuando se alcance este mínimo.</p>
+                  <p className="text-xs text-[color:var(--fg-subtle)]">Te avisaremos cuando se alcance este mínimo.</p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-[color:var(--fg)]">
                     Cupos ya ocupados por el organizador
                   </label>
                   <input
@@ -352,15 +352,15 @@ export default function CreateMatchPage() {
                     step={1}
                     value={formData.occupiedSpots}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                    className="w-full px-4 py-3 border border-[color:var(--border)]/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)] focus:border-transparent transition-all duration-200"
                   />
-                  <p className="text-xs text-gray-500">Estos cupos quedarán como pagados desde el inicio.</p>
+                  <p className="text-xs text-[color:var(--fg-subtle)]">Estos cupos quedarán como pagados desde el inicio.</p>
                 </div>
 
                 {Number(formData.occupiedSpots) > 0 && (
                   <div className="space-y-4 md:col-span-3">
-                    <h3 className="text-sm font-medium text-gray-700">Inscribir jugadores ocupados</h3>
-                    <p className="text-xs text-gray-500">Ingresa nombre y celular de cada jugador (uno por cupo ocupado).</p>
+                    <h3 className="text-sm font-medium text-[color:var(--fg)]">Inscribir jugadores ocupados</h3>
+                    <p className="text-xs text-[color:var(--fg-subtle)]">Ingresa nombre y celular de cada jugador (uno por cupo ocupado).</p>
                     {Array.from({ length: Number(formData.occupiedSpots) }).map((_, idx) => (
                       <div key={idx} className="grid grid-cols-4 gap-3 items-center">
                         <input
@@ -372,7 +372,7 @@ export default function CreateMatchPage() {
                             next[idx] = { ...(next[idx] || { name: "", phone: "", position: "", team: "" }), name: e.target.value };
                             setOccupiedPlayers(next);
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className="w-full px-3 py-2 border border-[color:var(--border)]/80 rounded-lg"
                         />
                         <input
                           type="tel"
@@ -383,7 +383,7 @@ export default function CreateMatchPage() {
                             next[idx] = { ...(next[idx] || { name: "", phone: "", position: "", team: "" }), phone: e.target.value };
                             setOccupiedPlayers(next);
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className="w-full px-3 py-2 border border-[color:var(--border)]/80 rounded-lg"
                         />
                         <select
                           value={occupiedPlayers[idx]?.position || ""}
@@ -392,7 +392,7 @@ export default function CreateMatchPage() {
                             next[idx] = { ...(next[idx] || { name: "", phone: "", position: "", team: "" }), position: e.target.value };
                             setOccupiedPlayers(next);
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className="w-full px-3 py-2 border border-[color:var(--border)]/80 rounded-lg"
                         >
                           <option value="">Posición</option>
                           <option value="ARQUERO">Arquero</option>
@@ -437,14 +437,14 @@ export default function CreateMatchPage() {
                 )}
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-[color:var(--fg)]">
                     Nivel
                   </label>
                   <select
                     name="level"
                     value={formData.level}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                    className="w-full px-4 py-3 border border-[color:var(--border)]/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)] focus:border-transparent transition-all duration-200"
                   >
                     {Object.entries(nivelES).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
@@ -457,7 +457,7 @@ export default function CreateMatchPage() {
             
 
             {/* Submit Button */}
-            <div className="pt-4 sm:pt-6 border-t border-gray-200">
+            <div className="pt-4 sm:pt-6 border-t border-[color:var(--border)]">
               <button
                 type="submit"
                 className="w-full btn-primary btn-mobile"

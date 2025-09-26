@@ -35,18 +35,18 @@ export default function MatchesPage() {
   }, [queryString]);
 
   return (
-    <div className="bg-gray-50">
+    <div className="bg-[color:var(--bg)]">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
             <Link
               href="/"
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              className="p-2 hover:bg-white/70 rounded-lg transition-colors duration-200"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-2xl font-bold text-black">Explorar Partidos</h1>
+            <h1 className="text-2xl font-bold text-[color:var(--fg)]">Explorar Partidos</h1>
           </div>
         </div>
       </header>
@@ -57,12 +57,12 @@ export default function MatchesPage() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div className="flex items-center gap-2 md:col-span-1">
               <Filter className="w-4 h-4" />
-              <span className="text-sm text-gray-600">Filtros</span>
+              <span className="text-sm text-[color:var(--fg-muted)]">Filtros</span>
             </div>
             <select
               value={filters.comuna}
               onChange={(e) => setFilters((f) => ({ ...f, comuna: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+              className="px-3 py-2 border border-[color:var(--border)]/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)] focus:border-transparent"
             >
               <option value="">Todas las comunas</option>
               {comunasRM.map((c) => (
@@ -75,12 +75,12 @@ export default function MatchesPage() {
               type="date"
               value={filters.from ? new Date(filters.from).toISOString().slice(0,10) : ""}
               onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value ? new Date(e.target.value + "T00:00:00").toISOString() : "" }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+              className="px-3 py-2 border border-[color:var(--border)]/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)] focus:border-transparent"
             />
             <select
               value={filters.level}
               onChange={(e) => setFilters((f) => ({ ...f, level: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+              className="px-3 py-2 border border-[color:var(--border)]/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)] focus:border-transparent"
             >
               <option value="">Todos los niveles</option>
               {Object.entries(nivelES).map(([k, v]) => (
@@ -89,7 +89,7 @@ export default function MatchesPage() {
                 </option>
               ))}
             </select>
-            <div className="text-sm text-gray-500 md:text-right md:col-span-1">
+            <div className="text-sm text-[color:var(--fg-subtle)] md:text-right md:col-span-1">
               Reservar es gratis durante este lanzamiento.
             </div>
             <div className="flex items-center justify-end gap-2">
@@ -107,11 +107,11 @@ export default function MatchesPage() {
             <Link
               key={match.id}
               href={`/partido/${match.id}`}
-              className="group bg-white rounded-xl shadow-sm hover:shadow-lg border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-all duration-300"
+              className="group bg-white rounded-xl shadow-sm hover:shadow-lg border border-[color:var(--border)] overflow-hidden transform hover:-translate-y-1 transition-all duration-300"
             >
               {/* Match Image */}
               <div
-                className="h-48 w-full rounded-b-none bg-gray-100"
+                className="h-48 w-full rounded-b-none bg-[color:var(--bg-subtle)]"
                 style={{
                   backgroundImage: `url("${String((() => {
                     const maybe = match.coverImageUrl;
@@ -130,19 +130,19 @@ export default function MatchesPage() {
               {/* Match Info */}
               <div className="p-6 space-y-4">
                 <div className="flex items-start justify-between">
-                  <h3 className="text-xl font-semibold text-black group-hover:text-gray-700 transition-colors duration-200">
+                  <h3 className="text-xl font-semibold text-[color:var(--fg)] group-hover:text-[color:var(--fg)] transition-colors duration-200">
                     {match.venueName ? `${match.title} — ${match.venueName}` : match.title}
                   </h3>
                   <LevelBadge level={match.level as keyof typeof nivelES} />
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-600">
+                  <div className="flex items-center gap-2 text-[color:var(--fg-muted)]">
                     <MapPin className="w-4 h-4" />
                     <span>{match.comuna}</span>
                   </div>
                   
-                  <div className="flex items-center gap-2 text-gray-600">
+                  <div className="flex items-center gap-2 text-[color:var(--fg-muted)]">
                     <Calendar className="w-4 h-4" />
                     <span>
                       {new Intl.DateTimeFormat("es-CL", { 
@@ -155,21 +155,21 @@ export default function MatchesPage() {
                     </span>
                   </div>
                   
-                  <div className="text-gray-600">
+                  <div className="text-[color:var(--fg-muted)]">
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4" />
                       <span>{match.paid}/{match.totalSpots} cupos ocupados</span>
                     </div>
-                    <p className="text-xs text-gray-500 pl-6">{match.confirmed ? 'Partido confirmado' : `Se confirma con ${match.minSpotsToConfirm} jugadores`}</p>
+                    <p className="text-xs text-[color:var(--fg-subtle)] pl-6">{match.confirmed ? 'Partido confirmado' : `Se confirma con ${match.minSpotsToConfirm} jugadores`}</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                  <div className="text-green-600 font-semibold">
+                <div className="flex items-center justify-between pt-2 border-t border-[color:var(--border)]/70">
+                  <div className="text-[color:var(--brand-1)] font-semibold">
                     <span>{match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL",{ style:"currency", currency:"CLP", maximumFractionDigits:0}).format(match.pricePerSpot) : "Gratis"}</span>
                   </div>
                   
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-[color:var(--fg-subtle)]">
                     {match.available} disponibles
                   </span>
                 </div>
@@ -179,14 +179,14 @@ export default function MatchesPage() {
         </div>
         {items.length === 0 && !loading && (
           <div className="text-center py-20">
-            <p className="text-gray-600 mb-4">No hay partidos para mostrar.</p>
-            <Link href="/organizar" className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800">
+            <p className="text-[color:var(--fg-muted)] mb-4">No hay partidos para mostrar.</p>
+            <Link href="/organizar" className="px-6 py-3 bg-[color:var(--brand-1)] text-white rounded-lg hover:bg-brand-600">
               Organizar partido
             </Link>
           </div>
         )}
         {loading && (
-          <div className="text-center py-10 text-gray-500">Cargando…</div>
+          <div className="text-center py-10 text-[color:var(--fg-subtle)]">Cargando…</div>
         )}
       </main>
     </div>

@@ -112,10 +112,10 @@ export default function PerfilPage() {
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Celular</label>
-          <div className="flex items-center"><span className="px-3 py-2 border rounded-l bg-gray-50 text-gray-700 border-r-0 whitespace-nowrap w-16 flex items-center justify-center">+569</span><input value={form.phone} onChange={e=>setForm({...form, phone:e.target.value.replace(/\D/g, "").slice(0,8)})} className="w-full border px-3 py-2 rounded" placeholder="XXXXXXXX" inputMode="numeric" maxLength={8} required />
+          <div className="flex items-center"><span className="px-3 py-2 border rounded-l bg-[color:var(--bg)] text-[color:var(--fg)] border-r-0 whitespace-nowrap w-16 flex items-center justify-center">+569</span><input value={form.phone} onChange={e=>setForm({...form, phone:e.target.value.replace(/\D/g, "").slice(0,8)})} className="w-full border px-3 py-2 rounded" placeholder="XXXXXXXX" inputMode="numeric" maxLength={8} required />
           </div>
-          <p className="text-xs text-gray-500 mt-1">8 dígitos, ej: 87654321</p>
-          {phonePreview && <p className="text-xs text-gray-500 mt-0.5">Se mostrará como {phonePreview}</p>}
+          <p className="text-xs text-[color:var(--fg-subtle)] mt-1">8 dígitos, ej: 87654321</p>
+          {phonePreview && <p className="text-xs text-[color:var(--fg-subtle)] mt-0.5">Se mostrará como {phonePreview}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Comuna</label>
@@ -125,8 +125,8 @@ export default function PerfilPage() {
           </select>
         </div>
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={saving} className="px-4 py-2 bg-black text-white rounded">{saving?"Guardando...":"Guardar cambios"}</button>
-          <button type="button" onClick={signOut} className="px-4 py-2 bg-gray-200 rounded">Cerrar sesiÃ³n</button>
+          <button type="submit" disabled={saving} className="px-4 py-2 bg-[color:var(--brand-1)] text-white rounded">{saving?"Guardando...":"Guardar cambios"}</button>
+          <button type="button" onClick={signOut} className="px-4 py-2 bg-[color:var(--bg-muted)] rounded">Cerrar sesiÃ³n</button>
         </div>
       </form>
     </div>

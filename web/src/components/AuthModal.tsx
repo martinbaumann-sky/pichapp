@@ -16,7 +16,7 @@ export default function AuthModal({ open, onClose, initialTab, next }: Props) {
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[color:var(--brand-1)]/40">
       <div className="w-full max-w-md p-6">
         <div className="bg-transparent">
           <FrostedAuthCard
@@ -38,7 +38,7 @@ export default function AuthModal({ open, onClose, initialTab, next }: Props) {
             next={next}
           />
           <div className="mt-3">
-            <button type="button" onClick={onClose} className="w-full px-4 py-2 text-sm text-gray-500">Cerrar</button>
+            <button type="button" onClick={onClose} className="w-full px-4 py-2 text-sm text-[color:var(--fg-subtle)]">Cerrar</button>
           </div>
         </div>
       </div>

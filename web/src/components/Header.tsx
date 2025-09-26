@@ -167,10 +167,10 @@ export default function Header() {
                     align="end"
                     className="dropdown-content z-50 w-80 max-w-xs rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
                   >
-                    <div className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-gray-50 to-white px-3 py-2">
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-[color:var(--bg)] to-white px-3 py-2">
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">Notificaciones</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-sm font-semibold text-[color:var(--fg)]">Notificaciones</div>
+                        <div className="text-xs text-[color:var(--fg-subtle)]">
                           {notificationsLoading
                             ? "Actualizando..."
                             : unreadCount > 0
@@ -181,7 +181,7 @@ export default function Header() {
                       <button
                         type="button"
                         onClick={() => refreshNotifications()}
-                        className="rounded-full p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+                        className="rounded-full p-1.5 text-[color:var(--fg-subtle)] transition hover:bg-white/70 hover:text-[color:var(--fg)]"
                         aria-label="Actualizar notificaciones"
                       >
                         {notificationsLoading ? (
@@ -194,11 +194,11 @@ export default function Header() {
 
                     <div className="mt-2 max-h-80 overflow-y-auto">
                       {notificationsLoading && notifications.length === 0 ? (
-                        <div className="flex items-center justify-center px-4 py-8 text-sm text-gray-500">
+                        <div className="flex items-center justify-center px-4 py-8 text-sm text-[color:var(--fg-subtle)]">
                           Cargando notificaciones...
                         </div>
                       ) : notifications.length === 0 ? (
-                        <div className="px-4 py-8 text-center text-sm text-gray-500">
+                        <div className="px-4 py-8 text-center text-sm text-[color:var(--fg-subtle)]">
                           No tienes notificaciones nuevas por ahora.
                         </div>
                       ) : (
@@ -207,12 +207,12 @@ export default function Header() {
                             <Link
                               href={item.href}
                               onClick={() => setNotificationsOpen(false)}
-                              className="block rounded-xl px-3 py-3 transition hover:bg-gray-100 focus:bg-gray-100"
+                              className="block rounded-xl px-3 py-3 transition hover:bg-white/70 focus:bg-[color:var(--bg-subtle)]"
                             >
                               <div className="flex flex-col gap-1 text-left">
-                                <span className="text-sm font-medium text-gray-900">{item.title}</span>
-                                <span className="text-xs text-gray-500">{item.description}</span>
-                                <span className="text-[11px] uppercase tracking-wide text-gray-400">
+                                <span className="text-sm font-medium text-[color:var(--fg)]">{item.title}</span>
+                                <span className="text-xs text-[color:var(--fg-subtle)]">{item.description}</span>
+                                <span className="text-[11px] uppercase tracking-wide text-[color:var(--fg-subtle)]">
                                   {formatNotificationDate(item.createdAt)}
                                 </span>
                               </div>
@@ -235,7 +235,7 @@ export default function Header() {
                 <DropdownMenu.Trigger asChild>
                   <button
                     onClick={() => setMenuOpen(true)}
-                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                    className="p-2 rounded-full hover:bg-white/70 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)]/10 transition-colors touch-target"
                   >
                     <UserIcon className="w-5 h-5" />
                   </button>
@@ -246,32 +246,32 @@ export default function Header() {
                     align="end"
                     className="dropdown-content z-50 min-w-56 rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
                   >
-                    <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
-                      <div className="text-xs text-gray-500">Sesión</div>
-                      <div className="font-medium text-black truncate">{user.name}</div>
+                    <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-[color:var(--bg)] to-white border">
+                      <div className="text-xs text-[color:var(--fg-subtle)]">Sesión</div>
+                      <div className="font-medium text-[color:var(--fg)] truncate">{user.name}</div>
                     </div>
-                    <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+                    <DropdownMenu.Separator className="my-2 h-px bg-[color:var(--bg-muted)]" />
 
                     <DropdownMenu.Item asChild>
-                      <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                        <LayoutDashboard className="w-4 h-4 text-gray-600" />
+                      <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/70 focus:bg-[color:var(--bg-subtle)] cursor-pointer">
+                        <LayoutDashboard className="w-4 h-4 text-[color:var(--fg-muted)]" />
                         <span>Dashboard</span>
                       </Link>
                     </DropdownMenu.Item>
                     <DropdownMenu.Item asChild>
-                      <Link href="/amigos" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                        <Users className="w-4 h-4 text-gray-600" />
+                      <Link href="/amigos" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/70 focus:bg-[color:var(--bg-subtle)] cursor-pointer">
+                        <Users className="w-4 h-4 text-[color:var(--fg-muted)]" />
                         <span>Amigos</span>
                       </Link>
                     </DropdownMenu.Item>
                     <DropdownMenu.Item asChild>
-                      <Link href="/perfil" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                        <UserCircle className="w-4 h-4 text-gray-600" />
+                      <Link href="/perfil" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/70 focus:bg-[color:var(--bg-subtle)] cursor-pointer">
+                        <UserCircle className="w-4 h-4 text-[color:var(--fg-muted)]" />
                         <span>Perfil</span>
                       </Link>
                     </DropdownMenu.Item>
 
-                    <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+                    <DropdownMenu.Separator className="my-2 h-px bg-[color:var(--bg-muted)]" />
                     <DropdownMenu.Item asChild>
                       <button
                         onClick={async () => {
@@ -303,7 +303,7 @@ export default function Header() {
 
         {/* Mobile */}
         <div className="md:hidden flex items-center">
-          <button onClick={() => setMobileOpen((v) => !v)} className="p-2 rounded-md hover:bg-gray-100 transition-colors touch-target">
+          <button onClick={() => setMobileOpen((v) => !v)} className="p-2 rounded-md hover:bg-white/70 transition-colors touch-target">
             <svg
               width="22"
               height="22"

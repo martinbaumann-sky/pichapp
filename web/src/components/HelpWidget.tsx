@@ -52,7 +52,7 @@ export default function HelpWidget() {
         aria-expanded={open}
         aria-controls="help-widget-panel"
         onClick={() => setOpen((v) => !v)}
-        className="fixed z-[70] bottom-6 right-6 h-12 w-12 rounded-full bg-black text-white shadow-lg hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/50 flex items-center justify-center"
+        className="fixed z-[70] bottom-6 right-6 h-12 w-12 rounded-full bg-[color:var(--brand-1)] text-white shadow-lg hover:bg-brand-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-1)]/40 flex items-center justify-center"
         title="Ayuda, términos y privacidad"
       >
         <span aria-hidden>?</span>
@@ -64,20 +64,20 @@ export default function HelpWidget() {
         <div
           id="help-widget-panel"
           ref={panelRef}
-          className="fixed z-[80] bottom-24 right-6 w-[92vw] max-w-md bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden"
+          className="fixed z-[80] bottom-24 right-6 w-[92vw] max-w-md bg-white border border-[color:var(--border)] rounded-xl shadow-2xl overflow-hidden"
           role="dialog"
           aria-modal="true"
           aria-labelledby="help-widget-title"
         >
-          <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
+          <div className="border-b border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-2">
             <div className="flex items-center justify-between gap-2">
-              <h2 id="help-widget-title" className="text-sm font-semibold text-gray-900">
+              <h2 id="help-widget-title" className="text-sm font-semibold text-[color:var(--fg)]">
                 Centro de ayuda
               </h2>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                className="text-[color:var(--fg-subtle)] hover:text-[color:var(--fg)] focus:outline-none"
                 aria-label="Cerrar"
                 title="Cerrar"
               >
@@ -92,8 +92,8 @@ export default function HelpWidget() {
                   onClick={() => setActive(t.key)}
                   className={`px-3 py-1.5 text-sm rounded-lg border ${
                     active === t.key
-                      ? "bg-white border-gray-300 text-gray-900"
-                      : "bg-transparent border-transparent text-gray-600 hover:text-gray-900"
+                      ? "bg-white border-[color:var(--border)]/80 text-[color:var(--fg)]"
+                      : "bg-transparent border-transparent text-[color:var(--fg-muted)] hover:text-[color:var(--fg)]"
                   }`}
                   aria-current={active === t.key ? "page" : undefined}
                 >
@@ -103,19 +103,19 @@ export default function HelpWidget() {
             </div>
           </div>
 
-          <div className="max-h-[60vh] overflow-auto px-4 py-4 text-sm text-gray-800">
+          <div className="max-h-[60vh] overflow-auto px-4 py-4 text-sm text-[color:var(--fg)]">
             {active === "ayuda" && <HelpTab />}
             {active === "terminos" && <TermsTab />}
             {active === "privacidad" && <PrivacyTab />}
           </div>
 
-          <div className="border-t border-gray-200 px-4 py-3 bg-gray-50 flex items-center justify-between text-xs text-gray-600">
+          <div className="border-t border-[color:var(--border)] px-4 py-3 bg-[color:var(--bg)] flex items-center justify-between text-xs text-[color:var(--fg-muted)]">
             <div>
               ¿Necesitas más ayuda? Escríbenos a
               {" "}
-              <a className="underline hover:text-gray-900" href="mailto:contacto.pichapp@gmail.com">contacto.pichapp@gmail.com</a>
+              <a className="underline hover:text-[color:var(--fg)]" href="mailto:contacto.pichapp@gmail.com">contacto.pichapp@gmail.com</a>
             </div>
-            <Link href="/ayuda" className="underline hover:text-gray-900">Ver más</Link>
+            <Link href="/ayuda" className="underline hover:text-[color:var(--fg)]">Ver más</Link>
           </div>
         </div>
       )}
@@ -124,7 +124,7 @@ export default function HelpWidget() {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>;
+  return <h3 className="text-base font-semibold text-[color:var(--fg)] mb-2">{children}</h3>;
 }
 
 function List({ children }: { children: React.ReactNode }) {
@@ -167,7 +167,7 @@ function HelpTab() {
           <li>Si algo no va bien, repórtalo a soporte.</li>
         </List>
       </div>
-      <div className="text-xs text-gray-600">
+      <div className="text-xs text-[color:var(--fg-muted)]">
         ¿No encuentras lo que buscas? Revisa la página de
         {" "}
         <Link href="/ayuda" className="underline">Ayuda</Link>.
@@ -187,7 +187,7 @@ function TermsTab() {
         <li>No-show puede ser sancionado por el organizador.</li>
         <li>Respeta la convivencia y conducta deportiva.</li>
       </List>
-      <p className="text-xs text-gray-600">
+      <p className="text-xs text-[color:var(--fg-muted)]">
         Lee los términos completos en
         {" "}
         <Link href="/terminos" className="underline">/terminos</Link>.
@@ -205,7 +205,7 @@ function PrivacyTab() {
         <li>No publicamos tu teléfono; sólo para amistad e invitaciones.</li>
         <li>Puedes solicitar acceso o eliminación de datos escribiendo a soporte.</li>
       </List>
-      <p className="text-xs text-gray-600">
+      <p className="text-xs text-[color:var(--fg-muted)]">
         Consulta la política completa en
         {" "}
         <Link href="/privacidad" className="underline">/privacidad</Link>.

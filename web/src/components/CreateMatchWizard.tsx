@@ -145,9 +145,9 @@ export default function CreateMatchWizard() {
     <div className="flex items-center gap-2 mb-6">
       {stepTitles.map((t, i) => (
         <div key={i} className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${i<=step? 'bg-black text-white':'bg-gray-200 text-gray-600'}`}>{i+1}</div>
-          <div className={`text-sm ${i===step? 'font-semibold text-black':'text-gray-500'}`}>{t}</div>
-          {i<stepTitles.length-1 && <div className="w-8 h-[2px] bg-gray-300" />}
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${i<=step? 'bg-[color:var(--brand-1)] text-white':'bg-[color:var(--bg-muted)] text-[color:var(--fg-muted)]'}`}>{i+1}</div>
+          <div className={`text-sm ${i===step? 'font-semibold text-[color:var(--fg)]':'text-[color:var(--fg-subtle)]'}`}>{t}</div>
+          {i<stepTitles.length-1 && <div className="w-8 h-[2px] bg-[color:var(--border)]" />}
         </div>
       ))}
     </div>
@@ -156,21 +156,21 @@ export default function CreateMatchWizard() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
       <h1 className="text-2xl font-bold mb-2">Organizar Partido</h1>
-      <p className="text-gray-600 mb-6">Completa los pasos para publicar tu pichanga.</p>
+      <p className="text-[color:var(--fg-muted)] mb-6">Completa los pasos para publicar tu pichanga.</p>
       {stepper}
 
       {/* Step content */}
       {step === 0 && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Título del partido</label>
+            <label className="block text-sm text-[color:var(--fg)] mb-1">Título del partido</label>
             <input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} placeholder="Pichanga en ..." className="w-full border px-3 py-2 rounded" />
           </div>
           <div>
             {/* Comuna is now derived from address selection (Step 1) */}
           </div>
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Nivel</label>
+            <label className="block text-sm text-[color:var(--fg)] mb-1">Nivel</label>
             <div className="flex flex-wrap gap-2">
               {(["BEGINNER","INTERMEDIATE","ADVANCED"] as const).map((lv) => {
                 const active = form.level === lv;
@@ -181,7 +181,7 @@ export default function CreateMatchWizard() {
                     onClick={() => setForm({ ...form, level: lv })}
                     className={
                       "rounded-xl border px-3 py-2 transition-all " +
-                      (active ? "ring-2 ring-black/20 shadow-sm" : "hover:bg-gray-50")
+                      (active ? "ring-2 ring-[color:var(--brand-1)]/20 shadow-sm" : "hover:bg-[color:var(--bg)]")
                     }
                   >
                     <LevelBadge level={lv as any} withDot size="md" />
@@ -203,19 +203,19 @@ export default function CreateMatchWizard() {
           <AddressAutocomplete value={form.displayAddress || ""} onChange={onAddress} />
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Nombre del recinto</label>
+              <label className="block text-sm text-[color:var(--fg)] mb-1">Nombre del recinto</label>
               <input value={form.venueName} onChange={(e)=>setForm({...form,venueName:e.target.value})} className="w-full border px-3 py-2 rounded" />
             </div>
             <div>
-              <label className="block text-sm text-gray-700 mb-1">N° de cancha (opcional)</label>
+              <label className="block text-sm text-[color:var(--fg)] mb-1">N° de cancha (opcional)</label>
               <input value={form.fieldNumber} onChange={(e)=>setForm({...form,fieldNumber:e.target.value})} className="w-full border px-3 py-2 rounded" />
             </div>
           </div>
 
           {/* Vista previa con el mismo mapa de "Explorar" */}
           <div className="mt-2">
-            <label className="block text-sm text-gray-700 mb-2">Vista previa</label>
-            <div className="relative overflow-hidden rounded-xl border bg-gray-50">
+            <label className="block text-sm text-[color:var(--fg)] mb-2">Vista previa</label>
+            <div className="relative overflow-hidden rounded-xl border bg-[color:var(--bg)]">
               <MiniMap lat={form.lat} lng={form.lng} title={form.venueName || form.displayAddress || form.title} />
             </div>
           </div>
@@ -225,11 +225,11 @@ export default function CreateMatchWizard() {
       {step === 2 && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Fecha y hora</label>
+            <label className="block text-sm text-[color:var(--fg)] mb-1">Fecha y hora</label>
             <DateTimePicker value={form.startsAt} onChange={(iso)=>setForm({...form, startsAt: iso})} />
           </div>
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Duración (min)</label>
+            <label className="block text-sm text-[color:var(--fg)] mb-1">Duración (min)</label>
             <input type="number" min={30} max={180} step={5} value={form.durationMins} onChange={(e)=>setForm({...form, durationMins: Number(e.target.value)})} className="w-full border px-3 py-2 rounded" />
           </div>
         </div>
@@ -239,7 +239,7 @@ export default function CreateMatchWizard() {
         <div className="space-y-4 bg-white border rounded-xl p-6">
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Cupos maximos disponibles</label>
+              <label className="block text-sm text-[color:var(--fg)] mb-1">Cupos maximos disponibles</label>
               <input
                 type="number"
                 min={6}
@@ -263,10 +263,10 @@ export default function CreateMatchWizard() {
                 }}
                 className="w-full border px-3 py-2 rounded"
               />
-              <p className="text-xs text-gray-500 mt-1">Entre 6 y 30 jugadores</p>
+              <p className="text-xs text-[color:var(--fg-subtle)] mt-1">Entre 6 y 30 jugadores</p>
             </div>
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Minimo de cupos para confirmar</label>
+              <label className="block text-sm text-[color:var(--fg)] mb-1">Minimo de cupos para confirmar</label>
               <input
                 type="number"
                 min={1}
@@ -279,10 +279,10 @@ export default function CreateMatchWizard() {
                 }}
                 className="w-full border px-3 py-2 rounded"
               />
-              <p className="text-xs text-gray-500 mt-1">Avisamos a los jugadores cuando se alcance este mínimo.</p>
+              <p className="text-xs text-[color:var(--fg-subtle)] mt-1">Avisamos a los jugadores cuando se alcance este mínimo.</p>
             </div>
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Ocupados por el organizador</label>
+              <label className="block text-sm text-[color:var(--fg)] mb-1">Ocupados por el organizador</label>
               <input
                 type="number"
                 min={0}
@@ -303,19 +303,19 @@ export default function CreateMatchWizard() {
                 }}
                 className="w-full border px-3 py-2 rounded"
               />
-              <p className="text-xs text-gray-500 mt-1">Estos cupos quedan confirmados desde el inicio.</p>
+              <p className="text-xs text-[color:var(--fg-subtle)] mt-1">Estos cupos quedan confirmados desde el inicio.</p>
             </div>
           </div>
-          <p className="text-sm text-gray-500">Todas las reservas son gratuitas durante este lanzamiento.</p>
+          <p className="text-sm text-[color:var(--fg-subtle)]">Todas las reservas son gratuitas durante este lanzamiento.</p>
           <div className="pt-2 border-t">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-gray-700 font-medium">Agregar desde amigos</div>
+              <div className="text-sm text-[color:var(--fg)] font-medium">Agregar desde amigos</div>
               <button type="button" className="px-3 py-1.5 text-sm rounded-lg border" onClick={()=>setFriendsOpen((v)=>!v)}>{friendsOpen? 'Ocultar' : 'Ver amigos'}</button>
             </div>
             {friendsOpen && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">También puedes invitar manualmente a alguien que no esté en tu lista.</div>
+                  <div className="text-sm text-[color:var(--fg-muted)]">También puedes invitar manualmente a alguien que no esté en tu lista.</div>
                   <button
                     type="button"
                     onClick={()=>{
@@ -325,7 +325,7 @@ export default function CreateMatchWizard() {
                       });
                       setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
                     }}
-                    className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50"
+                    className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-[color:var(--bg)]"
                   >
                     Agregar invitado
                   </button>
@@ -338,12 +338,12 @@ export default function CreateMatchWizard() {
                     const email = f.user?.email || f.email || '';
                     const position = f.user?.position || '';
                     return (
-                      <div key={id} className={`flex items-center justify-between p-3 rounded-xl border ${isSelected? 'bg-emerald-50 border-emerald-200' : 'hover:bg-gray-50'}`}>
+                      <div key={id} className={`flex items-center justify-between p-3 rounded-xl border ${isSelected? 'bg-[color:var(--brand-soft)] border-[color:var(--brand-1)]/20' : 'hover:bg-[color:var(--bg)]'}`}>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">⚽</div>
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[color:var(--bg-subtle)] to-white flex items-center justify-center">⚽</div>
                           <div>
                             <div className="text-sm font-medium">{name}</div>
-                            <div className="text-xs text-gray-500">{f.user?.comuna || '—'}{position ? ` • ${position}`: ''}</div>
+                            <div className="text-xs text-[color:var(--fg-subtle)]">{f.user?.comuna || '—'}{position ? ` • ${position}`: ''}</div>
                           </div>
                         </div>
                         {isSelected ? (
@@ -371,7 +371,7 @@ export default function CreateMatchWizard() {
                         ) : (
                           <button
                             type="button"
-                            className="text-xs px-2 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                            className="text-xs px-2 py-1 rounded-lg border border-[color:var(--border)]/80 text-[color:var(--fg)] hover:bg-[color:var(--bg)]"
                             onClick={()=>{
                               setSelectedFriendIds((prev)=>{
                                 const next = new Set(prev);
@@ -387,14 +387,14 @@ export default function CreateMatchWizard() {
                       </div>
                     );
                   })}
-                  {friends.length === 0 && <div className="text-xs text-gray-500">Aún no tienes amigos. Agrégalos por su número en la pestaña “Amigos”.</div>}
+                  {friends.length === 0 && <div className="text-xs text-[color:var(--fg-subtle)]">Aún no tienes amigos. Agrégalos por su número en la pestaña “Amigos”.</div>}
                 </div>
               </div>
             )}
           </div>
           {form.occupiedSpots > 0 && (
             <div className="mt-2 space-y-3">
-              <div className="text-sm text-gray-700 font-medium">Datos de jugadores ocupados por el organizador</div>
+              <div className="text-sm text-[color:var(--fg)] font-medium">Datos de jugadores ocupados por el organizador</div>
               {Array.from({ length: form.occupiedSpots }).map((_, idx) => (
                 <div key={idx} className="grid md:grid-cols-3 gap-3 border rounded-2xl p-4 bg-white">
                   <input
@@ -467,7 +467,7 @@ export default function CreateMatchWizard() {
                   </div>
                 </div>
               ))}
-              <p className="text-xs text-gray-500">Estos datos no son obligatorios en esta etapa.</p>
+              <p className="text-xs text-[color:var(--fg-subtle)]">Estos datos no son obligatorios en esta etapa.</p>
             </div>
           )}
         </div>
@@ -475,7 +475,7 @@ export default function CreateMatchWizard() {
 
       {step === 4 && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
-          <div className="text-sm text-gray-700">
+          <div className="text-sm text-[color:var(--fg)]">
             <p><span className="font-medium">Título:</span> {form.title}</p>
             <p><span className="font-medium">Comuna:</span> {form.comuna}</p>
             <p className="flex items-center gap-2"><span className="font-medium">Nivel:</span> <LevelBadge level={form.level as any} /></p>
@@ -493,9 +493,9 @@ export default function CreateMatchWizard() {
       <div className="mt-6 flex items-center justify-between">
         <button className="px-4 py-2 rounded border" disabled={step===0 || busy} onClick={()=>setStep((s)=>Math.max(0,s-1))}>Atrás</button>
         {step < stepTitles.length-1 ? (
-          <button className="px-6 py-2 rounded bg-black text-white disabled:opacity-50" disabled={!allowNext || busy} onClick={()=>setStep((s)=>Math.min(stepTitles.length-1,s+1))}>Siguiente</button>
+          <button className="px-6 py-2 rounded bg-[color:var(--brand-1)] text-white disabled:opacity-50" disabled={!allowNext || busy} onClick={()=>setStep((s)=>Math.min(stepTitles.length-1,s+1))}>Siguiente</button>
         ) : (
-          <button className="px-6 py-2 rounded bg-black text-white disabled:opacity-50" disabled={busy} onClick={onSubmit}>{busy? 'Creando…' : 'Crear partido'}</button>
+          <button className="px-6 py-2 rounded bg-[color:var(--brand-1)] text-white disabled:opacity-50" disabled={busy} onClick={onSubmit}>{busy? 'Creando…' : 'Crear partido'}</button>
         )}
       </div>
     </div>
@@ -515,13 +515,13 @@ function PreviewCard({ lat, lng, photoUrl }: { lat?: number; lng?: number; photo
 
   return (
     <div className="mt-2">
-      <label className="block text-sm text-gray-700 mb-2">Vista previa</label>
-      <div className="relative overflow-hidden rounded-xl border bg-gray-50">
+      <label className="block text-sm text-[color:var(--fg)] mb-2">Vista previa</label>
+      <div className="relative overflow-hidden rounded-xl border bg-[color:var(--bg)]">
         {computed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={computed} alt="Vista previa del lugar" className="w-full h-56 object-cover" />
         ) : (
-          <div className="w-full h-56 flex items-center justify-center text-gray-400">Selecciona una dirección para ver la vista previa</div>
+          <div className="w-full h-56 flex items-center justify-center text-[color:var(--fg-subtle)]">Selecciona una dirección para ver la vista previa</div>
         )}
       </div>
     </div>

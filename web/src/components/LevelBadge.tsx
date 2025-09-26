@@ -14,13 +14,13 @@ type Props = {
 
 export default function LevelBadge({ level, className, withDot = true, size = "sm" }: Props) {
   const styles: Record<Level, string> = {
-    BEGINNER: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    BEGINNER: "bg-[color:var(--brand-soft)] text-brand-600 border-[color:var(--brand-1)]/20",
     INTERMEDIATE: "bg-amber-50 text-amber-800 border-amber-200",
     ADVANCED: "bg-rose-50 text-rose-700 border-rose-200",
   };
 
   const dotStyles: Record<Level, string> = {
-    BEGINNER: "bg-emerald-500",
+    BEGINNER: "bg-[color:var(--brand-1)]",
     INTERMEDIATE: "bg-amber-500",
     ADVANCED: "bg-rose-500",
   };

@@ -133,17 +133,30 @@
     transform: translateY(-2px);
   }
   .btn-outline {
-    @apply btn border border-[color:var(--border)] bg-white/80 text-[color:var(--brand-1)] hover:border-[color:var(--brand-1)] hover:bg-[color:var(--brand-1)] hover:text-white;
+    @apply btn border bg-white/80 text-[color:var(--brand-1)];
+    border-color: var(--border);
     box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
   .btn-outline:hover {
+    background: var(--brand-1);
+    border-color: var(--brand-1);
+    color: white;
     box-shadow: var(--shadow-md);
     transform: translateY(-2px);
   }
   .btn-ghost { @apply btn text-[color:var(--fg-muted)] hover:bg-white/70; }
   .btn-secondary {
-    @apply btn border border-[color:var(--border)] text-[color:var(--fg)] bg-white/90 backdrop-blur-sm hover:border-[color:var(--brand-1)] hover:text-[color:var(--brand-1)];
+    @apply btn border bg-white/90 text-[color:var(--fg)] backdrop-blur-sm;
+    border-color: var(--border);
     box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .btn-secondary:hover {
+    color: var(--brand-1);
+    border-color: var(--brand-1);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
   }
   
   /* Mobile-optimized button variants */
@@ -152,7 +165,9 @@
 
   /* Cards - Enhanced with professional shadows and spacing */
   .card {
-    @apply rounded-2xl border border-[color:var(--border)]/70 bg-[color:var(--surface)] backdrop-blur-md transition-all duration-300;
+    @apply rounded-2xl border backdrop-blur-md transition-all duration-300;
+    border-color: var(--border);
+    background: var(--surface);
     box-shadow: var(--shadow-sm);
   }
   .card-hover { 
@@ -172,10 +187,13 @@
 
   /* Inputs - Enhanced with professional styling */
   .input-field {
-    @apply w-full px-4 py-3 border border-[color:var(--border)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)]/20 focus:border-transparent transition-all duration-200 bg-white placeholder:text-[color:var(--fg-subtle)];
+    @apply w-full rounded-xl border bg-white px-4 py-3 transition-all duration-200;
+    border-color: var(--border);
     min-height: 44px; /* iOS touch target */
     font-size: 16px; /* Prevents zoom on iOS */
     box-shadow: var(--shadow-sm);
+    color: var(--fg);
+    caret-color: var(--brand-1);
   }
   .input-field:focus {
     box-shadow: 0 0 0 3px rgba(0, 105, 137, 0.15), var(--shadow-sm);
@@ -196,11 +214,15 @@
   }
 
   .feature-pill {
-    @apply inline-flex items-center gap-2 rounded-full border border-[color:var(--border)]/60 bg-white/80 px-4 py-2 text-sm font-medium text-[color:var(--fg-muted)];
+    @apply inline-flex items-center gap-2 rounded-full border bg-white/80 px-4 py-2 text-sm font-medium;
+    border-color: color-mix(in srgb, var(--border) 65%, transparent);
+    color: var(--fg-muted);
   }
 
   .stat-card {
-    @apply flex flex-col gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-5 py-4 text-left shadow-sm backdrop-blur;
+    @apply flex flex-col gap-1 rounded-2xl border px-5 py-4 text-left shadow-sm backdrop-blur;
+    border-color: var(--border);
+    background: var(--surface-strong);
   }
 
   /* Mobile-specific utilities */

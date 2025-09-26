@@ -572,9 +572,9 @@ export default function MatchDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-slate-500">
-          <div className="h-3 w-3 rounded-full bg-emerald-500 animate-ping" />
+      <div className="min-h-screen bg-[color:var(--bg)] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-[color:var(--fg-subtle)]">
+          <div className="h-3 w-3 rounded-full bg-[color:var(--brand-1)] animate-ping" />
           <span className="text-sm uppercase tracking-[0.3em]">Cargando partido...</span>
         </div>
       </div>
@@ -583,10 +583,10 @@ export default function MatchDetailPage() {
 
   if (!match) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center text-slate-700">
+      <div className="min-h-screen bg-[color:var(--bg)] flex items-center justify-center">
+        <div className="text-center text-[color:var(--fg)]">
           <h1 className="text-2xl font-semibold mb-4">Partido no encontrado</h1>
-          <Link href="/explorar" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 font-semibold text-white shadow hover:bg-slate-800 transition">
+          <Link href="/explorar" className="inline-flex items-center gap-2 rounded-full bg-brand-700 px-5 py-3 font-semibold text-white shadow hover:bg-brand-700 transition">
             <ArrowLeft className="h-4 w-4" />
             Volver a partidos
           </Link>
@@ -649,16 +649,16 @@ export default function MatchDetailPage() {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-gray-50 text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div className="min-h-screen bg-[color:var(--bg)] text-[color:var(--fg)]">
+      <header className="sticky top-0 z-30 border-b border-[color:var(--border)]/80 bg-white/90 backdrop-blur">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center gap-3">
-            <Link href="/explorar" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition hover:bg-slate-50">
-              <ArrowLeft className="h-5 w-5 text-slate-600" />
+            <Link href="/explorar" className="flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--border)]/80 bg-white shadow-sm transition hover:bg-[color:var(--bg)]">
+              <ArrowLeft className="h-5 w-5 text-[color:var(--fg-muted)]" />
             </Link>
             <div className="flex-1 text-center sm:text-left">
-              <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Partido</p>
-              <h1 className="text-lg font-semibold text-slate-800">Detalles</h1>
+              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--brand-1)]">Partido</p>
+              <h1 className="text-lg font-semibold text-[color:var(--fg)]">Detalles</h1>
             </div>
             <div className="ml-auto flex items-center gap-2">
               {viewer?.canDelete ? (
@@ -674,7 +674,7 @@ export default function MatchDetailPage() {
               {canOpenChat ? (
                 <button
                   onClick={() => router.push(`/match/${id}/chat`)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--border)]/80 bg-white text-[color:var(--fg-muted)] shadow-sm transition hover:bg-[color:var(--bg)]"
                   aria-label="Abrir chat"
                 >
                   <MessageSquare className="h-5 w-5" />
@@ -690,14 +690,14 @@ export default function MatchDetailPage() {
                     });
                   }
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--border)]/80 bg-white text-[color:var(--fg-muted)] shadow-sm transition hover:bg-[color:var(--bg)]"
                 aria-label="Ver mapa"
               >
                 <MapPin className="h-5 w-5" />
               </button>
               <button
                 onClick={handleShare}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--border)]/80 bg-white text-[color:var(--fg-muted)] shadow-sm transition hover:bg-[color:var(--bg)]"
                 aria-label="Compartir partido"
               >
                 <Share2 className="h-5 w-5" />
@@ -706,14 +706,14 @@ export default function MatchDetailPage() {
           </div>
         </div>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-4">
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 text-sm font-semibold shadow-sm">
+          <div className="flex items-center gap-2 rounded-full border border-[color:var(--border)]/80 bg-white p-1 text-sm font-semibold shadow-sm">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`${isActive ? "bg-emerald-500 text-white shadow" : "text-slate-500 hover:text-slate-900"} flex-1 rounded-full px-4 py-2 transition`}
+                  className={`${isActive ? "bg-[color:var(--brand-1)] text-white shadow" : "text-[color:var(--fg-subtle)] hover:text-[color:var(--fg)]"} flex-1 rounded-full px-4 py-2 transition`}
                 >
                   {tab.label}
                 </button>
@@ -726,22 +726,22 @@ export default function MatchDetailPage() {
       <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 pb-20">
         {activeTab === "about" ? (
           <section id={mapSectionId} className="mt-8 space-y-6">
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
-              <div className="h-[420px] w-full bg-gray-100">
-                {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-gray-200" />}
+            <div className="overflow-hidden rounded-3xl border border-[color:var(--border)]/80 bg-white shadow-lg">
+              <div className="h-[420px] w-full bg-[color:var(--bg-subtle)]">
+                {match ? <MatchHeroMap lat={match.lat} lng={match.lng} title={match.title} /> : <div className="h-full w-full animate-pulse bg-[color:var(--bg-muted)]" />}
               </div>
             </div>
 
-            <div className="sticky top-20 z-10 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm backdrop-blur-sm">
+            <div className="sticky top-20 z-10 rounded-3xl border border-[color:var(--border)]/80 bg-white p-6 shadow-sm backdrop-blur-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-800">¿Quieres jugar?</h3>
-                  <p className="text-sm text-slate-500">Reserva tu cupo. Podrás invitar amigos en el siguiente paso.</p>
+                  <h3 className="text-xl font-semibold text-[color:var(--fg)]">¿Quieres jugar?</h3>
+                  <p className="text-sm text-[color:var(--fg-subtle)]">Reserva tu cupo. Podrás invitar amigos en el siguiente paso.</p>
                 </div>
                 {(() => {
                   if (isFull) {
                     return (
-                      <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">Partido completo</span>
+                      <span className="rounded-full border border-[color:var(--border)]/80 bg-[color:var(--bg-subtle)] px-4 py-2 text-xs font-semibold text-[color:var(--fg-muted)]">Partido completo</span>
                     );
                   }
                   if (viewer?.hasJoined) {
@@ -749,11 +749,11 @@ export default function MatchDetailPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={openLeaveConfirm}
-                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border)]/80 bg-white px-4 py-2 text-xs font-semibold text-[color:var(--fg)] hover:bg-[color:var(--bg)]"
                         >
                           Bajarse del partido
                         </button>
-                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">Ya estás inscrito</span>
+                        <span className="rounded-full border border-[color:var(--brand-1)]/20 bg-[color:var(--brand-soft)] px-4 py-2 text-xs font-semibold text-brand-600">Ya estás inscrito</span>
                       </div>
                     );
                   }
@@ -761,7 +761,7 @@ export default function MatchDetailPage() {
                     <button
                       onClick={startJoinFlow}
                       disabled={joining}
-                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                      className="inline-flex items-center gap-2 rounded-full bg-[color:var(--brand-1)] px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       Tomar cupo
                     </button>
@@ -770,12 +770,12 @@ export default function MatchDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-[color:var(--border)]/80 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-800">{match.title ?? "Partido"}</h2>
-                  <p className="text-sm text-slate-500 flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-emerald-600" />
+                  <h2 className="text-xl font-semibold text-[color:var(--fg)]">{match.title ?? "Partido"}</h2>
+                  <p className="text-sm text-[color:var(--fg-subtle)] flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-[color:var(--brand-1)]" />
                     <span className="truncate max-w-[70vw] sm:max-w-[60ch]">
                       {addressLabel}
                     </span>
@@ -787,13 +787,13 @@ export default function MatchDetailPage() {
                       href={directionsHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                      className="inline-flex items-center gap-2 rounded-full border border-[color:var(--brand-1)]/20 bg-[color:var(--brand-soft)] px-3 py-1 text-xs font-semibold text-brand-600 hover:bg-[color:var(--brand-soft)]"
                     >
                       <MapPin className="h-4 w-4" />
                       Cómo llegar
                     </a>
                   ) : null}
-                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${isFull ? "bg-slate-100 text-slate-700 border border-slate-200" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
+                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${isFull ? "bg-[color:var(--bg-subtle)] text-[color:var(--fg)] border border-[color:var(--border)]/80" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "bg-[color:var(--brand-soft)] text-brand-600 border border-[color:var(--brand-1)]/20" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
                     {matchStatusLabel}
                   </div>
                 </div>
@@ -801,57 +801,57 @@ export default function MatchDetailPage() {
 
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {overviewItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <item.icon className="h-5 w-5 text-emerald-600" />
+                  <div key={idx} className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)]/80 bg-[color:var(--bg)] p-4">
+                    <item.icon className="h-5 w-5 text-[color:var(--brand-1)]" />
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-500">{item.label}</p>
-                      <p className="font-medium text-slate-800">{item.value}</p>
+                      <p className="text-xs uppercase tracking-wide text-[color:var(--fg-subtle)]">{item.label}</p>
+                      <p className="font-medium text-[color:var(--fg)]">{item.value}</p>
                     </div>
                   </div>
                 ))}
-                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white text-[10px] font-bold">$</span>
+                <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)]/80 bg-[color:var(--bg)] p-4">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--brand-1)] text-white text-[10px] font-bold">$</span>
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Valor</p>
-                    <p className="font-medium text-slate-800">{priceLabel}</p>
+                    <p className="text-xs uppercase tracking-wide text-[color:var(--fg-subtle)]">Valor</p>
+                    <p className="font-medium text-[color:var(--fg)]">{priceLabel}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <MapPin className="h-5 w-5 text-emerald-600" />
+                <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)]/80 bg-[color:var(--bg)] p-4">
+                  <MapPin className="h-5 w-5 text-[color:var(--brand-1)]" />
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Dirección</p>
-                    <p className="font-medium text-slate-800 leading-snug" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    <p className="text-xs uppercase tracking-wide text-[color:var(--fg-subtle)]">Dirección</p>
+                    <p className="font-medium text-[color:var(--fg)] leading-snug" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                       {addressLabel}
                     </p>
                     {directionsHref ? (
-                      <a href={directionsHref} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold text-emerald-700 hover:underline">Cómo llegar</a>
+                      <a href={directionsHref} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand-600 hover:underline">Cómo llegar</a>
                     ) : null}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <Users className="h-5 w-5 text-emerald-600" />
+                <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)]/80 bg-[color:var(--bg)] p-4">
+                  <Users className="h-5 w-5 text-[color:var(--brand-1)]" />
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Cupos</p>
-                    <p className="font-medium text-slate-800">{paidCount} / {totalSpots}</p>
+                    <p className="text-xs uppercase tracking-wide text-[color:var(--fg-subtle)]">Cupos</p>
+                    <p className="font-medium text-[color:var(--fg)]">{paidCount} / {totalSpots}</p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-6">
                 <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className={`font-medium ${isFull ? "text-slate-700" : isAlmostFull ? "text-amber-700" : "text-emerald-700"}`}>{spotsHeadline}</span>
+                  <span className={`font-medium ${isFull ? "text-[color:var(--fg)]" : isAlmostFull ? "text-amber-700" : "text-brand-600"}`}>{spotsHeadline}</span>
                   {spotsMissingForConfirmation > 0 && !match.isConfirmed ? (
-                    <span className="text-xs text-slate-500">Faltan {spotsMissingForConfirmation} para confirmar</span>
+                    <span className="text-xs text-[color:var(--fg-subtle)]">Faltan {spotsMissingForConfirmation} para confirmar</span>
                   ) : null}
                 </div>
-                <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div className="absolute left-0 top-0 h-full bg-emerald-500 transition-all" style={{ width: `${chipPercent}%` }} />
-                  <div className="absolute left-0 top-0 h-full bg-emerald-200 opacity-50" style={{ width: `${progressPercent}%` }} />
+                <div className="relative h-3 w-full overflow-hidden rounded-full bg-[color:var(--bg-subtle)]">
+                  <div className="absolute left-0 top-0 h-full bg-[color:var(--brand-1)] transition-all" style={{ width: `${chipPercent}%` }} />
+                  <div className="absolute left-0 top-0 h-full bg-[color:var(--brand-1)]/10 opacity-50" style={{ width: `${progressPercent}%` }} />
                   <div className="absolute top-1/2 h-5 -translate-y-1/2" style={{ left: `calc(${minMarkerPercent}% - 0.5rem)` }}>
                     <div className="h-5 w-5 rounded-full border-2 border-white bg-amber-500 shadow" title="Mínimo para confirmar" />
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                <div className="mt-2 flex items-center justify-between text-xs text-[color:var(--fg-subtle)]">
                   <span>Agendado</span>
                   <span>Confirmado</span>
                   <span>Completo</span>
@@ -860,35 +860,35 @@ export default function MatchDetailPage() {
             </div>
 
             {description ? (
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-slate-800">Descripción</h3>
-                <p className="mt-2 whitespace-pre-wrap text-slate-700">{description}</p>
+              <div className="rounded-3xl border border-[color:var(--border)]/80 bg-white p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-[color:var(--fg)]">Descripción</h3>
+                <p className="mt-2 whitespace-pre-wrap text-[color:var(--fg)]">{description}</p>
               </div>
             ) : null}
           </section>
         ) : (
           <section className="mt-8 space-y-6" id="jugadores">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+            <div className="rounded-3xl border border-[color:var(--border)]/80 bg-white p-6 shadow-sm space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-800">Formaciones</h3>
-                  <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
+                  <h3 className="text-xl font-semibold text-[color:var(--fg)]">Formaciones</h3>
+                  <p className="text-sm text-[color:var(--fg-subtle)]">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
                 </div>
                 {(() => {
                   if (isFull) {
                     return (
-                      <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                      <span className="rounded-full border border-[color:var(--border)]/80 bg-[color:var(--bg-subtle)] px-4 py-2 text-xs font-semibold text-[color:var(--fg-muted)]">
                         Partido completo
                       </span>
                     );
                   }
                   if (viewer?.hasJoined) {
                     return viewerTeamLabel ? (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                      <span className="rounded-full border border-[color:var(--brand-1)]/20 bg-[color:var(--brand-soft)] px-4 py-2 text-xs font-semibold text-brand-600">
                         Inscrito en el {viewerTeamLabel.toLowerCase()}
                       </span>
                     ) : (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                      <span className="rounded-full border border-[color:var(--brand-1)]/20 bg-[color:var(--brand-soft)] px-4 py-2 text-xs font-semibold text-brand-600">
                         Ya estás inscrito
                       </span>
                     );
@@ -897,7 +897,7 @@ export default function MatchDetailPage() {
                     <button
                       onClick={startJoinFlow}
                       disabled={joining}
-                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                      className="inline-flex items-center gap-2 rounded-full bg-[color:var(--brand-1)] px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       <Pencil className="h-4 w-4" />
                       Elegir mi posición
@@ -917,25 +917,25 @@ export default function MatchDetailPage() {
                   />
                 ))}
                 {formationData.teams.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  <div className="rounded-2xl border border-dashed border-[color:var(--border)]/80 bg-[color:var(--bg)] p-6 text-center text-sm text-[color:var(--fg-subtle)]">
                     Aún no hay formaciones disponibles para este partido.
                   </div>
                 ) : null}
               </div>
               {viewer?.hasJoined && viewerTeamLabel ? (
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                <div className="rounded-2xl border border-[color:var(--brand-1)]/20 bg-[color:var(--brand-soft)] px-4 py-3 text-sm font-medium text-brand-600">
                   Tu cupo está confirmado en el {viewerTeamLabel.toLowerCase()}.
                 </div>
               ) : null}
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-[color:var(--border)]/80 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-800">Jugadores</h3>
-                  <p className="text-sm text-slate-500">Listado de confirmados y reservas</p>
+                  <h3 className="text-xl font-semibold text-[color:var(--fg)]">Jugadores</h3>
+                  <p className="text-sm text-[color:var(--fg-subtle)]">Listado de confirmados y reservas</p>
                 </div>
-                <span className="text-sm text-slate-600">{paidCount} confirmados / {totalSpots} cupos</span>
+                <span className="text-sm text-[color:var(--fg-muted)]">{paidCount} confirmados / {totalSpots} cupos</span>
               </div>
               <ul className="mt-6 space-y-3">
                 {(match.players ?? []).length > 0 ? (
@@ -949,12 +949,12 @@ export default function MatchDetailPage() {
                     return (
                       <li
                         key={`${playerName}-${idx}`}
-                        className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-3 rounded-2xl border border-[color:var(--border)]/80 bg-[color:var(--bg)] p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div className="flex flex-wrap items-center gap-3 text-slate-800">
+                        <div className="flex flex-wrap items-center gap-3 text-[color:var(--fg)]">
                           <span className="font-semibold">{nameLabel}</span>
                           {positionKey ? (
-                            <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
+                            <span className="rounded-full bg-white px-3 py-1 text-xs text-[color:var(--fg-muted)]">
                               {posicionES[positionKey]}
                             </span>
                           ) : null}
@@ -963,21 +963,21 @@ export default function MatchDetailPage() {
                               className={`rounded-full px-3 py-1 text-xs font-medium ${
                                 normalizedTeam === "CLARO"
                                   ? "bg-amber-100 text-amber-700"
-                                  : "bg-slate-200 text-slate-700"
+                                  : "bg-[color:var(--bg-muted)] text-[color:var(--fg)]"
                               }`}
                             >
                               {normalizedTeam === "CLARO" ? "Claro" : "Oscuro"}
                             </span>
                           ) : null}
                         </div>
-                        <span className={`text-sm font-medium ${p.status === "PAID" ? "text-emerald-600" : "text-slate-500"}`}>
+                        <span className={`text-sm font-medium ${p.status === "PAID" ? "text-[color:var(--brand-1)]" : "text-[color:var(--fg-subtle)]"}`}>
                           {p.status === "PAID" ? "Confirmado" : "Reservado"}
                         </span>
                       </li>
                     );
                   })
                 ) : (
-                  <li className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+                  <li className="rounded-2xl border border-dashed border-[color:var(--border)]/80 bg-white p-6 text-center text-sm text-[color:var(--fg-subtle)]">
                     Aún no hay jugadores inscritos.
                   </li>
                 )}
@@ -988,7 +988,7 @@ export default function MatchDetailPage() {
       </main>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-[color:var(--brand-1)] px-4 py-2 text-sm font-semibold text-white shadow-lg">
           {toast}
         </div>
       )}
@@ -1014,14 +1014,14 @@ export default function MatchDetailPage() {
       />
       {inviteDialogOpen && (
         <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setInviteDialogOpen(false)} />
-          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-slate-800">¿Quieres invitar amigos?</h3>
-            <p className="mt-1 text-sm text-slate-600">Elige cuántos amigos traerás además de tu cupo.</p>
+          <div className="absolute inset-0 bg-[color:var(--brand-1)]/50 backdrop-blur-sm" onClick={() => setInviteDialogOpen(false)} />
+          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-[color:var(--border)]/80 bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-[color:var(--fg)]">¿Quieres invitar amigos?</h3>
+            <p className="mt-1 text-sm text-[color:var(--fg-muted)]">Elige cuántos amigos traerás además de tu cupo.</p>
             <div className="mt-4 flex items-center gap-3">
               <button
                 onClick={() => setInviteTempCount(Math.max(0, inviteTempCount - 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
+                className="h-10 w-10 rounded-full border border-[color:var(--border)]/80 bg-[color:var(--bg)] text-[color:var(--fg)]"
                 aria-label="disminuir"
               >
                 -
@@ -1032,27 +1032,27 @@ export default function MatchDetailPage() {
                 max={maxInvitableFriends}
                 value={inviteTempCount}
                 onChange={(e) => setInviteTempCount(Math.max(0, Math.min(Number(e.target.value) || 0, maxInvitableFriends)))}
-                className="w-20 rounded-lg border border-slate-200 bg-white p-2 text-center text-slate-800"
+                className="w-20 rounded-lg border border-[color:var(--border)]/80 bg-white p-2 text-center text-[color:var(--fg)]"
               />
               <button
                 onClick={() => setInviteTempCount(Math.min(maxInvitableFriends, inviteTempCount + 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
+                className="h-10 w-10 rounded-full border border-[color:var(--border)]/80 bg-[color:var(--bg)] text-[color:var(--fg)]"
                 aria-label="aumentar"
               >
                 +
               </button>
-              <span className="text-sm text-slate-500">máx. {maxInvitableFriends}</span>
+              <span className="text-sm text-[color:var(--fg-subtle)]">máx. {maxInvitableFriends}</span>
             </div>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
                 onClick={() => setInviteDialogOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-full border border-[color:var(--border)]/80 bg-white px-4 py-2 text-sm font-semibold text-[color:var(--fg)] hover:bg-[color:var(--bg)]"
               >
                 Cancelar
               </button>
               <button
                 onClick={proceedFromInvite}
-                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
+                className="rounded-full bg-[color:var(--brand-1)] px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
               >
                 Continuar
               </button>
@@ -1062,20 +1062,20 @@ export default function MatchDetailPage() {
       )}
       {leaveConfirmOpen && (
         <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setLeaveConfirmOpen(false)} />
-          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-slate-800">¿Bajarte del partido?</h3>
-            <p className="mt-1 text-sm text-slate-600">Si te bajas, también se darán de baja tus invitados y se liberarán sus cupos.</p>
+          <div className="absolute inset-0 bg-[color:var(--brand-1)]/50 backdrop-blur-sm" onClick={() => setLeaveConfirmOpen(false)} />
+          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-[color:var(--border)]/80 bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-[color:var(--fg)]">¿Bajarte del partido?</h3>
+            <p className="mt-1 text-sm text-[color:var(--fg-muted)]">Si te bajas, también se darán de baja tus invitados y se liberarán sus cupos.</p>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
                 onClick={() => setLeaveConfirmOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-full border border-[color:var(--border)]/80 bg-white px-4 py-2 text-sm font-semibold text-[color:var(--fg)] hover:bg-[color:var(--bg)]"
               >
                 Cancelar
               </button>
               <button
                 onClick={performLeave}
-                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
+                className="rounded-full bg-[color:var(--brand-1)] px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
               >
                 Confirmar
               </button>

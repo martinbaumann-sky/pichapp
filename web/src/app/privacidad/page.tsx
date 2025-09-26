@@ -5,7 +5,7 @@ export default function PrivacidadPage() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-3">1. Qué datos recopilamos</h2>
-        <ul className="list-disc pl-5 text-gray-700 space-y-1">
+        <ul className="list-disc pl-5 text-[color:var(--fg)] space-y-1">
           <li>Datos de cuenta: nombre, comuna, teléfono y correo.</li>
           <li>Datos de uso: páginas visitadas, acciones básicas en la app.</li>
           <li>Datos de transacción: información necesaria para pagos y confirmaciones.</li>
@@ -14,7 +14,7 @@ export default function PrivacidadPage() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-3">2. Para qué usamos tus datos</h2>
-        <ul className="list-disc pl-5 text-gray-700 space-y-1">
+        <ul className="list-disc pl-5 text-[color:var(--fg)] space-y-1">
           <li>Coordinar partidos, gestionar pagos y mejorar tu experiencia.</li>
           <li>Prevenir fraudes y mantener la seguridad de la plataforma.</li>
           <li>Comunicar cambios importantes de servicio.</li>
@@ -23,7 +23,7 @@ export default function PrivacidadPage() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-3">3. Compartir datos</h2>
-        <p className="text-gray-700">
+        <p className="text-[color:var(--fg)]">
           No publicamos tu teléfono. Podemos compartir datos mínimos con proveedores de pago y
           servicios necesarios para operar la app, bajo acuerdos de confidencialidad.
         </p>
@@ -31,7 +31,7 @@ export default function PrivacidadPage() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-3">4. Conservación y seguridad</h2>
-        <ul className="list-disc pl-5 text-gray-700 space-y-1">
+        <ul className="list-disc pl-5 text-[color:var(--fg)] space-y-1">
           <li>Conservamos datos solo el tiempo necesario para los fines descritos.</li>
           <li>Aplicamos medidas razonables de seguridad técnica y organizativa.</li>
         </ul>
@@ -39,7 +39,7 @@ export default function PrivacidadPage() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-3">5. Tus derechos</h2>
-        <ul className="list-disc pl-5 text-gray-700 space-y-1">
+        <ul className="list-disc pl-5 text-[color:var(--fg)] space-y-1">
           <li>Acceso, rectificación, actualización y eliminación de datos, según la ley aplicable.</li>
           <li>Puedes solicitar información o ejercer derechos en cualquier momento.</li>
         </ul>
@@ -47,7 +47,7 @@ export default function PrivacidadPage() {
 
       <section>
         <h2 className="text-xl font-semibold mb-3">6. Contacto</h2>
-        <p className="text-gray-700">
+        <p className="text-[color:var(--fg)]">
           Consultas de privacidad: <a className="underline" href="mailto:contacto.pichapp@gmail.com">contacto.pichapp@gmail.com</a>.
         </p>
       </section>

@@ -31,15 +31,15 @@ export function FormationBoard({ teamLabel, formationName, slots, bench = [], se
   const isDark = variant === "dark";
   return (
     <div className={`flex flex-col gap-4 rounded-2xl border p-4 shadow-sm ${
-      isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-white"
+      isDark ? "border-brand-700 bg-brand-700 text-white" : "border-[color:var(--border)]/80 bg-white"
     }`}>
       <div className="flex items-center justify-between">
         <div>
-          <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>{teamLabel}</p>
-          <h4 className={`text-lg font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>{formationName}</h4>
+          <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-brand-light" : "text-[color:var(--brand-1)]"}`}>{teamLabel}</p>
+          <h4 className={`text-lg font-semibold ${isDark ? "text-white" : "text-[color:var(--fg)]"}`}>{formationName}</h4>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-          isDark ? "border border-slate-700 bg-slate-800 text-slate-200" : "border border-slate-200 bg-slate-50 text-slate-600"
+          isDark ? "border border-brand-700 bg-brand-700 text-white/80" : "border border-[color:var(--border)]/80 bg-[color:var(--bg)] text-[color:var(--fg-muted)]"
         }`}>{slots.length} jugadores</span>
       </div>
 
@@ -60,20 +60,20 @@ export function FormationBoard({ teamLabel, formationName, slots, bench = [], se
               className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition disabled:cursor-default ${
                 canSelect
                   ? isDark
-                    ? "border-emerald-400 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/40"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    ? "border-[color:var(--brand-1)]/40 bg-brand-700/30 text-brand-light hover:bg-brand-700/40"
+                    : "border-[color:var(--brand-1)]/20 bg-[color:var(--brand-soft)] text-brand-600 hover:bg-[color:var(--brand-soft)]"
                   : player
                     ? isDark
-                      ? "border-slate-700 bg-slate-800 text-slate-100"
-                      : "border-slate-200 bg-slate-100"
+                      ? "border-brand-700 bg-brand-700 text-white"
+                      : "border-[color:var(--border)]/80 bg-[color:var(--bg-subtle)]"
                     : isDark
-                      ? "border-dashed border-slate-700 bg-slate-900 text-slate-400"
-                      : "border-dashed border-slate-200 bg-white text-slate-500"
-              } ${isSelected ? "ring-2 ring-emerald-400" : ""}`.trim()}
+                      ? "border-dashed border-brand-700 bg-brand-700 text-[color:var(--fg-subtle)]"
+                      : "border-dashed border-[color:var(--border)]/80 bg-white text-[color:var(--fg-subtle)]"
+              } ${isSelected ? "ring-2 ring-[color:var(--brand-1)]/40" : ""}`.trim()}
             >
               <div className="flex flex-col">
-                <span className={`text-xs uppercase tracking-wide ${isDark ? "text-slate-400" : "text-slate-500"}`}>{posicionES[slot.position]}</span>
-                <span className={`text-sm font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>
+                <span className={`text-xs uppercase tracking-wide ${isDark ? "text-[color:var(--fg-subtle)]" : "text-[color:var(--fg-subtle)]"}`}>{posicionES[slot.position]}</span>
+                <span className={`text-sm font-semibold ${isDark ? "text-white" : "text-[color:var(--fg)]"}`}>
                   {player ? player.displayName : slot.isAvailable ? "Disponible" : ""}
                 </span>
               </div>
@@ -81,12 +81,12 @@ export function FormationBoard({ teamLabel, formationName, slots, bench = [], se
                 ? null
                 : canSelect
                   ? (
-                    <span className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>Tomar</span>
+                    <span className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-brand-light" : "text-[color:var(--brand-1)]"}`}>Tomar</span>
                   )
                   : slot.isAvailable
                     ? null
                     : (
-                      <span className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>No disponible</span>
+                      <span className={`text-xs ${isDark ? "text-[color:var(--fg-subtle)]" : "text-[color:var(--fg-subtle)]"}`}>No disponible</span>
                     )}
             </button>
           );
@@ -94,9 +94,9 @@ export function FormationBoard({ teamLabel, formationName, slots, bench = [], se
       </div>
 
       {bench.length > 0 ? (
-        <div className={`rounded-xl border border-dashed px-4 py-3 ${isDark ? "border-slate-700 bg-slate-800" : "border-slate-200 bg-slate-50"}`}>
-          <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-slate-300" : "text-slate-500"}`}>Suplentes</p>
-          <ul className={`mt-2 space-y-1 text-sm ${isDark ? "text-slate-200" : "text-slate-600"}`}>
+        <div className={`rounded-xl border border-dashed px-4 py-3 ${isDark ? "border-brand-700 bg-brand-700" : "border-[color:var(--border)]/80 bg-[color:var(--bg)]"}`}>
+          <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-[color:var(--fg-subtle)]" : "text-[color:var(--fg-subtle)]"}`}>Suplentes</p>
+          <ul className={`mt-2 space-y-1 text-sm ${isDark ? "text-white/80" : "text-[color:var(--fg-muted)]"}`}>
             {bench.map((player, idx) => (
               <li key={player.userId ?? player.spotId ?? idx}>{player.displayName}</li>
             ))}

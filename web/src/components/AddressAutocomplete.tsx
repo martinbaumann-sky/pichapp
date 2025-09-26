@@ -163,34 +163,36 @@ export default function AddressAutocomplete({ value, onChange, onSelect }: Props
         onBlur={handleBlur}
         onFocus={() => { if (suggestions.length > 0 && !selectedSuggestion) setIsOpen(true); }}
         placeholder="Buscar dirección, lugar, comuna o punto de referencia..."
-        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200 ${
-          selectedSuggestion ? 'border-green-500 bg-green-50' : 'border-gray-300'
+        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)] focus:border-transparent transition-all duration-200 ${
+          selectedSuggestion
+            ? 'border-[color:var(--brand-1)]/40 bg-[color:var(--brand-soft)]'
+            : 'border-[color:var(--border)]/80'
         }`}
       />
 
       {isOpen && (
         <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-64 overflow-auto">
           {isLoading ? (
-            <div className="px-3 py-2 text-sm text-gray-500">🔍 Buscando lugares...</div>
+            <div className="px-3 py-2 text-sm text-[color:var(--fg-subtle)]">🔍 Buscando lugares...</div>
           ) : suggestions.length > 0 ? (
             suggestions.map((s, i) => (
               <button
                 key={i}
                 type="button"
-                className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                className="w-full text-left px-3 py-2 hover:bg-[color:var(--bg)] border-b border-[color:var(--border)]/70 last:border-b-0 transition-colors"
                 onClick={() => selectSuggestion(s)}
               >
-                <div className="text-sm font-medium text-black truncate">{s.label}</div>
-                <div className="text-xs text-gray-600 truncate">{s.address}</div>
+                <div className="text-sm font-medium text-[color:var(--fg)] truncate">{s.label}</div>
+                <div className="text-xs text-[color:var(--fg-muted)] truncate">{s.address}</div>
                 {s.comuna && (
-                  <div className="text-xs text-blue-600 font-medium flex items-center gap-1">
+                  <div className="text-xs text-[color:var(--brand-1)] font-medium flex items-center gap-1">
                     <span>📍</span><span>{s.comuna}</span>
                   </div>
                 )}
               </button>
             ))
           ) : (
-            <div className="px-3 py-2 text-sm text-gray-500">
+            <div className="px-3 py-2 text-sm text-[color:var(--fg-subtle)]">
               No se encontraron lugares. Intenta con otros términos.
             </div>
           )}

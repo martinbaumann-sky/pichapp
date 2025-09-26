@@ -136,7 +136,7 @@ export default function AddFriendButton({
 
   if (status === "BLOCKED") {
     return (
-      <button disabled className={`${baseClass} rounded-lg border bg-gray-100 text-gray-500`}>
+      <button disabled className={`${baseClass} rounded-lg border bg-[color:var(--bg-subtle)] text-[color:var(--fg-subtle)]`}>
         No disponible
       </button>
     );
@@ -148,7 +148,7 @@ export default function AddFriendButton({
         <button
           disabled={busy}
           onClick={acceptPending}
-          className={`${baseClass} rounded-lg bg-black text-white disabled:opacity-60`}
+          className={`${baseClass} rounded-lg bg-[color:var(--brand-1)] text-white disabled:opacity-60`}
         >
           Aceptar
         </button>
@@ -172,7 +172,7 @@ export default function AddFriendButton({
         <button
           disabled={busy}
           onClick={cancelPending}
-          className="text-sm text-gray-500 underline"
+          className="text-sm text-[color:var(--fg-subtle)] underline"
         >
           Cancelar
         </button>
@@ -183,13 +183,13 @@ export default function AddFriendButton({
   if (status === "FRIENDS") {
     return (
       <div className="flex gap-2 items-center">
-        <button disabled className={`${baseClass} rounded-lg bg-emerald-500 text-white`}>
+        <button disabled className={`${baseClass} rounded-lg bg-[color:var(--brand-1)] text-white`}>
           Amigos
         </button>
         <button
           disabled={busy}
           onClick={deleteFriend}
-          className="text-sm text-gray-500 underline"
+          className="text-sm text-[color:var(--fg-subtle)] underline"
         >
           Eliminar
         </button>
@@ -201,7 +201,7 @@ export default function AddFriendButton({
     <button
       disabled={busy}
       onClick={postFriend}
-      className={`${baseClass} rounded-lg bg-black text-white disabled:opacity-60`}
+      className={`${baseClass} rounded-lg bg-[color:var(--brand-1)] text-white disabled:opacity-60`}
     >
       {busy ? 'Enviando...' : `Agregar ${targetName ? `a ${targetName}` : 'amigo'}`}
     </button>

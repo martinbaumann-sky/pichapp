@@ -33,7 +33,7 @@ export default function AuthDialog({ open, onOpenChange, initialTab, next }: Pro
       <Dialog.Portal>
         <Dialog.Overlay
           onClick={() => onOpenChange(false)}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+          className="fixed inset-0 bg-[color:var(--brand-1)]/50 backdrop-blur-sm z-50"
         />
         <Dialog.Content className="fixed inset-0 flex items-center justify-center p-4 z-[60]">
           <div className="sm:max-w-md w-[92vw] max-w-md p-6 bg-transparent sm:rounded-2xl rounded-none max-h-[90vh] overflow-auto focus:outline-none">

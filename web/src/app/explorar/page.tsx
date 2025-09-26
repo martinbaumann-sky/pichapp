@@ -255,7 +255,7 @@ export default function ExplorePage() {
         label: "Cualquier fecha",
         description: "Partidos disponibles sin restricción",
         icon: CalendarCheck2,
-        accent: "bg-emerald-100 text-emerald-700",
+        accent: "bg-[color:var(--brand-soft)] text-brand-600",
       },
       {
         value: "today",
@@ -278,15 +278,15 @@ export default function ExplorePage() {
         renderContent: ({ close }) => (
           <div className="space-y-3 text-sm" onMouseDown={(event) => event.stopPropagation()}>
             <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fecha personalizada</p>
-              <p className="text-xs text-gray-500">Mostraremos partidos disponibles desde la fecha que elijas.</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--fg-subtle)]">Fecha personalizada</p>
+              <p className="text-xs text-[color:var(--fg-subtle)]">Mostraremos partidos disponibles desde la fecha que elijas.</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="date"
                 value={pendingCustomDate}
                 onChange={(event) => setPendingCustomDate(event.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                className="w-full rounded-lg border border-[color:var(--border)] px-3 py-2 text-sm text-[color:var(--fg)] focus:border-[color:var(--brand-1)]/40 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-1)]/20"
               />
               <Button
                 type="button"
@@ -297,15 +297,15 @@ export default function ExplorePage() {
                     close();
                   }
                 }}
-                className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-900"
+                className="h-10 rounded-lg bg-[color:var(--brand-1)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[color:var(--brand-1)]"
               >
                 Aplicar filtro
               </Button>
             </div>
-            <div className="flex justify-between gap-2 text-xs text-gray-500">
+            <div className="flex justify-between gap-2 text-xs text-[color:var(--fg-subtle)]">
               <button
                 type="button"
-                className="font-medium text-gray-600 underline-offset-4 hover:underline"
+                className="font-medium text-[color:var(--fg-muted)] underline-offset-4 hover:underline"
                 onClick={() => {
                   setPendingCustomDate("");
                   setFilters((f) => ({ ...f, from: "", page: 1 }));
@@ -379,7 +379,7 @@ export default function ExplorePage() {
 
   return (
     <motion.div
-      className="bg-gray-50"
+      className="bg-[color:var(--bg)]"
       initial={{ x: 60, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.28, ease: [0, 0, 0.2, 1] }}
@@ -389,13 +389,13 @@ export default function ExplorePage() {
         <div className="mx-auto flex max-w-7xl items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4">
           <Link
             href="/"
-            className="rounded-lg p-2 transition-all duration-150 hover:-translate-y-0.5 hover:bg-gray-100 touch-target"
+            className="rounded-lg p-2 transition-all duration-150 hover:-translate-y-0.5 hover:bg-white/70 touch-target"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex-1">
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Explorar</p>
-            <h1 className="text-xl sm:text-2xl font-bold text-black">Encuentra tu próximo partido</h1>
+            <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--fg-subtle)]">Explorar</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-[color:var(--fg)]">Encuentra tu próximo partido</h1>
           </div>
         </div>
       </header>
@@ -405,15 +405,15 @@ export default function ExplorePage() {
         <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-5 px-4 sm:px-5 lg:px-6 py-4 sm:py-5">
           <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[color:var(--bg-subtle)] px-3 py-1 text-xs font-medium text-[color:var(--fg-muted)]">
                 <Filter className="h-3.5 w-3.5" />
                 Filtros inteligentes
               </div>
-              <p className="max-w-2xl text-sm text-gray-500">
+              <p className="max-w-2xl text-sm text-[color:var(--fg-subtle)]">
                 Ajusta la ubicación, fecha y nivel para descubrir partidos que se ajusten a tu energía del día.
               </p>
             </div>
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 shadow-sm">
+            <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-[color:var(--fg-muted)] shadow-sm">
               Nos encontramos en beta: todas las reservas están disponibles sin costo durante este lanzamiento.
             </div>
           </div>
@@ -431,19 +431,19 @@ export default function ExplorePage() {
               listClassName="max-h-[260px]"
               renderTopSlot={({ close }) => (
                 <div className="space-y-3" onMouseDown={(event) => event.stopPropagation()}>
-                  <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-900/10">
-                    <Search className="h-4 w-4 text-gray-400" />
+                  <div className="flex items-center gap-2 rounded-xl border border-[color:var(--border)] bg-white px-3 py-2 text-sm text-[color:var(--fg-muted)] focus-within:border-[color:var(--brand-1)]/40 focus-within:ring-2 focus-within:ring-[color:var(--brand-1)]/20">
+                    <Search className="h-4 w-4 text-[color:var(--fg-subtle)]" />
                     <input
                       type="text"
                       placeholder="Buscar comuna"
                       value={comunaSearch}
                       onChange={(event) => setComunaSearch(event.target.value)}
-                      className="w-full bg-transparent text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none"
+                      className="w-full bg-transparent text-sm text-[color:var(--fg)] placeholder:text-[color:var(--fg-subtle)] focus:outline-none"
                     />
                     {comunaSearch ? (
                       <button
                         type="button"
-                        className="text-xs font-medium text-gray-400 hover:text-gray-600"
+                        className="text-xs font-medium text-[color:var(--fg-subtle)] hover:text-[color:var(--fg-muted)]"
                         onClick={() => setComunaSearch("")}
                       >
                         Limpiar
@@ -451,12 +451,12 @@ export default function ExplorePage() {
                     ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">Populares</span>
+                    <span className="text-xs font-semibold uppercase tracking-widest text-[color:var(--fg-subtle)]">Populares</span>
                     {POPULAR_COMUNAS.map((comuna) => (
                       <button
                         key={comuna}
                         type="button"
-                        className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-600 transition hover:border-gray-300 hover:bg-white"
+                        className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1 text-xs font-semibold text-[color:var(--fg-muted)] transition hover:border-[color:var(--border)]/80 hover:bg-white"
                         onClick={() => {
                           setFilters((f) => ({ ...f, comuna, page: 1 }));
                           setComunaSearch("");
@@ -471,7 +471,7 @@ export default function ExplorePage() {
                   {comunaData.hiddenCount > 0 && comunaSearch.trim().length === 0 ? (
                     <button
                       type="button"
-                      className="w-full rounded-xl border border-dashed border-gray-300 bg-gray-100/60 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-gray-400 hover:bg-gray-100"
+                      className="w-full rounded-xl border border-dashed border-[color:var(--border)]/80 bg-white/60 px-3 py-2 text-xs font-semibold text-[color:var(--fg-muted)] transition hover:border-[color:var(--brand-1)]/40 hover:bg-white/70"
                       onClick={() => setShowAllComunas((prev) => !prev)}
                     >
                       {showAllComunas
@@ -528,7 +528,7 @@ export default function ExplorePage() {
               <Link
                 key={match.id}
                 href={`/partido/${match.id}`}
-                className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                className="group overflow-hidden rounded-xl border border-[color:var(--border)] bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
               >
                 <div className="h-48 w-full">
                   <MiniMap lat={match.lat} lng={match.lng} title={match.title} id={match.id} />
@@ -536,22 +536,22 @@ export default function ExplorePage() {
 
                 <div className="space-y-3 sm:space-y-4 lg:space-y-5 p-4 sm:p-6 lg:p-8">
                   <div className="flex items-start justify-between gap-2 lg:gap-3">
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-black transition-colors duration-200 group-hover:text-gray-700 leading-tight">
+                    <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-[color:var(--fg)] transition-colors duration-200 group-hover:text-[color:var(--fg)] leading-tight">
                       {match.venueName ? `${match.title} - ${match.venueName}` : match.title}
                     </h3>
                     <LevelBadge level={match.level as keyof typeof nivelES} />
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-start gap-2 text-gray-600">
+                    <div className="flex items-start gap-2 text-[color:var(--fg-muted)]">
                       <MapPin className="mt-0.5 h-4 w-4" />
                       <div className="flex flex-col leading-tight">
                         <span className="font-medium">{match.venueName || 'Cancha'}</span>
-                        <span className="text-sm text-gray-500">{match.comuna}</span>
+                        <span className="text-sm text-[color:var(--fg-subtle)]">{match.comuna}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-gray-600">
+                    <div className="flex items-center gap-2 text-[color:var(--fg-muted)]">
                       <Calendar className="h-4 w-4" />
                       <span>
                         {new Intl.DateTimeFormat("es-CL", {
@@ -564,21 +564,21 @@ export default function ExplorePage() {
                       </span>
                     </div>
 
-                    <div className="text-gray-600">
+                    <div className="text-[color:var(--fg-muted)]">
                       <div className="flex items-center gap-2">
                         <Users className="h-4 w-4" />
                         <span>
                           {match.paid}/{match.totalSpots} cupos ocupados
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 pl-6">
+                      <p className="text-xs text-[color:var(--fg-subtle)] pl-6">
                         {match.confirmed ? 'Partido confirmado' : `Se confirma con ${match.minSpotsToConfirm} jugadores`}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-gray-100 pt-2">
-                    <div className="font-semibold text-green-600">
+                  <div className="flex items-center justify-between border-t border-[color:var(--border)]/70 pt-2">
+                    <div className="font-semibold text-[color:var(--brand-1)]">
                       <span>
                         {match.pricePerSpot > 0
                           ? new Intl.NumberFormat("es-CL", {
@@ -589,7 +589,7 @@ export default function ExplorePage() {
                           : "Gratis"}
                       </span>
                     </div>
-                    <span className="text-sm text-gray-500">{match.available} disponibles</span>
+                    <span className="text-sm text-[color:var(--fg-subtle)]">{match.available} disponibles</span>
                   </div>
                 </div>
               </Link>
@@ -599,8 +599,8 @@ export default function ExplorePage() {
 
         {items.length === 0 && !loading && !fetchError && (
           <div className="py-20 text-center">
-            <p className="mb-4 text-gray-600">No hay partidos para mostrar.</p>
-            <Link href="/organizar" className="rounded-lg bg-black px-6 py-3 text-white transition hover:bg-gray-800">
+            <p className="mb-4 text-[color:var(--fg-muted)]">No hay partidos para mostrar.</p>
+            <Link href="/organizar" className="rounded-lg bg-[color:var(--brand-1)] px-6 py-3 text-white transition hover:bg-brand-600">
               Organizar partido
             </Link>
           </div>
@@ -620,7 +620,7 @@ export default function ExplorePage() {
         )}
 
         {loading && (
-          <div className="py-10 text-center text-gray-500">
+          <div className="py-10 text-center text-[color:var(--fg-subtle)]">
             {items.length > 0 ? "Cargando más partidos…" : "Cargando…"}
           </div>
         )}

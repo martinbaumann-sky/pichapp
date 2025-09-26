@@ -24,8 +24,8 @@ function formatDate(value: string) {
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="bg-white border rounded-2xl p-5 shadow-sm">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-2xl font-semibold text-black mt-1">{value}</p>
+      <p className="text-sm text-[color:var(--fg-subtle)]">{label}</p>
+      <p className="text-2xl font-semibold text-[color:var(--fg)] mt-1">{value}</p>
     </div>
   );
 }
@@ -44,12 +44,12 @@ export default async function UserProfilePage({ params }: PageProps) {  const { 
   const { user, stats, friendship, recentOrganized, recentPlayed } = summary;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[color:var(--bg)]">
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-10">
         <header className="bg-white border rounded-2xl shadow-sm p-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-black">{user.name}</h1>
-            <p className="text-gray-600 text-sm">Perfil público de jugador</p>
+            <h1 className="text-3xl font-bold text-[color:var(--fg)]">{user.name}</h1>
+            <p className="text-[color:var(--fg-muted)] text-sm">Perfil público de jugador</p>
           </div>
           <AddFriendButton
             targetId={user.id}
@@ -60,7 +60,7 @@ export default async function UserProfilePage({ params }: PageProps) {  const { 
         </header>
 
         <section>
-          <h2 className="text-lg font-semibold text-black mb-4">Estadísticas</h2>
+          <h2 className="text-lg font-semibold text-[color:var(--fg)] mb-4">Estadísticas</h2>
           <div className="grid gap-4 md:grid-cols-4">
             <StatCard label="Partidos organizados" value={stats.matchesOrganized} />
             <StatCard label="Partidos próximos" value={stats.matchesUpcoming} />
@@ -71,18 +71,18 @@ export default async function UserProfilePage({ params }: PageProps) {  const { 
 
         <section className="grid gap-6 md:grid-cols-2">
           <div className="bg-white border rounded-2xl shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-black mb-3">Organizados recientemente</h3>
+            <h3 className="text-lg font-semibold text-[color:var(--fg)] mb-3">Organizados recientemente</h3>
             {recentOrganized.length === 0 ? (
-              <p className="text-sm text-gray-500">Aun no organiza partidos.</p>
+              <p className="text-sm text-[color:var(--fg-subtle)]">Aun no organiza partidos.</p>
             ) : (
               <ul className="space-y-3">
                 {recentOrganized.map((match) => (
                   <li key={match.id} className="flex flex-col border-b last:border-b-0 pb-3 last:pb-0">
-                    <Link href={`/match/${match.id}`} className="text-sm font-medium text-black hover:underline underline-offset-4">
+                    <Link href={`/match/${match.id}`} className="text-sm font-medium text-[color:var(--fg)] hover:underline underline-offset-4">
                       {match.title}
                     </Link>
-                    <span className="text-xs text-gray-500">{formatDate(match.startsAt)}</span>
-                    {match.venueName && <span className="text-xs text-gray-500">{match.venueName}</span>}
+                    <span className="text-xs text-[color:var(--fg-subtle)]">{formatDate(match.startsAt)}</span>
+                    {match.venueName && <span className="text-xs text-[color:var(--fg-subtle)]">{match.venueName}</span>}
                   </li>
                 ))}
               </ul>
@@ -90,18 +90,18 @@ export default async function UserProfilePage({ params }: PageProps) {  const { 
           </div>
 
           <div className="bg-white border rounded-2xl shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-black mb-3">Jugados recientemente</h3>
+            <h3 className="text-lg font-semibold text-[color:var(--fg)] mb-3">Jugados recientemente</h3>
             {recentPlayed.length === 0 ? (
-              <p className="text-sm text-gray-500">Aun no participa en partidos.</p>
+              <p className="text-sm text-[color:var(--fg-subtle)]">Aun no participa en partidos.</p>
             ) : (
               <ul className="space-y-3">
                 {recentPlayed.map((match) => (
                   <li key={match.id} className="flex flex-col border-b last:border-b-0 pb-3 last:pb-0">
-                    <Link href={`/match/${match.id}`} className="text-sm font-medium text-black hover:underline underline-offset-4">
+                    <Link href={`/match/${match.id}`} className="text-sm font-medium text-[color:var(--fg)] hover:underline underline-offset-4">
                       {match.title}
                     </Link>
-                    <span className="text-xs text-gray-500">{formatDate(match.startsAt)}</span>
-                    {match.venueName && <span className="text-xs text-gray-500">{match.venueName}</span>}
+                    <span className="text-xs text-[color:var(--fg-subtle)]">{formatDate(match.startsAt)}</span>
+                    {match.venueName && <span className="text-xs text-[color:var(--fg-subtle)]">{match.venueName}</span>}
                   </li>
                 ))}
               </ul>

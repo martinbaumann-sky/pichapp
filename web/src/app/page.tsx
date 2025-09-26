@@ -174,7 +174,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="absolute -bottom-10 left-6 hidden w-60 flex-col gap-2 rounded-2xl border border-[color:var(--border)]/70 bg-[color:var(--surface-strong)] p-4 text-xs text-[color:var(--fg-muted)] shadow-lg backdrop-blur md:flex">
+              <div className="absolute bottom-6 -right-10 hidden w-60 flex-col gap-2 rounded-2xl border border-[color:var(--border)]/70 bg-[color:var(--surface-strong)] p-4 text-xs text-[color:var(--fg-muted)] shadow-lg backdrop-blur transition-all duration-300 md:flex lg:-right-14 lg:bottom-8">
                 <p className="font-semibold text-[color:var(--fg)]">Agenda inteligente</p>
                 <p>
                   Configura recordatorios automáticos para avisar a tu equipo del punto de encuentro y el pronóstico del clima.

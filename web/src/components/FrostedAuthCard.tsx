@@ -327,7 +327,7 @@ export default function FrostedAuthCard({
             {minutesLeft && (
               <p className="text-xs text-white/60">El código vence en aproximadamente {minutesLeft} minuto{minutesLeft === 1 ? "" : "s"}.</p>
             )}
-            {resendMessage && <div className="text-xs text-emerald-200">{resendMessage}</div>}
+            {resendMessage && <div className="text-xs text-brand-light">{resendMessage}</div>}
             {verificationError && <div className="text-xs text-red-200">{verificationError}</div>}
           </div>
 
@@ -341,7 +341,7 @@ export default function FrostedAuthCard({
               value={verifyCode}
               onChange={(e) => setVerifyCode(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder="Ingresa el código"
-              className="input-field bg-white text-black text-center tracking-[0.6em] text-lg"
+              className="input-field bg-white text-[color:var(--fg)] text-center tracking-[0.6em] text-lg"
             />
             <button
               type="submit"
@@ -440,7 +440,7 @@ export default function FrostedAuthCard({
               <div className="space-y-3">
                 <label className="text-sm text-white/80">Correo</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[color:var(--fg-subtle)]" />
                   <input
                     type="email"
                     name="signup_email"
@@ -456,7 +456,7 @@ export default function FrostedAuthCard({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tu@correo.com"
-                    className="input-field pl-12 bg-white text-black input-mobile"
+                    className="input-field pl-12 bg-white text-[color:var(--fg)] input-mobile"
                   />
                 </div>
                 <label className="text-sm text-white/80">Contraseña</label>
@@ -473,12 +473,12 @@ export default function FrostedAuthCard({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="********"
-                    className="input-field pr-12 bg-white text-black input-mobile"
+                    className="input-field pr-12 bg-white text-[color:var(--fg)] input-mobile"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[color:var(--fg-muted)]"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -502,14 +502,14 @@ export default function FrostedAuthCard({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Nombre"
-                    className="input-field bg-white text-black input-mobile"
+                    className="input-field bg-white text-[color:var(--fg)] input-mobile"
                   />
                   <input
                     ref={signupLastNameRef}
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Apellido"
-                    className="input-field bg-white text-black input-mobile"
+                    className="input-field bg-white text-[color:var(--fg)] input-mobile"
                   />
                 </div>
                 <div>
@@ -517,7 +517,7 @@ export default function FrostedAuthCard({
                   <select
                     value={comuna}
                     onChange={(e) => setComuna(e.target.value)}
-                    className="input-field bg-white text-black input-mobile"
+                    className="input-field bg-white text-[color:var(--fg)] input-mobile"
                   >
                     <option value="">Selecciona tu comuna</option>
                     {comunasRM.map((c) => (
@@ -535,11 +535,11 @@ export default function FrostedAuthCard({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+569..."
-                    className="input-field bg-white text-black input-mobile"
+                    className="input-field bg-white text-[color:var(--fg)] input-mobile"
                   />
                 </div>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[color:var(--fg-subtle)]" />
                   <input
                     type="email"
                     name="signup_email"
@@ -555,7 +555,7 @@ export default function FrostedAuthCard({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tu@correo.com"
-                    className="input-field pl-12 bg-white text-black input-mobile"
+                    className="input-field pl-12 bg-white text-[color:var(--fg)] input-mobile"
                   />
                 </div>
                 <div className="relative">
@@ -571,12 +571,12 @@ export default function FrostedAuthCard({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Crea una contraseña"
-                    className="input-field pr-12 bg-white text-black input-mobile"
+                    className="input-field pr-12 bg-white text-[color:var(--fg)] input-mobile"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[color:var(--fg-muted)]"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>

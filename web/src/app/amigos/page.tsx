@@ -79,7 +79,7 @@ export default function AmigosPage() {
   };
 
   if (!user) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-[color:var(--bg)] flex items-center justify-center">
       <AuthDialog open={authOpen} onOpenChange={(o)=>{ setAuthOpen(o); if(!o) router.replace("/"); }} initialTab="login" next="/amigos" />
     </div>
   );
@@ -89,7 +89,7 @@ export default function AmigosPage() {
       <div className="flex items-baseline justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Amigos</h1>
-          <p className="text-gray-600">Conecta con tus amigos por numero de celular para invitarlos a tus pichangas.</p>
+          <p className="text-[color:var(--fg-muted)]">Conecta con tus amigos por numero de celular para invitarlos a tus pichangas.</p>
         </div>
       </div>
 
@@ -106,7 +106,7 @@ export default function AmigosPage() {
           />
           <button onClick={addByPhone} disabled={busyAdd || normalizedPhone.length < 7} className="btn-primary">{busyAdd ? 'Buscando...' : 'Agregar por celular'}</button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">Tip: usa el numero exacto que tu amigo tiene en su perfil.</p>
+        <p className="text-xs text-[color:var(--fg-subtle)] mt-2">Tip: usa el numero exacto que tu amigo tiene en su perfil.</p>
         {formError ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
         ) : null}
@@ -114,13 +114,13 @@ export default function AmigosPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4">
-        <button onClick={() => setTab('friends')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab==='friends'?'bg-black text-white':'bg-gray-100 text-gray-700'}`}>Mis amigos ({friends.length})</button>
-        <button onClick={() => setTab('requests')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab==='requests'?'bg-black text-white':'bg-gray-100 text-gray-700'}`}>Solicitudes ({incoming.length})</button>
+        <button onClick={() => setTab('friends')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab==='friends'?'bg-[color:var(--brand-1)] text-white':'bg-[color:var(--bg-subtle)] text-[color:var(--fg)]'}`}>Mis amigos ({friends.length})</button>
+        <button onClick={() => setTab('requests')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab==='requests'?'bg-[color:var(--brand-1)] text-white':'bg-[color:var(--bg-subtle)] text-[color:var(--fg)]'}`}>Solicitudes ({incoming.length})</button>
       </div>
 
       {tab === 'friends' ? (
         friends.length === 0 ? (
-          <div className="text-gray-500 text-sm">Aun no tienes amigos. Agrega a tus contactos por su celular!</div>
+          <div className="text-[color:var(--fg-subtle)] text-sm">Aun no tienes amigos. Agrega a tus contactos por su celular!</div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {friends.map((f) => (
@@ -134,7 +134,7 @@ export default function AmigosPage() {
             <FriendCard key={f.id} item={f} mode="incoming" onChanged={refresh} />
           ))}
           {incoming.length === 0 && (
-            <div className="text-gray-500 text-sm">No tienes solicitudes pendientes.</div>
+            <div className="text-[color:var(--fg-subtle)] text-sm">No tienes solicitudes pendientes.</div>
           )}
         </div>
       )}
@@ -158,17 +158,17 @@ function FriendCard({ item, mode, onChanged }: { item: FriendItem; mode?: 'incom
   return (
     <div className="rounded-2xl border p-4 bg-white">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-lg">*</div>
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[color:var(--bg-subtle)] to-white flex items-center justify-center text-lg">*</div>
         <div>
           {profileUrl ? (
-            <Link href={profileUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-black underline-offset-4 hover:underline">
+            <Link href={profileUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-[color:var(--fg)] underline-offset-4 hover:underline">
               {item.user.name}
             </Link>
           ) : (
             <div className="font-semibold">{item.user.name}</div>
           )}
-          <div className="text-xs text-gray-500">{item.user.comuna || '-'} {item.user.position ? `- ${item.user.position}`: ''}</div>
-          {item.user.phoneDisplay && <div className="text-xs text-gray-400">{item.user.phoneDisplay}</div>}
+          <div className="text-xs text-[color:var(--fg-subtle)]">{item.user.comuna || '-'} {item.user.position ? `- ${item.user.position}`: ''}</div>
+          {item.user.phoneDisplay && <div className="text-xs text-[color:var(--fg-subtle)]">{item.user.phoneDisplay}</div>}
         </div>
       </div>
       <div className="mt-3 flex gap-2">
@@ -176,7 +176,7 @@ function FriendCard({ item, mode, onChanged }: { item: FriendItem; mode?: 'incom
           mode === 'incoming' ? (
             <>
               {profileLinkButton}
-              <button disabled={busy} onClick={accept} className="px-3 py-1.5 text-sm rounded-lg bg-black text-white">Aceptar</button>
+              <button disabled={busy} onClick={accept} className="px-3 py-1.5 text-sm rounded-lg bg-[color:var(--brand-1)] text-white">Aceptar</button>
               <button disabled={busy} onClick={reject} className="px-3 py-1.5 text-sm rounded-lg border">Rechazar</button>
             </>
           ) : (
@@ -188,7 +188,7 @@ function FriendCard({ item, mode, onChanged }: { item: FriendItem; mode?: 'incom
         ) : (
           <>
             {profileLinkButton}
-            <a href={`/organizar`} className="px-3 py-1.5 text-sm rounded-lg bg-gray-900 text-white">Invitar a pichanga</a>
+            <a href={`/organizar`} className="px-3 py-1.5 text-sm rounded-lg bg-[color:var(--brand-1)] text-white">Invitar a pichanga</a>
             <button disabled={busy} onClick={remove} className="px-3 py-1.5 text-sm rounded-lg border">Eliminar</button>
           </>
         )}

@@ -29,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es-CL" className="scroll-smooth">
-      <body className={`${inter.variable} antialiased font-sans text-gray-900 bg-white min-h-screen flex flex-col`}>
+      <body className={`${inter.variable} antialiased font-sans text-[color:var(--fg)] bg-[color:var(--bg)] min-h-screen flex flex-col`}>
         <ChunkErrorHandler />
         <Header />
         <RouteTransition>{children}</RouteTransition>

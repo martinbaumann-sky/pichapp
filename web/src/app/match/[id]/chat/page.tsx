@@ -162,23 +162,23 @@ export default function MatchChatPage(props: any) {
             <span className="text-white font-bold text-lg">⚽</span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Chat del Partido</h1>
-            <p className="text-sm text-gray-500">Conecta con todos los participantes del partido</p>
+            <h1 className="text-2xl font-bold text-[color:var(--fg)]">Chat del Partido</h1>
+            <p className="text-sm text-[color:var(--fg-subtle)]">Conecta con todos los participantes del partido</p>
           </div>
         </div>
       </div>
 
       {/* Contenedor principal del chat */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
+      <div className="bg-white border border-[color:var(--border)] rounded-2xl shadow-lg overflow-hidden">
         {/* Área de mensajes */}
-        <div ref={listRef} className="h-[65vh] overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50 to-white">
+        <div ref={listRef} className="h-[65vh] overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-[color:var(--bg)] to-white">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-[color:var(--bg-subtle)] rounded-full flex items-center justify-center mb-4">
                 <span className="text-2xl">💬</span>
               </div>
-              <p className="text-gray-500 text-lg font-medium">Aún no hay mensajes</p>
-              <p className="text-gray-400 text-sm">¡Sé el primero en escribir algo!</p>
+              <p className="text-[color:var(--fg-subtle)] text-lg font-medium">Aún no hay mensajes</p>
+              <p className="text-[color:var(--fg-subtle)] text-sm">¡Sé el primero en escribir algo!</p>
             </div>
           )}
           
@@ -198,7 +198,7 @@ export default function MatchChatPage(props: any) {
                   <div className="flex flex-col space-y-1">
                     {/* Nombre del remitente */}
                     {!isMine && (
-                      <div className="text-xs font-medium text-gray-600 px-1">
+                      <div className="text-xs font-medium text-[color:var(--fg-muted)] px-1">
                         {m.sender?.name ?? "Jugador"}
                       </div>
                     )}
@@ -207,7 +207,7 @@ export default function MatchChatPage(props: any) {
                     <div className={`relative px-4 py-3 rounded-2xl shadow-sm transition-all duration-200 ${
                       isMine 
                         ? "bg-gradient-to-br from-brand to-accent text-white rounded-br-md" 
-                        : "bg-white text-gray-900 border border-gray-200 rounded-bl-md hover:shadow-md"
+                        : "bg-white text-[color:var(--fg)] border border-[color:var(--border)] rounded-bl-md hover:shadow-md"
                     }`}>
                       <div className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${
                         String(m.id).startsWith("temp-") ? "opacity-70 italic" : ""
@@ -218,7 +218,7 @@ export default function MatchChatPage(props: any) {
                       {/* Indicadores de estado */}
                       <div className="flex items-center justify-end gap-2 mt-2">
                         <div className={`text-xs ${
-                          isMine ? "text-white/80" : "text-gray-400"
+                          isMine ? "text-white/80" : "text-[color:var(--fg-subtle)]"
                         }`}>
                           {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { 
                             hour: "2-digit", 
@@ -252,7 +252,7 @@ export default function MatchChatPage(props: any) {
         </div>
 
         {/* Área de entrada mejorada */}
-        <div className="p-4 bg-white border-t border-gray-100">
+        <div className="p-4 bg-white border-t border-[color:var(--border)]/70">
           {error && (
             <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl">
               <p className="text-sm text-red-600">{error}</p>
@@ -270,7 +270,7 @@ export default function MatchChatPage(props: any) {
                     send(); 
                   } 
                 }}
-                className="w-full px-4 py-3 border border-gray-200 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                className="w-full px-4 py-3 border border-[color:var(--border)] rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all duration-200 placeholder-[color:var(--fg-subtle)]"
                 placeholder="Escribe tu mensaje aquí..."
                 rows={1}
                 style={{ minHeight: '48px', maxHeight: '120px' }}
@@ -291,7 +291,7 @@ export default function MatchChatPage(props: any) {
             </button>
           </div>
           
-          <div className="mt-2 text-xs text-gray-400 text-center">
+          <div className="mt-2 text-xs text-[color:var(--fg-subtle)] text-center">
             Presiona Enter para enviar • Shift + Enter para nueva línea
           </div>
         </div>

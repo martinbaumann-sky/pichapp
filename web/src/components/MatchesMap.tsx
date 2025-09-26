@@ -79,7 +79,7 @@ export default function MatchesMap({ items }: Props) {
             const opts: any = {};
             if (pinIcon) opts.icon = pinIcon;
             const marker = opts.icon ? L.marker([it.lat, it.lng], opts) : L.marker([it.lat, it.lng]);
-            marker.bindPopup(`<div style="max-width:200px"><strong>${escapeHtml(it.title)}</strong><div style="font-size:12px;color:#666">${escapeHtml(it.venueName ?? it.comuna ?? "")}</div><div style=\"margin-top:6px\"><a href='/match/${it.id}' class=\"text-blue-600\">Ver</a> • <a href=\"https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(it.lat + ',' + it.lng)}\" target=\"_blank\" rel=\"noreferrer\" class=\"text-blue-600\">Abrir en Maps</a></div></div>`);
+            marker.bindPopup(`<div style="max-width:200px"><strong>${escapeHtml(it.title)}</strong><div style="font-size:12px;color:#666">${escapeHtml(it.venueName ?? it.comuna ?? "")}</div><div style=\"margin-top:6px\"><a href='/match/${it.id}' class=\"text-[color:var(--brand-1)]\">Ver</a> • <a href=\"https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(it.lat + ',' + it.lng)}\" target=\"_blank\" rel=\"noreferrer\" class=\"text-[color:var(--brand-1)]\">Abrir en Maps</a></div></div>`);
             marker.addTo(markersLayer);
             bounds.push([it.lat, it.lng]);
           });

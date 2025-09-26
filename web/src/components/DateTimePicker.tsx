@@ -135,7 +135,7 @@ export default function DateTimePicker({ value, onChange }: Props) {
           Domingo 11:00
         </button>
 
-        <div className="ml-auto text-[11px] text-gray-500">{Intl.DateTimeFormat().resolvedOptions().timeZone}</div>
+        <div className="ml-auto text-[11px] text-[color:var(--fg-subtle)]">{Intl.DateTimeFormat().resolvedOptions().timeZone}</div>
       </div>
     </div>
   );
