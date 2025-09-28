@@ -1,26 +1,10 @@
 "use client";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import AuthDialog from "@/components/AuthDialog";
-import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
-import {  } from "lucide-react";
 import HeroPitch from "@/components/HeroPitch";
 import AnimatedBall from "@/components/AnimatedBall";
 
 export default function Home() {
-  const [authOpen, setAuthOpen] = useState(false);
-  const router = useRouter();
-  const { user } = useAuth();
-  const handleOrganizeClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!user) {
-      setAuthOpen(true);
-      return;
-    }
-    router.push("/organizar");
-  };
   return (
     <motion.div className="bg-white" initial={{ x: 0, opacity: 1 }} animate={{ x: 0, opacity: 1 }}>
       {/* Hero Section */}
@@ -28,11 +12,11 @@ export default function Home() {
         {/* Left Content */}
         <div className="flex-1 max-w-2xl space-y-6 md:space-y-8 text-center md:text-left">
           <h1 className="text-4xl md:text-6xl font-bold text-black leading-tight tracking-tight">
-            Encuentra tu pichanga.
+            Partidos oficiales organizados por canchas.
           </h1>
-          
+
           <p className="text-lg md:text-xl text-gray-600 leading-relaxed">
-            Juega donde y cuando quieras, con la mejor comunidad de fútbol amateur.
+            Reserva tu cupo y juega hoy con pagos seguros, cupos garantizados y canchas verificadas.
           </p>
 
           {/* CTA Buttons */}
@@ -43,14 +27,13 @@ export default function Home() {
             >
               Explorar partidos
             </Link>
-            
-            <a
-              href="/organizar"
-              onClick={handleOrganizeClick}
+
+            <Link
+              href="/cancha"
               className="px-6 md:px-8 py-3 md:py-4 border-2 border-black text-black rounded-lg font-semibold transition-all duration-200 hover:bg-black hover:text-white hover:-translate-y-0.5 text-center"
             >
-              Organizar partido
-            </a>
+              Soy cancha
+            </Link>
           </div>
 
           {/* Feature Badges removed per design */}
@@ -71,26 +54,25 @@ export default function Home() {
             <div className="text-6xl font-black leading-none text-black">1</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Explora partidos</h3>
-              <p className="text-gray-600 text-sm">Encuentra tu pichanga ideal por ubicación y nivel.</p>
+              <p className="text-gray-600 text-sm">Filtra por comuna, fecha, nivel o tu cancha favorita.</p>
             </div>
           </div>
           <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-4 md:p-6 shadow-sm">
             <div className="text-6xl font-black leading-none text-black">2</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Reserva y paga</h3>
-              <p className="text-gray-600 text-sm">Asegura tu cupo en segundos.</p>
+              <p className="text-gray-600 text-sm">Paga tu cupo con Mercado Pago y recibe confirmación inmediata.</p>
             </div>
           </div>
           <div className="flex items-start gap-4 bg-white border border-gray-200 rounded-2xl p-4 md:p-6 shadow-sm">
             <div className="text-6xl font-black leading-none text-black">3</div>
             <div>
               <h3 className="font-semibold text-black mb-2">Juega y disfruta</h3>
-              <p className="text-gray-600 text-sm">Te recordamos antes. Solo llega y juega.</p>
+              <p className="text-gray-600 text-sm">Llega con tu QR, juega el partido oficial y evalúa la experiencia.</p>
             </div>
           </div>
         </div>
       </section>
-      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next="/organizar" />
     </motion.div>
   );
 }

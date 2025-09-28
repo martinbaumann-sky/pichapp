@@ -1,34 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import AuthDialog from "@/components/AuthDialog";
-import CreateMatchWizard from "@/components/CreateMatchWizard";
 
 export default function OrganizarPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [authOpen, setAuthOpen] = useState(false);
+  const derivedRole =
+    (user?.role as "player" | "venue_admin" | "superadmin" | undefined) ??
+    (user?.isAdmin ? "superadmin" : undefined);
 
   useEffect(() => {
-    if (!loading && !user) setAuthOpen(true);
-  }, [user, loading, router]);
+    if (loading) return;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black" />
-      </div>
-    );
-  }
+    if (derivedRole === "venue_admin" || derivedRole === "superadmin") {
+      router.replace("/panel/cancha");
+      return;
+    }
 
-  if (!user) return (
+    router.replace("/cancha");
+  }, [derivedRole, loading, router]);
+
+  return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <AuthDialog open={authOpen} onOpenChange={(o) => { setAuthOpen(o); if (!o) router.replace("/"); }} initialTab="login" next="/organizar" />
+      <div className="flex flex-col items-center gap-4 text-center">
+        <div className="h-12 w-12 rounded-full border-b-2 border-black animate-spin" aria-hidden />
+        <p className="text-sm text-gray-600">Redirigiendo…</p>
+      </div>
     </div>
   );
-
-  return <CreateMatchWizard />;
 }
 

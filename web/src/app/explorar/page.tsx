@@ -527,7 +527,7 @@ export default function ExplorePage() {
             {items.map((match) => (
               <Link
                 key={match.id}
-                href={`/partido/${match.id}`}
+                href={`/partidos/${match.id}`}
                 className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
               >
                 <div className="h-48 w-full">
@@ -535,6 +535,13 @@ export default function ExplorePage() {
                 </div>
 
                 <div className="space-y-3 sm:space-y-4 lg:space-y-5 p-4 sm:p-6 lg:p-8">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+                      Oficial
+                    </span>
+                    <span className="font-medium normal-case text-gray-500">Cancha verificada</span>
+                  </div>
                   <div className="flex items-start justify-between gap-2 lg:gap-3">
                     <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-black transition-colors duration-200 group-hover:text-gray-700 leading-tight">
                       {match.venueName ? `${match.title} - ${match.venueName}` : match.title}
@@ -599,9 +606,10 @@ export default function ExplorePage() {
 
         {items.length === 0 && !loading && !fetchError && (
           <div className="py-20 text-center">
-            <p className="mb-4 text-gray-600">No hay partidos para mostrar.</p>
-            <Link href="/organizar" className="rounded-lg bg-black px-6 py-3 text-white transition hover:bg-gray-800">
-              Organizar partido
+            <p className="mb-2 text-gray-600">No hay partidos oficiales en este momento.</p>
+            <p className="mb-6 text-sm text-gray-500">Revisa más tarde o invita a tu cancha favorita a sumarse a PichangApp.</p>
+            <Link href="/cancha" className="rounded-lg bg-black px-6 py-3 text-white transition hover:bg-gray-800">
+              Soy cancha
             </Link>
           </div>
         )}

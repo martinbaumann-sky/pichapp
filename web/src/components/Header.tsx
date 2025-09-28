@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   User as UserIcon,
@@ -22,8 +22,11 @@ import { useNotifications } from "@/hooks/useNotifications";
 
 export default function Header() {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, loading, signOut } = useAuth();
+  const userRole =
+    (user?.role as "player" | "venue_admin" | "superadmin" | undefined) ??
+    (user?.isAdmin ? "superadmin" : undefined);
+  const canAccessVenuePanel = userRole === "venue_admin" || userRole === "superadmin";
   const [authOpen, setAuthOpen] = useState(false);
   const [authNext, setAuthNext] = useState<string | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -51,7 +54,7 @@ export default function Header() {
   };
 
   const navLink = (href: string, label: string) => {
-    const active = pathname === href;
+    const active = pathname === href || pathname.startsWith(`${href}/`);
     return (
       <Link
         href={href}
@@ -108,19 +111,17 @@ export default function Header() {
 
         <nav className="hidden md:flex items-center gap-2 lg:gap-4">
           {navLink("/explorar", "Explorar")}
-          <button
-            onClick={() => {
-              if (!user) {
-                setAuthOpen(true);
-                setAuthNext("/organizar");
-                setAuthInitialTab("signup");
-              } else router.push("/organizar");
-            }}
-            className="btn-primary btn-mobile-sm lg:btn-mobile"
-          >
-            <span className="hidden lg:inline">Crear partido</span>
-            <span className="lg:hidden">Crear</span>
-          </button>
+          {navLink("/cancha", "Soy cancha")}
+          {navLink("/ayuda", "Ayuda")}
+          {canAccessVenuePanel ? (
+            <Link
+              href="/panel/cancha"
+              className="btn-primary btn-mobile-sm lg:btn-mobile"
+            >
+              <span className="hidden lg:inline">Panel cancha</span>
+              <span className="lg:hidden">Panel</span>
+            </Link>
+          ) : null}
         </nav>
 
         {/* Perfil / Auth */}
@@ -250,12 +251,28 @@ export default function Header() {
                     </div>
                     <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
 
-                    <DropdownMenu.Item asChild>
-                      <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                        <LayoutDashboard className="w-4 h-4 text-gray-600" />
-                        <span>Dashboard</span>
-                      </Link>
-                    </DropdownMenu.Item>
+                {canAccessVenuePanel && (
+                  <DropdownMenu.Item asChild>
+                    <Link
+                      href="/panel/cancha"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-gray-600" />
+                      <span>Panel cancha</span>
+                    </Link>
+                  </DropdownMenu.Item>
+                )}
+                <DropdownMenu.Item asChild>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                  >
+                    <LayoutDashboard className="w-4 h-4 text-gray-600" />
+                    <span>Dashboard</span>
+                  </Link>
+                </DropdownMenu.Item>
                     <DropdownMenu.Item asChild>
                       <Link href="/amigos" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
                         <Users className="w-4 h-4 text-gray-600" />
@@ -333,24 +350,29 @@ export default function Header() {
           >
             <div className="container container-px pb-4">
               <div className="flex flex-col gap-2">
-                <Link href="/explorar" className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target">
+                <Link
+                  href="/explorar"
+                  className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
+                >
                   Explorar partidos
                 </Link>
-                <Link href="/amigos" className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target">
-                  Mis amigos
-                </Link>
-                <button
-                  onClick={() => {
-                    if (!user) {
-                      setAuthOpen(true);
-                      setAuthNext("/organizar");
-                      setAuthInitialTab("signup");
-                    } else router.push("/organizar");
-                  }}
-                  className="btn-primary btn-mobile"
+                <Link
+                  href="/cancha"
+                  className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
                 >
-                  Crear partido
-                </button>
+                  Soy cancha
+                </Link>
+                <Link
+                  href="/ayuda"
+                  className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
+                >
+                  Ayuda
+                </Link>
+                {canAccessVenuePanel ? (
+                  <Link href="/panel/cancha" className="btn-primary btn-mobile">
+                    Panel cancha
+                  </Link>
+                ) : null}
               </div>
             </div>
           </motion.div>

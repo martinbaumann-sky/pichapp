@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 
+type UserRole = "player" | "venue_admin" | "superadmin";
+
 interface User {
   id: string;
   email: string;
@@ -11,6 +13,7 @@ interface User {
   isAdmin: boolean;
   phone?: string | null;
   phoneDisplay?: string | null;
+  role?: UserRole | null;
 }
 
 export function useAuth() {
@@ -24,7 +27,8 @@ export function useAuth() {
       const text = await response.text();
       try {
         const data = text ? JSON.parse(text) : { user: null };
-        setUser(data.user ?? null);
+        const normalizedUser = data.user ?? null;
+        setUser(normalizedUser);
       } catch (e) {
         // Si viene HTML (p. ej. página de error), evitar JSON.parse y setear null
         console.warn('[AUTH] /api/auth/session returned non-json response');

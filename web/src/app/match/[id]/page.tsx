@@ -1,3 +1,3 @@
-export { default } from "../../partido/[id]/page";
+export { default } from "../../partidos/[id]/page";
 
 

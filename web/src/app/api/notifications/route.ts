@@ -202,7 +202,7 @@ export async function GET() {
         type: "match_starting_organizer",
         title: "Tu partido que organizas comienza en 1 hora",
         description: `${match.title} en ${match.comuna}`,
-        href: `/partido/${match.id}`,
+        href: `/partidos/${match.id}`,
         createdAt: match.startsAt.toISOString(),
       });
     }
@@ -217,7 +217,7 @@ export async function GET() {
         type: "match_starting_player",
         title: "Tienes un partido en 1 hora",
         description: `${match.title} en ${match.comuna}`,
-        href: `/partido/${match.id}`,
+        href: `/partidos/${match.id}`,
         createdAt: match.startsAt.toISOString(),
       });
     }
@@ -232,7 +232,7 @@ export async function GET() {
         type: "match_full_organizer",
         title: "Se lleno tu partido",
         description: `${match.title} ya no tiene cupos disponibles`,
-        href: `/partido/${match.id}`,
+        href: `/partidos/${match.id}`,
         createdAt: filledAt.toISOString(),
       });
     }
@@ -246,7 +246,7 @@ export async function GET() {
         type: "match_full_player",
         title: "El partido esta completo",
         description: `${match.title} ya tiene todos los cupos ocupados`,
-        href: `/partido/${match.id}`,
+        href: `/partidos/${match.id}`,
         createdAt: filledAt.toISOString(),
       });
     }
@@ -258,7 +258,7 @@ export async function GET() {
         type: "waitlist_invite",
         title: "Tienes un cupo disponible",
         description: `${invite.match.title} te invito a inscribirte`,
-        href: `/partido/${invite.match.id}`,
+        href: `/partidos/${invite.match.id}`,
         createdAt: (invite.invitedAt ?? now).toISOString(),
       });
     }
