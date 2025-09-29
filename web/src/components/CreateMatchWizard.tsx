@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import Link from "next/link";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DateTimePicker from "@/components/DateTimePicker";
 import dynamic from "next/dynamic";
@@ -8,7 +9,6 @@ import { nivelES } from "@/lib/i18n";
 import { TEAM_KEYS, TEAM_LABELS } from "@/lib/teams";
 import { staticMapUrl } from "@/lib/maps";
 import { streetViewUrl } from "@/lib/places";
-import { AnimatePresence, motion } from "framer-motion";
 import LevelBadge from "@/components/LevelBadge";
 
 type Form = {
@@ -30,18 +30,14 @@ type Form = {
   occupiedSpots: number;
 };
 
-const stepTitles = [
-  "Información Básica",
-  "Ubicación",
-  "Fecha y Hora",
-  "Cupos",
-  "Confirmar",
-];
+type CreateMatchWizardProps = {
+  accountType?: "player" | "venue";
+};
 
-export default function CreateMatchWizard() {
+export default function CreateMatchWizard({ accountType = "player" }: CreateMatchWizardProps) {
   const MiniMap = dynamic(() => import("@/components/MatchMiniMap"), { ssr: false });
+  const isVenue = accountType === "venue";
   const [step, setStep] = useState(0);
-  const [prevStep, setPrevStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [occupiedDetails, setOccupiedDetails] = useState<Array<{ name: string; email: string; position: string; team?: string }>>([]);
   const [friendsOpen, setFriendsOpen] = useState(false);
@@ -60,13 +56,33 @@ export default function CreateMatchWizard() {
     occupiedSpots: 0,
   } as any);
 
+  const [venueInfo, setVenueInfo] = useState<any | null>(null);
+  const [venueLoading, setVenueLoading] = useState(isVenue);
+  const [venueError, setVenueError] = useState<string | null>(null);
+
+  const steps = useMemo(
+    () =>
+      [
+        { id: "info", title: "Información Básica" },
+        { id: "location", title: "Ubicación" },
+        { id: "datetime", title: "Fecha y Hora" },
+        { id: "spots", title: "Cupos" },
+        { id: "confirm", title: "Confirmar" },
+      ].filter((step) => (isVenue ? step.id !== "location" : true)),
+    [isVenue]
+  );
+
+  const currentStep = steps[step] ?? steps[0];
+  const currentStepId = currentStep?.id ?? "info";
+
   const allowNext = useMemo(() => {
-    if (step === 0) return !!form.title && !!form.level;
-    if (step === 1) return !!(form.displayAddress || form.venueAddress || form.venueName);
-    if (step === 2) return !!form.startsAt && form.durationMins >= 30;
-    if (step === 3) return form.totalSpots >= 6 && form.minSpotsToConfirm >= 1 && form.minSpotsToConfirm <= form.totalSpots;
+    if (currentStepId === "info") return !!form.title && !!form.level;
+    if (currentStepId === "location") return !!(form.displayAddress || form.venueAddress || form.venueName);
+    if (currentStepId === "datetime") return !!form.startsAt && form.durationMins >= 30;
+    if (currentStepId === "spots")
+      return form.totalSpots >= 6 && form.minSpotsToConfirm >= 1 && form.minSpotsToConfirm <= form.totalSpots;
     return true;
-  }, [step, form]);
+  }, [currentStepId, form]);
 
   const onAddress = useCallback((v: any) => {
     setForm((prev) => ({
@@ -105,6 +121,7 @@ export default function CreateMatchWizard() {
         // let backend derive comuna from address if missing
         coverImageUrl,
         occupiedPlayers: occupiedDetails,
+        venueId: venueInfo?.id,
       };
 
       const res = await fetch("/api/matches", {
@@ -141,17 +158,107 @@ export default function CreateMatchWizard() {
     })();
   }, [friendsOpen]);
 
+  useEffect(() => {
+    if (!isVenue) return;
+    let active = true;
+    setVenueLoading(true);
+    setVenueError(null);
+    (async () => {
+      try {
+        const res = await fetch('/api/venues/me', { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
+        const data = await res.json().catch(() => ({}));
+        const venue = data?.venue || null;
+        if (!active) return;
+        if (!venue) {
+          setVenueInfo(null);
+          setVenueError('Aún no completaste los datos de tu cancha. Actualiza tu perfil para continuar.');
+          return;
+        }
+        setVenueInfo(venue);
+        if (venue.status !== 'APPROVED') {
+          setVenueError('Tu cuenta de cancha está pendiente de verificación. Te avisaremos por correo cuando esté aprobada.');
+        }
+        const labelParts = [venue.name, venue.address].filter((part: string | null | undefined) => !!part && String(part).trim().length > 0);
+        setForm((prev) => ({
+          ...prev,
+          venueName: venue.name ?? prev.venueName,
+          venueAddress: venue.address ?? prev.venueAddress,
+          displayAddress: labelParts.join(' - '),
+          lat: typeof venue.lat === 'number' ? venue.lat : prev.lat,
+          lng: typeof venue.lng === 'number' ? venue.lng : prev.lng,
+          comuna: venue.comuna ?? prev.comuna,
+        }));
+      } catch (error) {
+        if (!active) return;
+        console.error('[CreateMatchWizard] venue fetch failed', error);
+        setVenueError('No pudimos cargar tu perfil de cancha. Intenta nuevamente desde tu perfil.');
+      } finally {
+        if (active) setVenueLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isVenue]);
+
+  useEffect(() => {
+    if (!isVenue) return;
+    setStep(0);
+  }, [isVenue]);
+
   const stepper = (
-    <div className="flex items-center gap-2 mb-6">
-      {stepTitles.map((t, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${i<=step? 'bg-black text-white':'bg-gray-200 text-gray-600'}`}>{i+1}</div>
-          <div className={`text-sm ${i===step? 'font-semibold text-black':'text-gray-500'}`}>{t}</div>
-          {i<stepTitles.length-1 && <div className="w-8 h-[2px] bg-gray-300" />}
+    <div className="flex items-center gap-2 mb-6 flex-wrap">
+      {steps.map((item, i) => (
+        <div key={item.id} className="flex items-center gap-2">
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+              i <= step ? 'bg-black text-white' : 'bg-gray-200 text-gray-600'
+            }`}
+          >
+            {i + 1}
+          </div>
+          <div className={`text-sm ${item.id === currentStepId ? 'font-semibold text-black' : 'text-gray-500'}`}>
+            {item.title}
+          </div>
+          {i < steps.length - 1 && <div className="w-8 h-[2px] bg-gray-300" />}
         </div>
       ))}
     </div>
   );
+
+  if (isVenue && venueLoading) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-16 text-center text-gray-600">
+        <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-500 mb-4">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          Cargando datos de tu cancha
+        </div>
+        <p className="text-base">Estamos preparando tu panel para que puedas crear partidos.</p>
+      </div>
+    );
+  }
+
+  if (isVenue && venueError) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 py-16 text-center space-y-5">
+        <h1 className="text-2xl font-semibold">Tu cuenta de cancha</h1>
+        <p className="text-gray-600">{venueError}</p>
+        <div className="flex justify-center">
+          <Link href="/perfil" className="inline-flex items-center gap-2 rounded-full bg-black px-5 py-2 text-sm font-semibold text-white hover:bg-gray-900">
+            Ir a mi perfil
+          </Link>
+        </div>
+        {venueInfo && (
+          <p className="text-xs text-gray-500">
+            Estado actual: {venueInfo.status === 'APPROVED' ? 'verificada' : venueInfo.status === 'PENDING' ? 'pendiente' : 'bloqueada'}.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
@@ -160,7 +267,7 @@ export default function CreateMatchWizard() {
       {stepper}
 
       {/* Step content */}
-      {step === 0 && (
+      {currentStepId === "info" && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
           <div>
             <label className="block text-sm text-gray-700 mb-1">Título del partido</label>
@@ -198,7 +305,7 @@ export default function CreateMatchWizard() {
         </div>
       )}
 
-      {step === 1 && (
+      {currentStepId === "location" && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
           <AddressAutocomplete value={form.displayAddress || ""} onChange={onAddress} />
           <div className="grid md:grid-cols-2 gap-4">
@@ -222,7 +329,7 @@ export default function CreateMatchWizard() {
         </div>
       )}
 
-      {step === 2 && (
+      {currentStepId === "datetime" && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
           <div>
             <label className="block text-sm text-gray-700 mb-1">Fecha y hora</label>
@@ -235,7 +342,7 @@ export default function CreateMatchWizard() {
         </div>
       )}
 
-      {step === 3 && (
+      {currentStepId === "spots" && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
           <div className="grid md:grid-cols-3 gap-4">
             <div>
@@ -281,118 +388,122 @@ export default function CreateMatchWizard() {
               />
               <p className="text-xs text-gray-500 mt-1">Avisamos a los jugadores cuando se alcance este mínimo.</p>
             </div>
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Ocupados por el organizador</label>
-              <input
-                type="number"
-                min={0}
-                max={form.totalSpots}
-                value={form.occupiedSpots}
-                onChange={(e)=>{
-                  const v = Math.max(0, Math.min(Number(e.target.value || 0), form.totalSpots));
-                  setForm({ ...form, occupiedSpots: v });
-                  setOccupiedDetails((prev)=>{
-                    const next = [...prev];
-                    if (v > next.length) {
-                      while(next.length < v) next.push({ name: "", email: "", position: "" });
-                    } else if (v < next.length) {
-                      next.length = v;
-                    }
-                    return next;
-                  });
-                }}
-                className="w-full border px-3 py-2 rounded"
-              />
-              <p className="text-xs text-gray-500 mt-1">Estos cupos quedan confirmados desde el inicio.</p>
-            </div>
-          </div>
-          <p className="text-sm text-gray-500">Todas las reservas son gratuitas durante este lanzamiento.</p>
-          <div className="pt-2 border-t">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-gray-700 font-medium">Agregar desde amigos</div>
-              <button type="button" className="px-3 py-1.5 text-sm rounded-lg border" onClick={()=>setFriendsOpen((v)=>!v)}>{friendsOpen? 'Ocultar' : 'Ver amigos'}</button>
-            </div>
-            {friendsOpen && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">También puedes invitar manualmente a alguien que no esté en tu lista.</div>
-                  <button
-                    type="button"
-                    onClick={()=>{
+            {accountType !== "venue" && (
+              <>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Ocupados por el organizador</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={form.totalSpots}
+                    value={form.occupiedSpots}
+                    onChange={(e)=>{
+                      const v = Math.max(0, Math.min(Number(e.target.value || 0), form.totalSpots));
+                      setForm({ ...form, occupiedSpots: v });
                       setOccupiedDetails((prev)=>{
-                        const next = [...prev, { name: '', email: '', position: '', team: '' }];
+                        const next = [...prev];
+                        if (v > next.length) {
+                          while(next.length < v) next.push({ name: "", email: "", position: "" });
+                        } else if (v < next.length) {
+                          next.length = v;
+                        }
                         return next;
                       });
-                      setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
                     }}
-                    className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50"
-                  >
-                    Agregar invitado
-                  </button>
+                    className="w-full border px-3 py-2 rounded"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Estos cupos quedan confirmados desde el inicio.</p>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {friends.map((f:any)=> {
-                    const id = String(f.id);
-                    const isSelected = selectedFriendIds.has(id);
-                    const name = f.user?.name || 'Amigo';
-                    const email = f.user?.email || f.email || '';
-                    const position = f.user?.position || '';
-                    return (
-                      <div key={id} className={`flex items-center justify-between p-3 rounded-xl border ${isSelected? 'bg-emerald-50 border-emerald-200' : 'hover:bg-gray-50'}`}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">⚽</div>
-                          <div>
-                            <div className="text-sm font-medium">{name}</div>
-                            <div className="text-xs text-gray-500">{f.user?.comuna || '—'}{position ? ` • ${position}`: ''}</div>
-                          </div>
-                        </div>
-                        {isSelected ? (
-                          <button
-                            type="button"
-                            className="text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
-                            onClick={()=>{
-                              setSelectedFriendIds((prev)=>{
-                                const next = new Set(prev);
-                                next.delete(id);
-                                return next;
-                              });
-                              setOccupiedDetails((prev)=>{
-                                const idx = prev.findIndex((p:any)=> p.friendId === id);
-                                if (idx >= 0) {
-                                  const next = [...prev];
-                                  next.splice(idx,1);
-                                  return next;
-                                }
-                                return prev;
-                              });
-                              setForm((prev)=>({ ...prev, occupiedSpots: Math.max(0, (prev.occupiedSpots||0) - 1) }));
-                            }}
-                          >Quitar</button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="text-xs px-2 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-                            onClick={()=>{
-                              setSelectedFriendIds((prev)=>{
-                                const next = new Set(prev);
-                                if (next.has(id)) return next;
-                                next.add(id);
-                                return next;
-                              });
-                              setOccupiedDetails((prev)=>[...prev, { friendId: id, name, email, position, team: '' } as any]);
-                              setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
-                            }}
-                          >Agregar</button>
-                        )}
+                <div className="pt-2 border-t">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm text-gray-700 font-medium">Agregar desde amigos</div>
+                    <button type="button" className="px-3 py-1.5 text-sm rounded-lg border" onClick={()=>setFriendsOpen((v)=>!v)}>{friendsOpen? 'Ocultar' : 'Ver amigos'}</button>
+                  </div>
+                  {friendsOpen && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-gray-600">También puedes invitar manualmente a alguien que no esté en tu lista.</div>
+                        <button
+                          type="button"
+                          onClick={()=>{
+                            setOccupiedDetails((prev)=>{
+                              const next = [...prev, { name: '', email: '', position: '', team: '' }];
+                              return next;
+                            });
+                            setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
+                          }}
+                          className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50"
+                        >
+                          Agregar invitado
+                        </button>
                       </div>
-                    );
-                  })}
-                  {friends.length === 0 && <div className="text-xs text-gray-500">Aún no tienes amigos. Agrégalos por su número en la pestaña “Amigos”.</div>}
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {friends.map((f:any)=> {
+                          const id = String(f.id);
+                          const isSelected = selectedFriendIds.has(id);
+                          const name = f.user?.name || 'Amigo';
+                          const email = f.user?.email || f.email || '';
+                          const position = f.user?.position || '';
+                          return (
+                            <div key={id} className={`flex items-center justify-between p-3 rounded-xl border ${isSelected? 'bg-emerald-50 border-emerald-200' : 'hover:bg-gray-50'}`}>
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">⚽</div>
+                                <div>
+                                  <div className="text-sm font-medium">{name}</div>
+                                  <div className="text-xs text-gray-500">{f.user?.comuna || '—'}{position ? ` • ${position}`: ''}</div>
+                                </div>
+                              </div>
+                              {isSelected ? (
+                                <button
+                                  type="button"
+                                  className="text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+                                  onClick={()=>{
+                                    setSelectedFriendIds((prev)=>{
+                                      const next = new Set(prev);
+                                      next.delete(id);
+                                      return next;
+                                    });
+                                    setOccupiedDetails((prev)=>{
+                                      const idx = prev.findIndex((p:any)=> p.friendId === id);
+                                      if (idx >= 0) {
+                                        const next = [...prev];
+                                        next.splice(idx,1);
+                                        return next;
+                                      }
+                                      return prev;
+                                    });
+                                    setForm((prev)=>({ ...prev, occupiedSpots: Math.max(0, (prev.occupiedSpots||0) - 1) }));
+                                  }}
+                                >Quitar</button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="text-xs px-2 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                                  onClick={()=>{
+                                    setSelectedFriendIds((prev)=>{
+                                      const next = new Set(prev);
+                                      if (next.has(id)) return next;
+                                      next.add(id);
+                                      return next;
+                                    });
+                                    setOccupiedDetails((prev)=>[...prev, { friendId: id, name, email, position, team: '' } as any]);
+                                    setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
+                                  }}
+                                >Agregar</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {friends.length === 0 && <div className="text-xs text-gray-500">Aún no tienes amigos. Agrégalos por su número en la pestaña “Amigos”.</div>}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
+              </>
             )}
           </div>
-          {form.occupiedSpots > 0 && (
+          <p className="text-sm text-gray-500">Todas las reservas son gratuitas durante este lanzamiento.</p>
+          {accountType !== "venue" && form.occupiedSpots > 0 && (
             <div className="mt-2 space-y-3">
               <div className="text-sm text-gray-700 font-medium">Datos de jugadores ocupados por el organizador</div>
               {Array.from({ length: form.occupiedSpots }).map((_, idx) => (
@@ -473,11 +584,11 @@ export default function CreateMatchWizard() {
         </div>
       )}
 
-      {step === 4 && (
+      {currentStepId === "confirm" && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
           <div className="text-sm text-gray-700">
             <p><span className="font-medium">Título:</span> {form.title}</p>
-            <p><span className="font-medium">Comuna:</span> {form.comuna}</p>
+            <p><span className="font-medium">Comuna:</span> {form.comuna || venueInfo?.comuna || '—'}</p>
             <p className="flex items-center gap-2"><span className="font-medium">Nivel:</span> <LevelBadge level={form.level as any} /></p>
             <p><span className="font-medium">Recinto:</span> {form.venueName || "-"}</p>
             <p><span className="font-medium">Dirección:</span> {form.venueAddress || form.displayAddress || "-"}</p>
@@ -492,8 +603,8 @@ export default function CreateMatchWizard() {
       {/* Nav */}
       <div className="mt-6 flex items-center justify-between">
         <button className="px-4 py-2 rounded border" disabled={step===0 || busy} onClick={()=>setStep((s)=>Math.max(0,s-1))}>Atrás</button>
-        {step < stepTitles.length-1 ? (
-          <button className="px-6 py-2 rounded bg-black text-white disabled:opacity-50" disabled={!allowNext || busy} onClick={()=>setStep((s)=>Math.min(stepTitles.length-1,s+1))}>Siguiente</button>
+        {step < steps.length-1 ? (
+          <button className="px-6 py-2 rounded bg-black text-white disabled:opacity-50" disabled={!allowNext || busy} onClick={()=>setStep((s)=>Math.min(steps.length-1,s+1))}>Siguiente</button>
         ) : (
           <button className="px-6 py-2 rounded bg-black text-white disabled:opacity-50" disabled={busy} onClick={onSubmit}>{busy? 'Creando…' : 'Crear partido'}</button>
         )}
@@ -502,28 +613,3 @@ export default function CreateMatchWizard() {
   );
 }
 
-// Tarjeta de vista previa con imagen del lugar
-function PreviewCard({ lat, lng, photoUrl }: { lat?: number; lng?: number; photoUrl?: string }) {
-  const computed = useMemo(() => {
-    if (photoUrl && /^https?:\/\//i.test(photoUrl)) return photoUrl;
-    if (typeof lat === 'number' && typeof lng === 'number') {
-      const sv = streetViewUrl(lat, lng);
-      return sv || staticMapUrl({ lat, lng });
-    }
-    return null;
-  }, [lat, lng, photoUrl]);
-
-  return (
-    <div className="mt-2">
-      <label className="block text-sm text-gray-700 mb-2">Vista previa</label>
-      <div className="relative overflow-hidden rounded-xl border bg-gray-50">
-        {computed ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={computed} alt="Vista previa del lugar" className="w-full h-56 object-cover" />
-        ) : (
-          <div className="w-full h-56 flex items-center justify-center text-gray-400">Selecciona una dirección para ver la vista previa</div>
-        )}
-      </div>
-    </div>
-  );
-}

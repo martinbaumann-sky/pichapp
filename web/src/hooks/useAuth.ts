@@ -11,6 +11,21 @@ interface User {
   isAdmin: boolean;
   phone?: string | null;
   phoneDisplay?: string | null;
+  role?: "player" | "venue";
+  status?: "ACTIVE" | "BLOCKED";
+  venue?: {
+    id: string;
+    name: string;
+    address: string;
+    comuna: string;
+    lat?: number | null;
+    lng?: number | null;
+    contactName?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    status: "PENDING" | "APPROVED" | "BLOCKED";
+    verifiedAt?: string | null;
+  } | null;
 }
 
 export function useAuth() {
@@ -24,7 +39,13 @@ export function useAuth() {
       const text = await response.text();
       try {
         const data = text ? JSON.parse(text) : { user: null };
-        setUser(data.user ?? null);
+        const normalizedUser = data.user
+          ? {
+              ...data.user,
+              role: data.user.role === "venue" ? "venue" : "player",
+            }
+          : null;
+        setUser(normalizedUser);
       } catch (e) {
         // Si viene HTML (p. ej. página de error), evitar JSON.parse y setear null
         console.warn('[AUTH] /api/auth/session returned non-json response');

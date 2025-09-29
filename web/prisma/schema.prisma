@@ -52,6 +52,23 @@ enum WaitlistStatus {
   JOINED
 }
 
+enum UserRole {
+  PLAYER
+  VENUE
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum VenueStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+}
+
 enum PaymentProvider {
   MP
   TB
@@ -83,6 +100,8 @@ model User {
   email     String?   @unique
   passwordHash String?
   isAdmin   Boolean   @default(false)
+  role      UserRole  @default(PLAYER)
+  status    UserStatus @default(ACTIVE)
   createdAt DateTime  @default(now())
   emailVerifiedAt DateTime?
 
@@ -95,6 +114,8 @@ model User {
   emailVerifications EmailVerification[]
 
   localPassword LocalPassword?
+
+  venue     Venue?
 
   guestInvitesSent     GuestInvite[] @relation("GuestInviteInviter")
   guestInvitesReceived GuestInvite[] @relation("GuestInviteGuest")
@@ -120,13 +141,22 @@ model Profile {
 
 model Venue {
   id        String   @id @default(uuid())
+  ownerId   String   @unique
   name      String
   address   String
   comuna    String
   lat       Float?
   lng       Float?
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  status    VenueStatus @default(PENDING)
+  verifiedAt DateTime?
+  verificationToken String? @unique
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   fields    Field[]
 }
 

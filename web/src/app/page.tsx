@@ -1,26 +1,10 @@
 "use client";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import AuthDialog from "@/components/AuthDialog";
-import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
-import {  } from "lucide-react";
 import HeroPitch from "@/components/HeroPitch";
 import AnimatedBall from "@/components/AnimatedBall";
 
 export default function Home() {
-  const [authOpen, setAuthOpen] = useState(false);
-  const router = useRouter();
-  const { user } = useAuth();
-  const handleOrganizeClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!user) {
-      setAuthOpen(true);
-      return;
-    }
-    router.push("/organizar");
-  };
   return (
     <motion.div className="bg-white" initial={{ x: 0, opacity: 1 }} animate={{ x: 0, opacity: 1 }}>
       {/* Hero Section */}
@@ -43,15 +27,11 @@ export default function Home() {
             >
               Explorar partidos
             </Link>
-            
-            <a
-              href="/organizar"
-              onClick={handleOrganizeClick}
-              className="px-6 md:px-8 py-3 md:py-4 border-2 border-black text-black rounded-lg font-semibold transition-all duration-200 hover:bg-black hover:text-white hover:-translate-y-0.5 text-center"
-            >
-              Organizar partido
-            </a>
           </div>
+
+          <p className="text-xs md:text-sm text-gray-500 pt-2">
+            ¿Tienes una cancha? <Link href="/canchas" className="font-semibold text-gray-700 hover:text-black underline decoration-gray-300 underline-offset-4">Regístrala con nosotros</Link> y gestiona tus partidos desde un panel dedicado.
+          </p>
 
           {/* Feature Badges removed per design */}
         </div>
@@ -90,7 +70,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next="/organizar" />
     </motion.div>
   );
 }

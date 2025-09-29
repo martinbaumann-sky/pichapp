@@ -29,6 +29,6 @@ export default function OrganizarPage() {
     </div>
   );
 
-  return <CreateMatchWizard />;
+  return <CreateMatchWizard accountType={user.role === "venue" ? "venue" : "player"} />;
 }
 

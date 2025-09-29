@@ -24,6 +24,7 @@ export const createMatchSchema = z.object({
   // Hacer opcionales para permitir texto libre; el backend normaliza
   venueName: z.string().optional().default(""),
   venueAddress: z.string().optional().default(""),
+  venueId: z.string().uuid().optional(),
   // Hacer opcionales lat/lng para no bloquear si el proveedor no los devuelve
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),

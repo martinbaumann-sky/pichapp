@@ -14,6 +14,29 @@ export async function POST(req: NextRequest) {
     const organizerId = await requireUserId();
     const json = await req.json().catch(() => ({}));
 
+    const organizer = await prisma.user.findUnique({
+      where: { id: organizerId },
+      select: {
+        role: true,
+        venue: {
+          select: {
+            id: true,
+            status: true,
+            name: true,
+            address: true,
+            comuna: true,
+            lat: true,
+            lng: true,
+          },
+        },
+      },
+    });
+
+    const venueFromAccount = organizer?.role === "VENUE" ? organizer.venue : null;
+    if (organizer?.role === "VENUE" && (!venueFromAccount || venueFromAccount.status !== "APPROVED")) {
+      return NextResponse.json({ error: "Tu cuenta de cancha aún no está verificada" }, { status: 403 });
+    }
+
     // Defaults defensivos para evitar "invalid input"
     const derivedComuna = json?.comuna ?? extractComunaFromText(String(json?.venueAddress ?? json?.venueName ?? "")) ?? undefined;
     const safeStartsAt = (() => {
@@ -70,6 +93,15 @@ export async function POST(req: NextRequest) {
       occupiedSpots: Number(json?.occupiedSpots ?? 0),
       ...(sanitizedPlayers.length > 0 ? { occupiedPlayers: sanitizedPlayers } : {}),
     } as any;
+
+    if (venueFromAccount) {
+      defensivelyFilled.venueName = venueFromAccount.name ?? defensivelyFilled.venueName;
+      defensivelyFilled.venueAddress = venueFromAccount.address ?? defensivelyFilled.venueAddress;
+      defensivelyFilled.lat = typeof venueFromAccount.lat === "number" ? venueFromAccount.lat : defensivelyFilled.lat;
+      defensivelyFilled.lng = typeof venueFromAccount.lng === "number" ? venueFromAccount.lng : defensivelyFilled.lng;
+      defensivelyFilled.comuna = venueFromAccount.comuna ?? defensivelyFilled.comuna;
+      defensivelyFilled.venueId = venueFromAccount.id;
+    }
 
     const parsed = createMatchSchema.safeParse(defensivelyFilled);
     if (!parsed.success) {

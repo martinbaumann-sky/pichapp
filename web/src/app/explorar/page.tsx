@@ -598,11 +598,20 @@ export default function ExplorePage() {
         )}
 
         {items.length === 0 && !loading && !fetchError && (
-          <div className="py-20 text-center">
-            <p className="mb-4 text-gray-600">No hay partidos para mostrar.</p>
-            <Link href="/organizar" className="rounded-lg bg-black px-6 py-3 text-white transition hover:bg-gray-800">
-              Organizar partido
-            </Link>
+          <div className="py-20">
+            <div className="mx-auto max-w-md rounded-3xl border border-gray-200 bg-white/90 p-8 text-center shadow-sm">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+                <span className="text-xl">⚽</span>
+              </div>
+              <p className="mt-4 text-lg font-semibold text-gray-900">No encontramos partidos con esos filtros.</p>
+              <p className="mt-2 text-sm text-gray-600">
+                Ajusta la comuna, prueba con otra fecha o revisa tus <Link href="/reservas" className="font-medium text-gray-900 underline decoration-gray-300 underline-offset-4">reservas activas</Link> para mantenerte al día.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-gray-500">
+                <span className="rounded-full border border-dashed border-gray-300 px-3 py-1">Recargamos los partidos cada pocos minutos</span>
+                <span className="rounded-full border border-dashed border-gray-300 px-3 py-1">Explora comunas cercanas para más opciones</span>
+              </div>
+            </div>
           </div>
         )}
 

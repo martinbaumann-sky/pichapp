@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   User as UserIcon,
   LayoutDashboard,
-  Users,
   UserCircle,
   LogOut,
   Bell,
   Loader2,
   RefreshCw,
+  CalendarPlus,
+  Building2,
 } from "lucide-react";
 import { cn } from "../utils/cn";
 import AuthDialog from "./AuthDialog";
@@ -19,6 +21,8 @@ import { useAuth } from "@/hooks/useAuth";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNotifications } from "@/hooks/useNotifications";
+
+type MenuEntry = { href: string; label: string; icon: LucideIcon };
 
 export default function Header() {
   const pathname = usePathname();
@@ -51,7 +55,8 @@ export default function Header() {
   };
 
   const navLink = (href: string, label: string) => {
-    const active = pathname === href;
+    const baseHref = href.split("?")[0];
+    const active = pathname === baseHref || pathname.startsWith(`${baseHref}/`);
     return (
       <Link
         href={href}
@@ -71,6 +76,37 @@ export default function Header() {
       </Link>
     );
   };
+
+  const accountType = user?.role === "venue" ? "venue" : "player";
+
+  const playerNavLinks = [
+    { href: "/explorar", label: "Explorar" },
+    { href: "/reservas", label: "Reservas" },
+    { href: "/amigos", label: "Amigos" },
+    { href: "/mensajes", label: "Mensajes" },
+  ];
+
+  const venueNavLinks = [
+    { href: "/dashboard?tab=organizador", label: "Dashboard" },
+  ];
+
+  const playerMenuPrimary: MenuEntry[] = [
+    { href: "/perfil", label: "Perfil", icon: UserCircle },
+    { href: "/dashboard?tab=jugador", label: "Mi dashboard", icon: LayoutDashboard },
+    { href: "/organizar", label: "Organizar partido", icon: CalendarPlus },
+  ];
+
+  const playerMenuSecondary: MenuEntry[] = [
+    { href: "/canchas", label: "Registrar mi cancha", icon: Building2 },
+  ];
+
+  const venueMenuPrimary: MenuEntry[] = [
+    { href: "/perfil", label: "Perfil", icon: UserCircle },
+    { href: "/dashboard?tab=organizador", label: "Panel cancha", icon: LayoutDashboard },
+  ];
+
+  const primaryMenu = accountType === "venue" ? venueMenuPrimary : playerMenuPrimary;
+  const secondaryMenu = accountType === "venue" ? [] : playerMenuSecondary;
 
   // Cerrar menús al cambiar de ruta
   useEffect(() => {
@@ -107,20 +143,24 @@ export default function Header() {
         </div>
 
         <nav className="hidden md:flex items-center gap-2 lg:gap-4">
-          {navLink("/explorar", "Explorar")}
-          <button
-            onClick={() => {
-              if (!user) {
-                setAuthOpen(true);
-                setAuthNext("/organizar");
-                setAuthInitialTab("signup");
-              } else router.push("/organizar");
-            }}
-            className="btn-primary btn-mobile-sm lg:btn-mobile"
-          >
-            <span className="hidden lg:inline">Crear partido</span>
-            <span className="lg:hidden">Crear</span>
-          </button>
+          {accountType === "venue" && user ? (
+            <>
+              <button
+                onClick={() => router.push("/organizar")}
+                className="btn-primary btn-mobile-sm lg:btn-mobile"
+              >
+                <span className="hidden lg:inline">Crear partido</span>
+                <span className="lg:hidden">Crear</span>
+              </button>
+              {venueNavLinks.map(({ href, label }) => (
+                <span key={href}>{navLink(href, label)}</span>
+              ))}
+            </>
+          ) : (
+            playerNavLinks.map(({ href, label }) => (
+              <span key={href}>{navLink(href, label)}</span>
+            ))
+          )}
         </nav>
 
         {/* Perfil / Auth */}
@@ -247,27 +287,57 @@ export default function Header() {
                     <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
                       <div className="text-xs text-gray-500">Sesión</div>
                       <div className="font-medium text-black truncate">{user.name}</div>
+                      {accountType === "venue" && user?.venue && (
+                        <div
+                          className={cn(
+                            "mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium",
+                            user.venue.status === "APPROVED"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : user.venue.status === "PENDING"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-red-100 text-red-700"
+                          )}
+                        >
+                          {user.venue.status === "APPROVED"
+                            ? "Cancha verificada"
+                            : user.venue.status === "PENDING"
+                              ? "Cancha pendiente"
+                              : "Cancha bloqueada"}
+                        </div>
+                      )}
                     </div>
                     <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
 
-                    <DropdownMenu.Item asChild>
-                      <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                        <LayoutDashboard className="w-4 h-4 text-gray-600" />
-                        <span>Dashboard</span>
-                      </Link>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item asChild>
-                      <Link href="/amigos" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                        <Users className="w-4 h-4 text-gray-600" />
-                        <span>Amigos</span>
-                      </Link>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item asChild>
-                      <Link href="/perfil" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                        <UserCircle className="w-4 h-4 text-gray-600" />
-                        <span>Perfil</span>
-                      </Link>
-                    </DropdownMenu.Item>
+                    {primaryMenu.map(({ href, label, icon: Icon }) => (
+                      <DropdownMenu.Item asChild key={href}>
+                        <Link
+                          href={href}
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                        >
+                          <Icon className="w-4 h-4 text-gray-600" />
+                          <span>{label}</span>
+                        </Link>
+                      </DropdownMenu.Item>
+                    ))}
+
+                    {secondaryMenu.length > 0 && (
+                      <>
+                        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+                        {secondaryMenu.map(({ href, label, icon: Icon }) => (
+                          <DropdownMenu.Item asChild key={href}>
+                            <Link
+                              href={href}
+                              onClick={() => setMenuOpen(false)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                            >
+                              <Icon className="w-4 h-4 text-gray-600" />
+                              <span>{label}</span>
+                            </Link>
+                          </DropdownMenu.Item>
+                        ))}
+                      </>
+                    )}
 
                     <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
                     <DropdownMenu.Item asChild>
@@ -333,24 +403,67 @@ export default function Header() {
           >
             <div className="container container-px pb-4">
               <div className="flex flex-col gap-2">
-                <Link href="/explorar" className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target">
-                  Explorar partidos
-                </Link>
-                <Link href="/amigos" className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target">
-                  Mis amigos
-                </Link>
-                <button
-                  onClick={() => {
-                    if (!user) {
-                      setAuthOpen(true);
-                      setAuthNext("/organizar");
-                      setAuthInitialTab("signup");
-                    } else router.push("/organizar");
-                  }}
-                  className="btn-primary btn-mobile"
-                >
-                  Crear partido
-                </button>
+                {accountType === "venue" && user ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        router.push("/organizar");
+                        setMobileOpen(false);
+                      }}
+                      className="btn-primary btn-mobile"
+                    >
+                      Crear partido
+                    </button>
+                    {venueNavLinks.map(({ href, label }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setMobileOpen(false)}
+                        className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
+                      >
+                        {label}
+                      </Link>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {playerNavLinks.map(({ href, label }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setMobileOpen(false)}
+                        className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
+                      >
+                        {label}
+                      </Link>
+                    ))}
+                    <button
+                      onClick={() => {
+                        if (!user) {
+                          setAuthOpen(true);
+                          setAuthNext("/organizar");
+                          setAuthInitialTab("signup");
+                        } else {
+                          router.push("/organizar");
+                        }
+                        setMobileOpen(false);
+                      }}
+                      className="btn-primary btn-mobile"
+                    >
+                      Organizar partido
+                    </button>
+                    {secondaryMenu.map(({ href, label }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setMobileOpen(false)}
+                        className="px-4 py-3 rounded-xl text-xs bg-white/80 hover:bg-white text-gray-600 transition-colors touch-target"
+                      >
+                        {label}
+                      </Link>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

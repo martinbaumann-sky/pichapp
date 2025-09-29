@@ -33,11 +33,32 @@ export async function POST(req: NextRequest) {
         id: true,
         email: true,
         isAdmin: true,
-        profile: { select: { name: true, comuna: true, position: true } },
+        role: true,
+        status: true,
+        emailVerifiedAt: true,
+        profile: { select: { name: true, comuna: true, position: true, phone: true } },
+        venue: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            comuna: true,
+            lat: true,
+            lng: true,
+            contactName: true,
+            contactEmail: true,
+            contactPhone: true,
+            status: true,
+            verifiedAt: true,
+          },
+        },
       },
     });
     if (!user) {
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+    }
+    if (user.status !== "ACTIVE") {
+      return NextResponse.json({ ok: false, error: "Cuenta bloqueada" }, { status: 403 });
     }
     let hash: string | null = null;
     try {
@@ -70,13 +91,32 @@ export async function POST(req: NextRequest) {
 }
 
 function sanitizeUser(u: any) {
+  const role = u.role === "VENUE" ? "venue" : u.role === "ADMIN" || u.isAdmin ? "venue" : "player";
   return {
     id: u.id,
     email: u.email,
     emailVerified: !!u.emailVerifiedAt,
     isAdmin: !!u.isAdmin,
+    role,
+    status: u.status,
     name: u.profile?.name || null,
     comuna: u.profile?.comuna || null,
     position: u.profile?.position || null,
+    phone: u.profile?.phone || null,
+    venue: u.venue
+      ? {
+          id: u.venue.id,
+          name: u.venue.name,
+          address: u.venue.address,
+          comuna: u.venue.comuna,
+          lat: u.venue.lat,
+          lng: u.venue.lng,
+          contactName: u.venue.contactName,
+          contactEmail: u.venue.contactEmail,
+          contactPhone: u.venue.contactPhone,
+          status: u.venue.status,
+          verifiedAt: u.venue.verifiedAt,
+        }
+      : null,
   };
 }
