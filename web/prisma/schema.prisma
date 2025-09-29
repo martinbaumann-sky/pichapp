@@ -92,6 +92,7 @@ model User {
   role      UserRole  @default(PLAYER)
   createdAt DateTime  @default(now())
   emailVerifiedAt DateTime?
+  disabledAt DateTime?
 
   profile   Profile?
   matches   Match[]   @relation("MatchOrganizer")

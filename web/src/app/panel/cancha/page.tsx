@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,6 +11,7 @@ import {
   CreditCard,
   MapPin,
   MessageSquare,
+  Loader2,
   RefreshCw,
   Settings,
   Ticket,
@@ -70,6 +71,9 @@ type PanelData = {
     plan: string;
     verified: boolean;
     payoutEmail: string;
+    taxId: string;
+    phone: string | null;
+    accountHolder: string;
     fields: Array<{ id: string; name: string }>;
   };
   matches: PanelMatch[];
@@ -166,12 +170,6 @@ export default function VenueDashboardPage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/cancha"
-              className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-gray-400"
-            >
-              Ver landing
-            </Link>
-            <Link
               href="/panel/cancha/partidos/nuevo"
               className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
             >
@@ -233,7 +231,7 @@ export default function VenueDashboardPage() {
           ) : activeTab === "reports" ? (
             <ReportsTab loading={loading} data={data} />
           ) : activeTab === "settings" ? (
-            <SettingsTab loading={loading} data={data} />
+            <SettingsTab loading={loading} data={data} onSaved={handleRefresh} />
           ) : null}
         </div>
       </div>
@@ -587,41 +585,180 @@ function ReportsTab({ loading, data }: { loading: boolean; data: PanelData | nul
   );
 }
 
-function SettingsTab({ loading, data }: { loading: boolean; data: PanelData | null }) {
+function SettingsTab({
+  loading,
+  data,
+  onSaved,
+}: {
+  loading: boolean;
+  data: PanelData | null;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: "",
+    taxId: "",
+    address: "",
+    comuna: "",
+    payoutEmail: "",
+    accountHolder: "",
+    phone: "",
+    fields: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!data?.venue) return;
+    setForm({
+      name: data.venue.name ?? "",
+      taxId: data.venue.taxId ?? "",
+      address: data.venue.address ?? "",
+      comuna: data.venue.comuna ?? "",
+      payoutEmail: data.venue.payoutEmail ?? "",
+      accountHolder: data.venue.accountHolder ?? "",
+      phone: data.venue.phone ?? "",
+      fields: data.venue.fields.map((field) => field.name).join("\n"),
+    });
+  }, [data]);
+
   if (loading && !data) {
     return <div className="h-48 rounded-3xl border border-gray-200 bg-gray-50 animate-pulse" />;
   }
 
   if (!data) return null;
 
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const payload = {
+        ...form,
+        fields: form.fields.split(/\n+/).map((value) => value.trim()).filter(Boolean),
+      };
+      const res = await fetch("/api/venue/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.error) {
+        throw new Error(json?.error || "No pudimos guardar los cambios");
+      }
+      setSuccess("Datos actualizados correctamente.");
+      onSaved();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No pudimos guardar los cambios";
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-gray-900">Datos de la cancha</h2>
-        <dl className="mt-4 grid grid-cols-1 gap-3 text-sm text-gray-600 sm:grid-cols-2">
+      <form onSubmit={handleSubmit} className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm space-y-6">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <dt className="text-xs uppercase text-gray-400">Nombre</dt>
-            <dd className="font-medium text-gray-900">{data.venue.name}</dd>
+            <h2 className="text-xl font-semibold text-gray-900">Datos de la cancha</h2>
+            <p className="mt-1 text-sm text-gray-500">Actualiza la información que verán los jugadores al reservar.</p>
           </div>
-          <div>
-            <dt className="text-xs uppercase text-gray-400">Dirección</dt>
-            <dd className="font-medium text-gray-900">{data.venue.address}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase text-gray-400">Comuna</dt>
-            <dd className="font-medium text-gray-900">{data.venue.comuna}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase text-gray-400">Correo de pagos</dt>
-            <dd className="font-medium text-gray-900">{data.venue.payoutEmail}</dd>
-          </div>
-        </dl>
-        {data.venue.fields.length > 0 ? (
-          <div className="mt-4 text-xs text-gray-500">
-            Tipos de cancha: {data.venue.fields.map((field) => field.name).join(", ")}
-          </div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Guardar cambios
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="flex flex-col text-sm text-gray-600">
+            Nombre de la cancha
+            <input
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              required
+            />
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
+            RUT / Tax ID
+            <input
+              value={form.taxId}
+              onChange={(event) => setForm((prev) => ({ ...prev, taxId: event.target.value }))}
+              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              required
+            />
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
+            Dirección
+            <input
+              value={form.address}
+              onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
+              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              required
+            />
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
+            Comuna
+            <input
+              value={form.comuna}
+              onChange={(event) => setForm((prev) => ({ ...prev, comuna: event.target.value }))}
+              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              required
+            />
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
+            Correo de pagos
+            <input
+              type="email"
+              value={form.payoutEmail}
+              onChange={(event) => setForm((prev) => ({ ...prev, payoutEmail: event.target.value }))}
+              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              required
+            />
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
+            Titular de la cuenta
+            <input
+              value={form.accountHolder}
+              onChange={(event) => setForm((prev) => ({ ...prev, accountHolder: event.target.value }))}
+              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              required
+            />
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
+            Teléfono de contacto
+            <input
+              value={form.phone}
+              onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              placeholder="+56 9 1234 5678"
+            />
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
+            Tipos de cancha
+            <textarea
+              value={form.fields}
+              onChange={(event) => setForm((prev) => ({ ...prev, fields: event.target.value }))}
+              className="mt-1 h-28 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              placeholder="Ej: Cancha 1 - Pasto sintético\nCancha techada"
+            />
+            <span className="mt-1 text-xs text-gray-400">Una por línea. Máximo 12.</span>
+          </label>
+        </div>
+
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         ) : null}
-      </div>
+        {success ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div>
+        ) : null}
+      </form>
 
       <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="text-lg font-semibold text-gray-900">Verificación</h3>

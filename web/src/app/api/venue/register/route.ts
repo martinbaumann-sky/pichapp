@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { prisma } from "@/lib/db";
 import { normalizeForStorage } from "@/lib/phone";
 import { setPasswordHash } from "@/lib/auth-password";
+import { sendVenueReviewEmail } from "@/lib/venue-review-email";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 
@@ -173,6 +174,10 @@ export async function POST(request: NextRequest) {
           lng: true,
           plan: true,
           verified: true,
+          taxId: true,
+          phone: true,
+          payoutEmail: true,
+          accountHolder: true,
         },
       });
 
@@ -208,6 +213,29 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
     attachSessionCookie(res, token);
+
+    sendVenueReviewEmail({
+      venue: {
+        id: result.venue.id,
+        name: result.venue.name,
+        taxId,
+        address,
+        comuna,
+        phone: normalizedPhone ?? null,
+        payoutEmail,
+        accountHolder,
+        lat,
+        lng,
+        fields: fieldNames.map((name) => ({ name })),
+      },
+      owner: {
+        id: result.user.id,
+        email: result.user.email!,
+        name: result.user.profile?.name ?? venueName,
+      },
+    }).catch((err) => {
+      console.error("[venue/register] review email error", err);
+    });
     return res;
   } catch (err) {
     console.error("[venue/register]", err);

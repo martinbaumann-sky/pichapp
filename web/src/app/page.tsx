@@ -27,12 +27,14 @@ export default function Home() {
             >
               Explorar partidos
             </Link>
-
-            <Link
-              href="/cancha"
-              className="px-6 md:px-8 py-3 md:py-4 border-2 border-black text-black rounded-lg font-semibold transition-all duration-200 hover:bg-black hover:text-white hover:-translate-y-0.5 text-center"
-            >
-              Soy cancha
+          </div>
+          <div className="pt-2 text-xs text-gray-500">
+            <Link href="/cancha" className="inline-flex items-center gap-1 font-semibold text-emerald-600 hover:text-emerald-700">
+              ¿Administras una cancha?
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="m13 6 6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </Link>
           </div>
 

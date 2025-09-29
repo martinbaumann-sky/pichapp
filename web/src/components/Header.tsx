@@ -12,6 +12,9 @@ import {
   Bell,
   Loader2,
   RefreshCw,
+  CalendarDays,
+  MessageSquare,
+  MapPin,
 } from "lucide-react";
 import { cn } from "../utils/cn";
 import AuthDialog from "./AuthDialog";
@@ -110,18 +113,20 @@ export default function Header() {
         </div>
 
         <nav className="hidden md:flex items-center gap-2 lg:gap-4">
-          {navLink("/explorar", "Explorar")}
-          {navLink("/cancha", "Soy cancha")}
-          {navLink("/ayuda", "Ayuda")}
-          {canAccessVenuePanel ? (
-            <Link
-              href="/panel/cancha"
-              className="btn-primary btn-mobile-sm lg:btn-mobile"
-            >
-              <span className="hidden lg:inline">Panel cancha</span>
-              <span className="lg:hidden">Panel</span>
-            </Link>
-          ) : null}
+          {(canAccessVenuePanel
+            ? [
+                { href: "/panel/cancha/partidos/nuevo", label: "Crear partido" },
+                { href: "/panel/cancha", label: "Dashboard" },
+              ]
+            : [
+                { href: "/explorar", label: "Explorar" },
+                { href: "/reservas", label: "Reservas" },
+                { href: "/amigos", label: "Amigos" },
+                { href: "/mensajes", label: "Mensajes" },
+              ]
+          ).map((item) => (
+            <div key={item.href}>{navLink(item.href, item.label)}</div>
+          ))}
         </nav>
 
         {/* Perfil / Auth */}
@@ -251,40 +256,84 @@ export default function Header() {
                     </div>
                     <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
 
-                {canAccessVenuePanel && (
-                  <DropdownMenu.Item asChild>
-                    <Link
-                      href="/panel/cancha"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-                    >
-                      <LayoutDashboard className="w-4 h-4 text-gray-600" />
-                      <span>Panel cancha</span>
-                    </Link>
-                  </DropdownMenu.Item>
-                )}
-                <DropdownMenu.Item asChild>
-                  <Link
-                    href="/dashboard"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-                  >
-                    <LayoutDashboard className="w-4 h-4 text-gray-600" />
-                    <span>Dashboard</span>
-                  </Link>
-                </DropdownMenu.Item>
-                    <DropdownMenu.Item asChild>
-                      <Link href="/amigos" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                        <Users className="w-4 h-4 text-gray-600" />
-                        <span>Amigos</span>
-                      </Link>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item asChild>
-                      <Link href="/perfil" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer">
-                        <UserCircle className="w-4 h-4 text-gray-600" />
-                        <span>Perfil</span>
-                      </Link>
-                    </DropdownMenu.Item>
+                    {canAccessVenuePanel ? (
+                      <>
+                        <DropdownMenu.Item asChild>
+                          <Link
+                            href="/perfil"
+                            onClick={() => setMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                          >
+                            <UserCircle className="w-4 h-4 text-gray-600" />
+                            <span>Perfil</span>
+                          </Link>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item asChild>
+                          <Link
+                            href="/panel/cancha"
+                            onClick={() => setMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                          >
+                            <LayoutDashboard className="w-4 h-4 text-gray-600" />
+                            <span>Panel cancha</span>
+                          </Link>
+                        </DropdownMenu.Item>
+                      </>
+                    ) : (
+                      <>
+                        <DropdownMenu.Item asChild>
+                          <Link
+                            href="/reservas"
+                            onClick={() => setMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                          >
+                            <CalendarDays className="w-4 h-4 text-gray-600" />
+                            <span>Reservas</span>
+                          </Link>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item asChild>
+                          <Link
+                            href="/amigos"
+                            onClick={() => setMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                          >
+                            <Users className="w-4 h-4 text-gray-600" />
+                            <span>Amigos</span>
+                          </Link>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item asChild>
+                          <Link
+                            href="/mensajes"
+                            onClick={() => setMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                          >
+                            <MessageSquare className="w-4 h-4 text-gray-600" />
+                            <span>Mensajes</span>
+                          </Link>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item asChild>
+                          <Link
+                            href="/perfil"
+                            onClick={() => setMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+                          >
+                            <UserCircle className="w-4 h-4 text-gray-600" />
+                            <span>Perfil</span>
+                          </Link>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+                        <DropdownMenu.Item asChild>
+                          <Link
+                            href="/cancha"
+                            onClick={() => setMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 focus:bg-gray-100 cursor-pointer text-gray-600"
+                          >
+                            <MapPin className="w-4 h-4" />
+                            <span>¿Tienes una cancha?</span>
+                          </Link>
+                        </DropdownMenu.Item>
+                      </>
+                    )}
 
                     <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
                     <DropdownMenu.Item asChild>
@@ -350,29 +399,34 @@ export default function Header() {
           >
             <div className="container container-px pb-4">
               <div className="flex flex-col gap-2">
-                <Link
-                  href="/explorar"
-                  className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
-                >
-                  Explorar partidos
-                </Link>
-                <Link
-                  href="/cancha"
-                  className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
-                >
-                  Soy cancha
-                </Link>
-                <Link
-                  href="/ayuda"
-                  className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
-                >
-                  Ayuda
-                </Link>
-                {canAccessVenuePanel ? (
-                  <Link href="/panel/cancha" className="btn-primary btn-mobile">
-                    Panel cancha
+                {(canAccessVenuePanel
+                  ? [
+                      { href: "/panel/cancha/partidos/nuevo", label: "Crear partido" },
+                      { href: "/panel/cancha", label: "Dashboard" },
+                    ]
+                  : [
+                      { href: "/explorar", label: "Explorar partidos" },
+                      { href: "/reservas", label: "Reservas" },
+                      { href: "/amigos", label: "Amigos" },
+                      { href: "/mensajes", label: "Mensajes" },
+                    ]
+                ).map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
+                  >
+                    {item.label}
                   </Link>
-                ) : null}
+                ))}
+                {!canAccessVenuePanel && (
+                  <Link
+                    href="/cancha"
+                    className="px-4 py-3 rounded-xl text-sm text-gray-600 bg-white/80 border border-gray-200 hover:bg-white transition-colors touch-target"
+                  >
+                    ¿Tienes una cancha?
+                  </Link>
+                )}
               </div>
             </div>
           </motion.div>

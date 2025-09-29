@@ -35,11 +35,15 @@ export async function POST(req: NextRequest) {
         isAdmin: true,
         role: true,
         emailVerifiedAt: true,
+        disabledAt: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
     if (!user) {
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+    }
+    if (user.disabledAt) {
+      return NextResponse.json({ ok: false, error: "Tu cuenta está bloqueada." }, { status: 403 });
     }
     let hash: string | null = null;
     try {

@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionUserId } from "@/lib/auth-core";
+import { clearSessionCookie, getSessionUserId } from "@/lib/auth-core";
 import { normalizeForDisplay } from "@/lib/phone";
 export const dynamic = 'force-dynamic';
 
@@ -16,9 +16,15 @@ export async function GET() {
         isAdmin: true,
         role: true,
         profile: { select: { name: true, comuna: true, position: true, phone: true } },
+        disabledAt: true,
       },
     });
     if (!user) return NextResponse.json({ user: null });
+    if (user.disabledAt) {
+      const res = NextResponse.json({ user: null });
+      clearSessionCookie(res);
+      return res;
+    }
     return NextResponse.json({
       user: {
         id: user.id,

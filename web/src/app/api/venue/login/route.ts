@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
         role: true,
         isAdmin: true,
         emailVerifiedAt: true,
+        disabledAt: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
@@ -44,6 +45,13 @@ export async function POST(req: NextRequest) {
     if (!user || (user.role !== "VENUE_ADMIN" && user.role !== "SUPERADMIN")) {
       return NextResponse.json(
         { error: "Este correo no corresponde a una cuenta de cancha." },
+        { status: 403 },
+      );
+    }
+
+    if (user.disabledAt) {
+      return NextResponse.json(
+        { error: "Esta cuenta de cancha fue bloqueada. Contáctanos si crees que es un error." },
         { status: 403 },
       );
     }

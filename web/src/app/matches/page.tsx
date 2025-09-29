@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Calendar, MapPin, Users, Filter, ImageIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Calendar, MapPin, Users, Filter } from "lucide-react";
 import { comunasRM } from "@/lib/comunas-rm";
 import { nivelES } from "@/lib/i18n";
 import LevelBadge from "@/components/LevelBadge";
@@ -179,11 +179,21 @@ export default function MatchesPage() {
         </div>
         {items.length === 0 && !loading && (
           <div className="text-center py-20">
-            <p className="text-gray-600 mb-2">No hay partidos oficiales disponibles.</p>
-            <p className="text-sm text-gray-500 mb-6">Invita a tu cancha para que publique sus encuentros en PichangApp.</p>
-            <Link href="/cancha" className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800">
-              Soy cancha
-            </Link>
+            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+              <Users className="w-6 h-6" />
+            </div>
+            <p className="text-gray-700 mb-2 font-semibold">No encontramos partidos publicados aún.</p>
+            <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">
+              Sigue a tus canchas favoritas y activa las notificaciones para enterarte primero cuando abran cupos.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <Link href="/explorar" className="px-6 py-3 bg-black text-white rounded-full text-sm font-semibold hover:bg-gray-800">
+                Explorar otras comunas
+              </Link>
+              <Link href="/reservas" className="px-6 py-3 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 hover:border-gray-400">
+                Revisar mis reservas
+              </Link>
+            </div>
           </div>
         )}
         {loading && (
