@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,6 +23,10 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNotifications } from "@/hooks/useNotifications";
 
+type NavItem =
+  | { type: "link"; href: string; label: string }
+  | { type: "action"; label: string; onClick: () => void };
+
 export default function Header() {
   const pathname = usePathname();
   const { user, loading, signOut } = useAuth();
@@ -44,6 +48,13 @@ export default function Header() {
     refresh: refreshNotifications,
     markAsSeen,
   } = useNotifications(Boolean(user));
+
+  const openLoginDialog = () => {
+    if (loading) return;
+    setAuthNext(undefined);
+    setAuthInitialTab("login");
+    setAuthOpen(true);
+  };
 
   const formatNotificationDate = (value: string) => {
     const date = new Date(value);
@@ -77,6 +88,33 @@ export default function Header() {
       </Link>
     );
   };
+
+  const navButton = (label: string, onClick: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative px-3 py-2 rounded-full text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-100 hover:-translate-y-0.5"
+    >
+      <span className="relative z-10">{label}</span>
+    </button>
+  );
+
+  const mainNavItems: NavItem[] = canAccessVenuePanel
+    ? [
+        { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido" },
+        { type: "link", href: "/panel/cancha", label: "Dashboard" },
+      ]
+    : user
+      ? [
+          { type: "link", href: "/explorar", label: "Explorar" },
+          { type: "link", href: "/reservas", label: "Reservas" },
+          { type: "link", href: "/amigos", label: "Amigos" },
+          { type: "link", href: "/mensajes", label: "Mensajes" },
+        ]
+      : [
+          { type: "link", href: "/explorar", label: "Explorar" },
+          { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
+        ];
 
   // Cerrar menús al cambiar de ruta
   useEffect(() => {
@@ -113,19 +151,10 @@ export default function Header() {
         </div>
 
         <nav className="hidden md:flex items-center gap-2 lg:gap-4">
-          {(canAccessVenuePanel
-            ? [
-                { href: "/panel/cancha/partidos/nuevo", label: "Crear partido" },
-                { href: "/panel/cancha", label: "Dashboard" },
-              ]
-            : [
-                { href: "/explorar", label: "Explorar" },
-                { href: "/reservas", label: "Reservas" },
-                { href: "/amigos", label: "Amigos" },
-                { href: "/mensajes", label: "Mensajes" },
-              ]
-          ).map((item) => (
-            <div key={item.href}>{navLink(item.href, item.label)}</div>
+          {mainNavItems.map((item) => (
+            <div key={item.type === "link" ? item.href : `action-${item.label}`}>
+              {item.type === "link" ? navLink(item.href, item.label) : navButton(item.label, item.onClick)}
+            </div>
           ))}
         </nav>
 
@@ -134,12 +163,7 @@ export default function Header() {
           {!user ? (
             <button
               aria-label="perfil"
-              onClick={() => {
-                if (loading) return;
-                setAuthNext(undefined);
-                setAuthInitialTab("login");
-                setAuthOpen(true);
-              }}
+              onClick={openLoginDialog}
               className="p-2 rounded-full hover:bg-gray-100 transition-colors touch-target"
             >
               <UserIcon className="w-5 h-5" />
@@ -399,29 +423,34 @@ export default function Header() {
           >
             <div className="container container-px pb-4">
               <div className="flex flex-col gap-2">
-                {(canAccessVenuePanel
-                  ? [
-                      { href: "/panel/cancha/partidos/nuevo", label: "Crear partido" },
-                      { href: "/panel/cancha", label: "Dashboard" },
-                    ]
-                  : [
-                      { href: "/explorar", label: "Explorar partidos" },
-                      { href: "/reservas", label: "Reservas" },
-                      { href: "/amigos", label: "Amigos" },
-                      { href: "/mensajes", label: "Mensajes" },
-                    ]
-                ).map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {mainNavItems.map((item) =>
+                  item.type === "link" ? (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <button
+                      key={"mobile-action-" + item.label}
+                      type="button"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        item.onClick();
+                      }}
+                      className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors text-left touch-target"
+                    >
+                      {item.label}
+                    </button>
+                  )
+                )}
                 {!canAccessVenuePanel && (
                   <Link
                     href="/cancha"
+                    onClick={() => setMobileOpen(false)}
                     className="px-4 py-3 rounded-xl text-sm text-gray-600 bg-white/80 border border-gray-200 hover:bg-white transition-colors touch-target"
                   >
                     ¿Tienes una cancha?
@@ -435,3 +464,4 @@ export default function Header() {
     </header>
   );
 }
+
