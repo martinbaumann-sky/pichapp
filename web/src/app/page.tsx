@@ -29,10 +29,6 @@ export default function Home() {
             </Link>
           </div>
 
-          <p className="text-xs md:text-sm text-gray-500 pt-2">
-            ¿Tienes una cancha? <Link href="/canchas" className="font-semibold text-gray-700 hover:text-black underline decoration-gray-300 underline-offset-4">Regístrala con nosotros</Link> y gestiona tus partidos desde un panel dedicado.
-          </p>
-
           {/* Feature Badges removed per design */}
         </div>
 
@@ -66,6 +62,26 @@ export default function Home() {
             <div>
               <h3 className="font-semibold text-black mb-2">Juega y disfruta</h3>
               <p className="text-gray-600 text-sm">Te recordamos antes. Solo llega y juega.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-gray-200 bg-gray-50/70">
+        <div className="max-w-4xl mx-auto px-4 md:px-6 py-10 md:py-14">
+          <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-6 md:p-8 text-center shadow-sm">
+            <p className="text-xs uppercase tracking-[0.35em] text-gray-400">¿Administras una cancha?</p>
+            <h2 className="mt-3 text-xl md:text-2xl font-semibold text-gray-900">Gestiona tu recinto desde un panel dedicado</h2>
+            <p className="mt-2 text-sm md:text-base text-gray-600">
+              Solicita acceso privado y coordinamos la verificación junto a nuestro equipo antes de habilitar tu cuenta.
+            </p>
+            <div className="mt-5">
+              <Link
+                href="/canchas"
+                className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-gray-400 hover:text-gray-900"
+              >
+                Conoce más sobre canchas
+              </Link>
             </div>
           </div>
         </div>

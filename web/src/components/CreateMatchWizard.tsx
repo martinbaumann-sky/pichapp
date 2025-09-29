@@ -6,7 +6,6 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DateTimePicker from "@/components/DateTimePicker";
 import dynamic from "next/dynamic";
 import { nivelES } from "@/lib/i18n";
-import { TEAM_KEYS, TEAM_LABELS } from "@/lib/teams";
 import { staticMapUrl } from "@/lib/maps";
 import { streetViewUrl } from "@/lib/places";
 import LevelBadge from "@/components/LevelBadge";
@@ -27,7 +26,6 @@ type Form = {
   durationMins: number;
   totalSpots: number;
   minSpotsToConfirm: number;
-  occupiedSpots: number;
 };
 
 type CreateMatchWizardProps = {
@@ -39,10 +37,6 @@ export default function CreateMatchWizard({ accountType = "player" }: CreateMatc
   const isVenue = accountType === "venue";
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [occupiedDetails, setOccupiedDetails] = useState<Array<{ name: string; email: string; position: string; team?: string }>>([]);
-  const [friendsOpen, setFriendsOpen] = useState(false);
-  const [friends, setFriends] = useState<any[]>([]);
-  const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<Form>({
     title: "",
     level: "INTERMEDIATE",
@@ -53,7 +47,6 @@ export default function CreateMatchWizard({ accountType = "player" }: CreateMatc
     durationMins: 90,
     totalSpots: 10,
     minSpotsToConfirm: 6,
-    occupiedSpots: 0,
   } as any);
 
   const [venueInfo, setVenueInfo] = useState<any | null>(null);
@@ -115,12 +108,10 @@ export default function CreateMatchWizard({ accountType = "player" }: CreateMatc
         durationMins: Number(form.durationMins || 0),
         totalSpots: Number(form.totalSpots || 0),
         minSpotsToConfirm: Number(form.minSpotsToConfirm || 0),
-        occupiedSpots: Number(form.occupiedSpots || 0) || 0,
         venueName: form.venueName || "",
         venueAddress: form.venueAddress || form.displayAddress || "",
         // let backend derive comuna from address if missing
         coverImageUrl,
-        occupiedPlayers: occupiedDetails,
         venueId: venueInfo?.id,
       };
 
@@ -146,17 +137,6 @@ export default function CreateMatchWizard({ accountType = "player" }: CreateMatc
       setBusy(false);
     }
   };
-
-  useEffect(() => {
-    if (!friendsOpen) return;
-    (async () => {
-      try {
-        const res = await fetch('/api/friends?status=ACCEPTED', { cache: 'no-store' });
-        const data = await res.json().catch(() => null);
-        setFriends(Array.isArray(data?.items) ? data.items : []);
-      } catch {}
-    })();
-  }, [friendsOpen]);
 
   useEffect(() => {
     if (!isVenue) return;
@@ -344,9 +324,9 @@ export default function CreateMatchWizard({ accountType = "player" }: CreateMatc
 
       {currentStepId === "spots" && (
         <div className="space-y-4 bg-white border rounded-xl p-6">
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Cupos maximos disponibles</label>
+              <label className="block text-sm text-gray-700 mb-1">Cupos máximos disponibles</label>
               <input
                 type="number"
                 min={6}
@@ -356,24 +336,14 @@ export default function CreateMatchWizard({ accountType = "player" }: CreateMatc
                   const total = Math.max(1, Number(e.target.value || 0));
                   const suggestedMin = total > 0 ? Math.max(1, Math.ceil(total * 0.6)) : 1;
                   const nextMin = total > 0 ? Math.min(Math.max(1, form.minSpotsToConfirm || suggestedMin), total) : suggestedMin;
-                  const nextOccupied = Math.min(form.occupiedSpots, total);
-                  setForm({ ...form, totalSpots: total, minSpotsToConfirm: nextMin, occupiedSpots: nextOccupied });
-                  setOccupiedDetails((prev)=>{
-                    const next = [...prev];
-                    if (nextOccupied > next.length) {
-                      while(next.length < nextOccupied) next.push({ name: "", email: "", position: "" });
-                    } else if (nextOccupied < next.length) {
-                      next.length = nextOccupied;
-                    }
-                    return next;
-                  });
+                  setForm({ ...form, totalSpots: total, minSpotsToConfirm: nextMin });
                 }}
                 className="w-full border px-3 py-2 rounded"
               />
               <p className="text-xs text-gray-500 mt-1">Entre 6 y 30 jugadores</p>
             </div>
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Minimo de cupos para confirmar</label>
+              <label className="block text-sm text-gray-700 mb-1">Mínimo de cupos para confirmar</label>
               <input
                 type="number"
                 min={1}
@@ -388,199 +358,12 @@ export default function CreateMatchWizard({ accountType = "player" }: CreateMatc
               />
               <p className="text-xs text-gray-500 mt-1">Avisamos a los jugadores cuando se alcance este mínimo.</p>
             </div>
-            {accountType !== "venue" && (
-              <>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Ocupados por el organizador</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={form.totalSpots}
-                    value={form.occupiedSpots}
-                    onChange={(e)=>{
-                      const v = Math.max(0, Math.min(Number(e.target.value || 0), form.totalSpots));
-                      setForm({ ...form, occupiedSpots: v });
-                      setOccupiedDetails((prev)=>{
-                        const next = [...prev];
-                        if (v > next.length) {
-                          while(next.length < v) next.push({ name: "", email: "", position: "" });
-                        } else if (v < next.length) {
-                          next.length = v;
-                        }
-                        return next;
-                      });
-                    }}
-                    className="w-full border px-3 py-2 rounded"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Estos cupos quedan confirmados desde el inicio.</p>
-                </div>
-                <div className="pt-2 border-t">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm text-gray-700 font-medium">Agregar desde amigos</div>
-                    <button type="button" className="px-3 py-1.5 text-sm rounded-lg border" onClick={()=>setFriendsOpen((v)=>!v)}>{friendsOpen? 'Ocultar' : 'Ver amigos'}</button>
-                  </div>
-                  {friendsOpen && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600">También puedes invitar manualmente a alguien que no esté en tu lista.</div>
-                        <button
-                          type="button"
-                          onClick={()=>{
-                            setOccupiedDetails((prev)=>{
-                              const next = [...prev, { name: '', email: '', position: '', team: '' }];
-                              return next;
-                            });
-                            setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
-                          }}
-                          className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50"
-                        >
-                          Agregar invitado
-                        </button>
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        {friends.map((f:any)=> {
-                          const id = String(f.id);
-                          const isSelected = selectedFriendIds.has(id);
-                          const name = f.user?.name || 'Amigo';
-                          const email = f.user?.email || f.email || '';
-                          const position = f.user?.position || '';
-                          return (
-                            <div key={id} className={`flex items-center justify-between p-3 rounded-xl border ${isSelected? 'bg-emerald-50 border-emerald-200' : 'hover:bg-gray-50'}`}>
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">⚽</div>
-                                <div>
-                                  <div className="text-sm font-medium">{name}</div>
-                                  <div className="text-xs text-gray-500">{f.user?.comuna || '—'}{position ? ` • ${position}`: ''}</div>
-                                </div>
-                              </div>
-                              {isSelected ? (
-                                <button
-                                  type="button"
-                                  className="text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
-                                  onClick={()=>{
-                                    setSelectedFriendIds((prev)=>{
-                                      const next = new Set(prev);
-                                      next.delete(id);
-                                      return next;
-                                    });
-                                    setOccupiedDetails((prev)=>{
-                                      const idx = prev.findIndex((p:any)=> p.friendId === id);
-                                      if (idx >= 0) {
-                                        const next = [...prev];
-                                        next.splice(idx,1);
-                                        return next;
-                                      }
-                                      return prev;
-                                    });
-                                    setForm((prev)=>({ ...prev, occupiedSpots: Math.max(0, (prev.occupiedSpots||0) - 1) }));
-                                  }}
-                                >Quitar</button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="text-xs px-2 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-                                  onClick={()=>{
-                                    setSelectedFriendIds((prev)=>{
-                                      const next = new Set(prev);
-                                      if (next.has(id)) return next;
-                                      next.add(id);
-                                      return next;
-                                    });
-                                    setOccupiedDetails((prev)=>[...prev, { friendId: id, name, email, position, team: '' } as any]);
-                                    setForm((prev)=>({ ...prev, occupiedSpots: Math.min((prev.occupiedSpots||0)+1, prev.totalSpots) }));
-                                  }}
-                                >Agregar</button>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {friends.length === 0 && <div className="text-xs text-gray-500">Aún no tienes amigos. Agrégalos por su número en la pestaña “Amigos”.</div>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+          </div>
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+            Todos los cupos quedan disponibles para que los jugadores reserven su puesto. Si necesitas bloquear lugares
+            específicos contáctanos para configurarlo con el equipo de soporte.
           </div>
           <p className="text-sm text-gray-500">Todas las reservas son gratuitas durante este lanzamiento.</p>
-          {accountType !== "venue" && form.occupiedSpots > 0 && (
-            <div className="mt-2 space-y-3">
-              <div className="text-sm text-gray-700 font-medium">Datos de jugadores ocupados por el organizador</div>
-              {Array.from({ length: form.occupiedSpots }).map((_, idx) => (
-                <div key={idx} className="grid md:grid-cols-3 gap-3 border rounded-2xl p-4 bg-white">
-                  <input
-                    type="text"
-                    placeholder={`Nombre jugador ${idx+1}`}
-                    value={occupiedDetails[idx]?.name || ""}
-                    onChange={(e)=>{
-                      const next = [...occupiedDetails];
-                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"", team: "" }), name: e.target.value };
-                      setOccupiedDetails(next);
-                    }}
-                    className="w-full border px-3 py-2 rounded"
-                  />
-                  <input
-                    type="email"
-                    placeholder="email@ejemplo.com"
-                    value={occupiedDetails[idx]?.email || ""}
-                    onChange={(e)=>{
-                      const next = [...occupiedDetails];
-                      next[idx] = { ...(next[idx]||{ name:"", email:"", position:"", team: "" }), email: e.target.value };
-                      setOccupiedDetails(next);
-                    }}
-                    className="w-full border px-3 py-2 rounded"
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    <select
-                      value={occupiedDetails[idx]?.team || ""}
-                      onChange={(e)=>{
-                        const next = [...occupiedDetails];
-                        next[idx] = { ...(next[idx]||{ name:"", email:"", position:"", team: "" }), team: e.target.value };
-                        setOccupiedDetails(next);
-                      }}
-                      className="w-full border px-3 py-2 rounded"
-                    >
-                      <option value="">Equipo</option>
-                      {TEAM_KEYS.map((key)=> (
-                        <option key={key} value={key}>{TEAM_LABELS[key]}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={occupiedDetails[idx]?.position || ""}
-                      onChange={(e)=>{
-                        const next = [...occupiedDetails];
-                        next[idx] = { ...(next[idx]||{ name:"", email:"", position:"", team: "" }), position: e.target.value };
-                        setOccupiedDetails(next);
-                      }}
-                      className="w-full border px-3 py-2 rounded"
-                    >
-                      <option value="">Posición</option>
-                      <option value="ARQUERO">Arquero</option>
-                      <option value="DEFENSA">Defensa</option>
-                      <option value="LATERAL">Lateral</option>
-                      <option value="VOLANTE">Volante</option>
-                      <option value="DELANTERO">Delantero</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-3 flex justify-end">
-                    <button
-                      type="button"
-                      className="text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
-                      onClick={()=>{
-                        setOccupiedDetails((prev)=>{
-                          const next = [...prev];
-                          next.splice(idx,1);
-                          return next;
-                        });
-                        setForm((prev)=>({ ...prev, occupiedSpots: Math.max(0, (prev.occupiedSpots||0) - 1) }));
-                      }}
-                    >Quitar jugador</button>
-                  </div>
-                </div>
-              ))}
-              <p className="text-xs text-gray-500">Estos datos no son obligatorios en esta etapa.</p>
-            </div>
-          )}
         </div>
       )}
 
@@ -594,7 +377,7 @@ export default function CreateMatchWizard({ accountType = "player" }: CreateMatc
             <p><span className="font-medium">Dirección:</span> {form.venueAddress || form.displayAddress || "-"}</p>
             <p><span className="font-medium">Fecha:</span> {form.startsAt ? new Date(form.startsAt).toLocaleString() : "-"}</p>
             <p><span className="font-medium">Duración:</span> {form.durationMins} min</p>
-            <p><span className="font-medium">Cupos:</span> {form.totalSpots} (mínimo {form.minSpotsToConfirm}, ocupados {form.occupiedSpots})</p>
+            <p><span className="font-medium">Cupos:</span> {form.totalSpots} (mínimo {form.minSpotsToConfirm})</p>
             <p><span className="font-medium">Costo:</span> Reservas gratuitas en este lanzamiento</p>
           </div>
         </div>

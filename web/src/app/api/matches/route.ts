@@ -32,8 +32,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const venueFromAccount = organizer?.role === "VENUE" ? organizer.venue : null;
-    if (organizer?.role === "VENUE" && (!venueFromAccount || venueFromAccount.status !== "APPROVED")) {
+    const isVenueOrganizer = organizer?.role === "VENUE";
+    const venueFromAccount = isVenueOrganizer ? organizer.venue : null;
+    if (isVenueOrganizer && (!venueFromAccount || venueFromAccount.status !== "APPROVED")) {
       return NextResponse.json({ error: "Tu cuenta de cancha aún no está verificada" }, { status: 403 });
     }
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     // Sanitizar jugadores ocupados del organizador
     const allowedPositions = new Set(["ARQUERO", "DEFENSA", "LATERAL", "VOLANTE", "DELANTERO"]);
-    const rawPlayers = Array.isArray(json?.occupiedPlayers) ? json.occupiedPlayers : [];
+    const rawPlayers = Array.isArray(json?.occupiedPlayers) && !isVenueOrganizer ? json.occupiedPlayers : [];
     const sanitizedPlayers = rawPlayers
       .filter((p: any) => p && typeof p === 'object' && String(p.name || '').trim().length > 0)
       .map((p: any) => {
@@ -78,6 +79,11 @@ export async function POST(req: NextRequest) {
       ? Math.max(1, Math.min(derivedMinSpots, totalSpotsNumber))
       : Math.max(1, derivedMinSpots);
 
+    const requestedOccupied = Number(json?.occupiedSpots ?? 0);
+    const occupiedSpots = !isVenueOrganizer && Number.isFinite(requestedOccupied)
+      ? Math.max(0, requestedOccupied)
+      : 0;
+
     const defensivelyFilled = {
       ...json,
       title: (json?.title?.trim?.() || json?.venueName?.trim?.() || "Partido"),
@@ -90,7 +96,7 @@ export async function POST(req: NextRequest) {
       totalSpots: totalSpotsNumber,
       minSpotsToConfirm: safeMinSpots,
       durationMins: Number(json?.durationMins ?? 0),
-      occupiedSpots: Number(json?.occupiedSpots ?? 0),
+      occupiedSpots,
       ...(sanitizedPlayers.length > 0 ? { occupiedPlayers: sanitizedPlayers } : {}),
     } as any;
 
