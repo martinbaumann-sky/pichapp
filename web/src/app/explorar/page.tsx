@@ -372,6 +372,14 @@ export default function ExplorePage() {
     return [...base, ...levels];
   }, []);
 
+  const handleResetFilters = useCallback(() => {
+    setFilters({ comuna: "", from: "", level: "", page: 1, pageSize });
+    setComunaSearch("");
+    setShowAllComunas(false);
+    setPendingCustomDate("");
+    setReloadToken((t) => t + 1);
+  }, [pageSize]);
+
   const handleRetry = useCallback(() => {
     setFilters((f) => ({ ...f, page: 1 }));
     setReloadToken((token) => token + 1);
@@ -655,3 +663,4 @@ export default function ExplorePage() {
     </motion.div>
   );
 }
+

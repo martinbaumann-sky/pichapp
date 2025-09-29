@@ -15,6 +15,8 @@ import {
   CalendarDays,
   MessageSquare,
   MapPin,
+  MoreVertical,
+  Settings,
 } from "lucide-react";
 import { cn } from "../utils/cn";
 import AuthDialog from "./AuthDialog";
@@ -102,7 +104,7 @@ export default function Header() {
   const mainNavItems: NavItem[] = canAccessVenuePanel
     ? [
         { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido" },
-        { type: "link", href: "/panel/cancha", label: "Dashboard" },
+        { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
       ]
     : user
       ? [
@@ -113,10 +115,128 @@ export default function Header() {
         ]
       : [
           { type: "link", href: "/explorar", label: "Explorar" },
-          { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
+          { type: "action", label: "Iniciar sesiÃ³n", onClick: openLoginDialog },
         ];
 
-  // Cerrar menús al cambiar de ruta
+  const renderMenuContent = () => (
+    <DropdownMenu.Portal>
+      <DropdownMenu.Content
+        sideOffset={10}
+        align="end"
+        className="dropdown-content z-50 min-w-56 rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
+      >
+        <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
+          <div className="text-xs text-gray-500">Sesión</div>
+          <div className="font-medium text-black truncate">{user.name}</div>
+        </div>
+        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+
+        {canAccessVenuePanel ? (
+          <>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/panel/cancha?tab=settings"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <Settings className="w-4 h-4 text-gray-600" />
+                <span>Datos de la cancha</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/panel/cancha/partidos"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <CalendarDays className="w-4 h-4 text-gray-600" />
+                <span>Mis partidos</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/panel/cancha"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <LayoutDashboard className="w-4 h-4 text-gray-600" />
+                <span>Panel general</span>
+              </Link>
+            </DropdownMenu.Item>
+          </>
+        ) : (
+          <>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/reservas"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <CalendarDays className="w-4 h-4 text-gray-600" />
+                <span>Reservas</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/amigos"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <Users className="w-4 h-4 text-gray-600" />
+                <span>Amigos</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/mensajes"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4 text-gray-600" />
+                <span>Mensajes</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/perfil"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <UserCircle className="w-4 h-4 text-gray-600" />
+                <span>Perfil</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/cancha"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 focus:bg-gray-100 cursor-pointer text-gray-600"
+              >
+                <MapPin className="w-4 h-4" />
+                <span>¿Tienes una cancha?</span>
+              </Link>
+            </DropdownMenu.Item>
+          </>
+        )}
+
+        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+        <DropdownMenu.Item asChild>
+          <button
+            onClick={async () => {
+              await signOut();
+              setMenuOpen(false);
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-red-50 focus:bg-red-50 text-red-600 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar sesión</span>
+          </button>
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Portal>
+  );
+  // Cerrar menÃºs al cambiar de ruta
   useEffect(() => {
     setMenuOpen(false);
     setMobileOpen(false);
@@ -203,7 +323,7 @@ export default function Header() {
                             ? "Actualizando..."
                             : unreadCount > 0
                               ? `${unreadCount} nuevas`
-                              : "Todo al día"}
+                              : "Todo al dÃ­a"}
                         </div>
                       </div>
                       <button
@@ -259,122 +379,42 @@ export default function Header() {
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
 
-              <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-                <DropdownMenu.Trigger asChild>
-                  <button
-                    onClick={() => setMenuOpen(true)}
+              {canAccessVenuePanel ? (
+                <>
+                  <Link
+                    href="/panel/cancha?tab=settings"
+                    onClick={() => setMenuOpen(false)}
                     className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                    aria-label="datos de la cancha"
                   >
                     <UserIcon className="w-5 h-5" />
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    sideOffset={10}
-                    align="end"
-                    className="dropdown-content z-50 min-w-56 rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
-                  >
-                    <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
-                      <div className="text-xs text-gray-500">Sesión</div>
-                      <div className="font-medium text-black truncate">{user.name}</div>
-                    </div>
-                    <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-
-                    {canAccessVenuePanel ? (
-                      <>
-                        <DropdownMenu.Item asChild>
-                          <Link
-                            href="/perfil"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-                          >
-                            <UserCircle className="w-4 h-4 text-gray-600" />
-                            <span>Perfil</span>
-                          </Link>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item asChild>
-                          <Link
-                            href="/panel/cancha"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-                          >
-                            <LayoutDashboard className="w-4 h-4 text-gray-600" />
-                            <span>Panel cancha</span>
-                          </Link>
-                        </DropdownMenu.Item>
-                      </>
-                    ) : (
-                      <>
-                        <DropdownMenu.Item asChild>
-                          <Link
-                            href="/reservas"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-                          >
-                            <CalendarDays className="w-4 h-4 text-gray-600" />
-                            <span>Reservas</span>
-                          </Link>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item asChild>
-                          <Link
-                            href="/amigos"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-                          >
-                            <Users className="w-4 h-4 text-gray-600" />
-                            <span>Amigos</span>
-                          </Link>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item asChild>
-                          <Link
-                            href="/mensajes"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-                          >
-                            <MessageSquare className="w-4 h-4 text-gray-600" />
-                            <span>Mensajes</span>
-                          </Link>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item asChild>
-                          <Link
-                            href="/perfil"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-                          >
-                            <UserCircle className="w-4 h-4 text-gray-600" />
-                            <span>Perfil</span>
-                          </Link>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-                        <DropdownMenu.Item asChild>
-                          <Link
-                            href="/cancha"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 focus:bg-gray-100 cursor-pointer text-gray-600"
-                          >
-                            <MapPin className="w-4 h-4" />
-                            <span>¿Tienes una cancha?</span>
-                          </Link>
-                        </DropdownMenu.Item>
-                      </>
-                    )}
-
-                    <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-                    <DropdownMenu.Item asChild>
+                  </Link>
+                  <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                    <DropdownMenu.Trigger asChild>
                       <button
-                        onClick={async () => {
-                          await signOut();
-                          setMenuOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-red-50 focus:bg-red-50 text-red-600 cursor-pointer"
+                        onClick={() => setMenuOpen(true)}
+                        className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                        aria-label="acciones de la cuenta"
                       >
-                        <LogOut className="w-4 h-4" />
-                        <span>Cerrar sesión</span>
+                        <MoreVertical className="w-5 h-5" />
                       </button>
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
+                    </DropdownMenu.Trigger>
+                    {renderMenuContent()}
+                  </DropdownMenu.Root>
+                </>
+              ) : (
+                <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                  <DropdownMenu.Trigger asChild>
+                    <button
+                      onClick={() => setMenuOpen(true)}
+                      className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                    >
+                      <UserIcon className="w-5 h-5" />
+                    </button>
+                  </DropdownMenu.Trigger>
+                  {renderMenuContent()}
+                </DropdownMenu.Root>
+              )}
             </>
           )}
         </div>
@@ -453,7 +493,7 @@ export default function Header() {
                     onClick={() => setMobileOpen(false)}
                     className="px-4 py-3 rounded-xl text-sm text-gray-600 bg-white/80 border border-gray-200 hover:bg-white transition-colors touch-target"
                   >
-                    ¿Tienes una cancha?
+                    Â¿Tienes una cancha?
                   </Link>
                 )}
               </div>
@@ -464,4 +504,10 @@ export default function Header() {
     </header>
   );
 }
+
+
+
+
+
+
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/db";
 import { getPasswordHash } from "@/lib/auth-password";
@@ -37,7 +37,6 @@ export async function POST(req: NextRequest) {
         role: true,
         isAdmin: true,
         emailVerifiedAt: true,
-        disabledAt: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
@@ -48,14 +47,6 @@ export async function POST(req: NextRequest) {
         { status: 403 },
       );
     }
-
-    if (user.disabledAt) {
-      return NextResponse.json(
-        { error: "Esta cuenta de cancha fue bloqueada. Contáctanos si crees que es un error." },
-        { status: 403 },
-      );
-    }
-
     let hash: string | null = null;
     try {
       hash = await getPasswordHash(user.id);
@@ -97,3 +88,7 @@ function sanitizeUser(u: any) {
     position: u.profile?.position || null,
   };
 }
+
+
+
+

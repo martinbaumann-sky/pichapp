@@ -1,11 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/db";
+import { UserRole } from "@prisma/client";
 import { normalizeForStorage } from "@/lib/phone";
 import { setPasswordHash, getPasswordHash } from "@/lib/auth-password";
 import { sendVenueReviewEmail } from "@/lib/venue-review-email";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
+
+
+
 
 interface VenueRegistrationPayload {
   venueName?: string;
@@ -31,7 +35,7 @@ function parseFields(raw: string | undefined): string[] {
   return Array.from(
     new Set(
       raw
-        .split(/[\n,]/)
+        .split(/[\r\n,]+/)
         .map((item) => item.trim())
         .filter((item) => item.length > 0),
     ),
@@ -128,11 +132,12 @@ export async function POST(request: NextRequest) {
         role: true,
         passwordHash: true,
         profile: { select: { id: true } },
-        venues: { select: { id: true } },
-      },
+        },
     });
 
-    if (existingUser && (existingUser.role === "VENUE_ADMIN" || existingUser.role === "SUPERADMIN" || existingUser.venues.length > 0)) {
+    const existingVenue = existingUser ? await prisma.venue.findFirst({ where: { ownerId: existingUser.id }, select: { id: true } }) : null;
+
+    if (existingUser && (existingUser.role === "VENUE_ADMIN" || existingUser.role === "SUPERADMIN" || !!existingVenue)) {
       return NextResponse.json(
         { error: "Este correo ya está registrado como cancha. Intenta iniciar sesión." },
         { status: 409 },
@@ -191,7 +196,7 @@ export async function POST(request: NextRequest) {
         const user = await tx.user.update({
           where: { id: existingUser.id },
           data: {
-            role: "VENUE_ADMIN",
+            role: UserRole.VENUE_ADMIN,
             passwordHash,
           },
           select: userSelect,
@@ -248,7 +253,7 @@ export async function POST(request: NextRequest) {
           data: {
             email,
             passwordHash,
-            role: "VENUE_ADMIN",
+            role: UserRole.VENUE_ADMIN,
             isAdmin: false,
             profile: {
               create: {
@@ -363,3 +368,13 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
