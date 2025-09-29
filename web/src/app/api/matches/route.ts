@@ -14,8 +14,23 @@ export async function POST(req: NextRequest) {
     const organizerId = await requireUserId();
     const json = await req.json().catch(() => ({}));
 
+    const organizer = await prisma.user.findUnique({ where: { id: organizerId }, select: { role: true } });
+    if (!organizer || (organizer.role !== "VENUE_ADMIN" && organizer.role !== "SUPERADMIN")) {
+      return NextResponse.json(
+        { error: "Solo las canchas verificadas pueden crear partidos." },
+        { status: 403 },
+      );
+    }
+
+    const venue = await prisma.venue.findFirst({ where: { ownerId: organizerId }, select: { id: true, name: true, address: true, comuna: true } });
+
     // Defaults defensivos para evitar "invalid input"
-    const derivedComuna = json?.comuna ?? extractComunaFromText(String(json?.venueAddress ?? json?.venueName ?? "")) ?? undefined;
+    const payloadComuna = typeof json?.comuna === "string" ? json.comuna.trim() : "";
+    const derivedComuna =
+      payloadComuna ||
+      extractComunaFromText(String(json?.venueAddress ?? json?.venueName ?? "")) ||
+      venue?.comuna ||
+      undefined;
     const safeStartsAt = (() => {
       const raw = json?.startsAt;
       const d = raw ? new Date(raw) : null;
@@ -58,11 +73,11 @@ export async function POST(req: NextRequest) {
     const defensivelyFilled = {
       ...json,
       title: (json?.title?.trim?.() || json?.venueName?.trim?.() || "Partido"),
-      venueName: json?.venueName ?? json?.displayAddress ?? "",
-      venueAddress: json?.venueAddress ?? json?.displayAddress ?? "",
+      venueName: json?.venueName ?? json?.displayAddress ?? venue?.name ?? "",
+      venueAddress: json?.venueAddress ?? json?.displayAddress ?? venue?.address ?? "",
       startsAt: safeStartsAt,
       level: ["BEGINNER", "INTERMEDIATE", "ADVANCED"].includes(json?.level) ? json.level : "INTERMEDIATE",
-      ...(derivedComuna && (!json?.comuna || String(json.comuna).trim().length < 2) ? { comuna: derivedComuna } : {}),
+      comuna: derivedComuna ?? "Santiago",
       pricePerSpot: 0,
       totalSpots: totalSpotsNumber,
       minSpotsToConfirm: safeMinSpots,
@@ -101,6 +116,7 @@ export async function POST(req: NextRequest) {
     const match = await prisma.$transaction(async (tx: any) => {
       const comuna =
         (data.comuna && String(data.comuna)) ||
+        venue?.comuna ||
         extractComunaFromText(String(data.venueAddress ?? "")) ||
         extractComunaFromText(String(data.venueName ?? "")) ||
         "Santiago";
@@ -118,8 +134,9 @@ export async function POST(req: NextRequest) {
           organizerId,
           public: true,
           status: "PUBLISHED",
-          venueName: data.venueName ?? null,
-          venueAddress: data.venueAddress ?? null,
+          venueName: data.venueName || venue?.name || null,
+          venueAddress: data.venueAddress || venue?.address || null,
+          venueId: venue?.id ?? null,
           lat: typeof data.lat === "number" ? data.lat : null,
           lng: typeof data.lng === "number" ? data.lng : null,
           coverImageUrl: coverImageUrl ?? null,
@@ -154,7 +171,7 @@ export async function POST(req: NextRequest) {
           try {
             const newUserId = crypto.randomUUID();
             const email = player?.email ? String(player.email).trim().toLowerCase() : null;
-            await prisma.$executeRaw`INSERT INTO "public"."User" ("id", "email", "isAdmin") VALUES (${newUserId}, ${email}, ${false})`;
+            await prisma.$executeRaw`INSERT INTO "public"."User" ("id", "email", "isAdmin", "role") VALUES (${newUserId}, ${email}, ${false}, ${"PLAYER"})`;
             const newProfileId = crypto.randomUUID();
             const name = player?.name ? String(player.name) : `Jugador ${i + 1}`;
             const phone = player?.phone ? normalizeForStorage(player.phone) : null;

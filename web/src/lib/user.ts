@@ -15,8 +15,11 @@ export async function ensureUserInDatabase(params: { id: string; email: string |
 
   return prisma.user.upsert({
     where: { id },
-    update: { email: email ?? null, ...(isAdmin ? { isAdmin: true } : {}) },
-    create: { id, email: email ?? null, isAdmin },
+    update: {
+      email: email ?? null,
+      ...(isAdmin ? { isAdmin: true, role: "SUPERADMIN" } : {}),
+    },
+    create: { id, email: email ?? null, isAdmin, role: isAdmin ? "SUPERADMIN" : "PLAYER" },
   });
 }
 

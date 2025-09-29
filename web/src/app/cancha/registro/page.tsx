@@ -2,7 +2,30 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import dynamic from "next/dynamic";
+import { CheckCircle2, MapPin } from "lucide-react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { staticMapUrl } from "@/lib/maps";
+
+const MiniMap = dynamic(() => import("@/components/MatchMiniMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-48 w-full items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500">
+      Cargando mapa…
+    </div>
+  ),
+});
+
+type AddressSelection = {
+  venueName?: string;
+  venueAddress?: string;
+  lat?: number;
+  lng?: number;
+  display?: string;
+  place_id?: string;
+  photoUrl?: string;
+  comuna?: string;
+};
 
 const steps = [
   {
@@ -11,7 +34,7 @@ const steps = [
   },
   {
     title: "Ubicación y canchas",
-    description: "Dirección, comuna, geolocalización y tipos de cancha.",
+    description: "Selecciona tu dirección y validamos automáticamente la ubicación en el mapa.",
   },
   {
     title: "Cuenta de pago",
@@ -24,13 +47,16 @@ interface FormValues {
   taxId: string;
   email: string;
   phone: string;
+  password: string;
+  confirmPassword: string;
   address: string;
   comuna: string;
-  geo: string;
   fields: string;
+  lat: number | null;
+  lng: number | null;
+  placeId?: string;
   accountHolder: string;
   payoutEmail: string;
-  bankAccount: string;
   acceptTerms: boolean;
 }
 
@@ -39,13 +65,15 @@ const initialValues: FormValues = {
   taxId: "",
   email: "",
   phone: "",
+  password: "",
+  confirmPassword: "",
   address: "",
   comuna: "",
-  geo: "",
   fields: "",
+  lat: null,
+  lng: null,
   accountHolder: "",
   payoutEmail: "",
-  bankAccount: "",
   acceptTerms: false,
 };
 
@@ -56,7 +84,54 @@ export default function CanchaRegisterPage() {
   const [success, setSuccess] = useState(false);
   const [formValues, setFormValues] = useState<FormValues>(initialValues);
 
+  const handleAddressChange = (value: AddressSelection) => {
+    setFormValues((prev) => {
+      const next = { ...prev };
+      const display = typeof value.display === "string" ? value.display : undefined;
+
+      if (display !== undefined) {
+        next.address = display;
+        if (display.trim().length === 0) {
+          next.lat = null;
+          next.lng = null;
+          next.placeId = undefined;
+        }
+      }
+
+      if (value.venueAddress && value.venueAddress.trim().length > 0) {
+        next.address = value.venueAddress;
+      }
+
+      if (value.comuna && value.comuna.trim().length > 0) {
+        next.comuna = value.comuna;
+      }
+
+      if (value.venueName && (!prev.venueName || prev.venueName.trim().length === 0)) {
+        next.venueName = value.venueName;
+      }
+
+      if (typeof value.lat === "number" && typeof value.lng === "number") {
+        next.lat = value.lat;
+        next.lng = value.lng;
+      }
+
+      if (value.place_id) {
+        next.placeId = value.place_id;
+      }
+
+      return next;
+    });
+  };
+
   const isLastStep = step === steps.length - 1;
+
+  const hasCoordinates = typeof formValues.lat === "number" && typeof formValues.lng === "number";
+  const mapPreviewUrl = hasCoordinates
+    ? staticMapUrl({ lat: formValues.lat as number, lng: formValues.lng as number })
+    : null;
+  const googleMapsLink = hasCoordinates
+    ? `https://www.google.com/maps/search/?api=1&query=${formValues.lat},${formValues.lng}`
+    : null;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -82,6 +157,28 @@ export default function CanchaRegisterPage() {
 
     setFormValues(nextValues);
 
+    if (step === 0) {
+      if (!nextValues.password || nextValues.password.length < 8) {
+        setError("La contraseña debe tener al menos 8 caracteres.");
+        return;
+      }
+      if (nextValues.password !== nextValues.confirmPassword) {
+        setError("Las contraseñas no coinciden.");
+        return;
+      }
+    }
+
+    if (step === 1) {
+      if (!nextValues.address || !nextValues.comuna) {
+        setError("Completa la dirección y la comuna de tu cancha.");
+        return;
+      }
+      if (nextValues.lat == null || nextValues.lng == null) {
+        setError("Selecciona una dirección del listado para geolocalizar tu cancha en el mapa.");
+        return;
+      }
+    }
+
     if (!isLastStep) {
       setStep((value) => Math.min(steps.length - 1, value + 1));
       return;
@@ -90,15 +187,14 @@ export default function CanchaRegisterPage() {
     setLoading(true);
 
     try {
+      const { confirmPassword: _confirm, ...payload } = nextValues;
+
       const response = await fetch("/api/venue/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...nextValues,
-          bankAccount: nextValues.bankAccount.trim() || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -214,7 +310,7 @@ export default function CanchaRegisterPage() {
                   </div>
 
                   {step === 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <Field
                         label="Nombre de la cancha"
                         name="venueName"
@@ -233,6 +329,7 @@ export default function CanchaRegisterPage() {
                         label="Correo administrativo"
                         name="email"
                         type="email"
+                        autoComplete="email"
                         placeholder="administracion@cancha.cl"
                         value={formValues.email}
                         onChange={(value) => setFormValues((prev) => ({ ...prev, email: value }))}
@@ -241,21 +338,48 @@ export default function CanchaRegisterPage() {
                         label="Teléfono"
                         name="phone"
                         placeholder="+56 9 8765 4321"
+                        autoComplete="tel"
                         value={formValues.phone}
                         onChange={(value) => setFormValues((prev) => ({ ...prev, phone: value }))}
+                      />
+                      <Field
+                        label="Contraseña"
+                        name="password"
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="••••••••"
+                        hint="Mínimo 8 caracteres."
+                        value={formValues.password}
+                        onChange={(value) => setFormValues((prev) => ({ ...prev, password: value }))}
+                      />
+                      <Field
+                        label="Confirmar contraseña"
+                        name="confirmPassword"
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="Repite tu contraseña"
+                        value={formValues.confirmPassword}
+                        onChange={(value) => setFormValues((prev) => ({ ...prev, confirmPassword: value }))}
                       />
                     </div>
                   )}
 
                   {step === 1 && (
-                    <div className="space-y-4">
-                      <Field
-                        label="Dirección"
-                        name="address"
-                        placeholder="Av. Siempre Viva 123"
-                        value={formValues.address}
-                        onChange={(value) => setFormValues((prev) => ({ ...prev, address: value }))}
-                      />
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <span className="text-sm font-medium text-gray-700">Dirección</span>
+                        <AddressAutocomplete value={formValues.address} onChange={handleAddressChange} />
+                        <p className="text-xs text-gray-500">Selecciona una sugerencia para ubicar automáticamente tu cancha en el mapa.</p>
+                        {formValues.address ? (
+                          <div className="flex items-start gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                            <MapPin className="mt-1 h-4 w-4 text-emerald-600" />
+                            <div>
+                              <p className="font-medium text-gray-900">{formValues.address}</p>
+                              {formValues.comuna ? <p className="text-xs text-gray-500">{formValues.comuna}</p> : null}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
                       <Field
                         label="Comuna"
                         name="comuna"
@@ -264,24 +388,67 @@ export default function CanchaRegisterPage() {
                         onChange={(value) => setFormValues((prev) => ({ ...prev, comuna: value }))}
                       />
                       <Field
-                        label="Ubicación en mapa (URL o coordenadas)"
-                        name="geo"
-                        placeholder="-33.437, -70.650"
-                        value={formValues.geo}
-                        onChange={(value) => setFormValues((prev) => ({ ...prev, geo: value }))}
-                      />
-                      <Field
                         label="Tipos de cancha"
                         name="fields"
+                        multiline
+                        rows={3}
                         placeholder="Fútbol 7 techada, Fútbol 5 exterior"
+                        hint="Separa cada superficie o tipo con coma o salto de línea."
                         value={formValues.fields}
                         onChange={(value) => setFormValues((prev) => ({ ...prev, fields: value }))}
                       />
+                      <div className="overflow-hidden rounded-3xl border border-gray-200">
+                        {hasCoordinates ? (
+                          <>
+                            <MiniMap
+                              lat={formValues.lat ?? undefined}
+                              lng={formValues.lng ?? undefined}
+                              title={formValues.venueName || formValues.address}
+                            />
+                            <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                              Ubicación referencial basada en OpenStreetMap. Ajusta la dirección si el marcador no coincide.
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex h-48 items-center justify-center bg-gray-50 text-sm text-gray-500">
+                            Selecciona una dirección para ver el mapa.
+                          </div>
+                        )}
+                      </div>
+                      {hasCoordinates && mapPreviewUrl ? (
+                        <div className="space-y-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                          <img
+                            src={mapPreviewUrl}
+                            alt="Mapa estático de la cancha"
+                            className="h-40 w-full rounded-xl object-cover"
+                          />
+                          <p>
+                            Vista previa estática generada automáticamente.
+                            {googleMapsLink ? (
+                              <>
+                                {" "}
+                                <a
+                                  href={googleMapsLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-semibold text-gray-900 underline"
+                                >
+                                  Abrir en Google Maps
+                                </a>
+                              </>
+                            ) : null}
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
                   )}
 
                   {step === 2 && (
-                    <div className="space-y-4">
+                    <div className="space-y-5">
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                        Por ahora conectamos depósitos a través de Mercado Pago. Utiliza el correo del titular de la cuenta para
+                        recibir las liquidaciones.
+                      </div>
                       <Field
                         label="Nombre titular de cuenta"
                         name="accountHolder"
@@ -294,16 +461,9 @@ export default function CanchaRegisterPage() {
                         name="payoutEmail"
                         type="email"
                         placeholder="pagos@cancha.cl"
+                        autoComplete="email"
                         value={formValues.payoutEmail}
                         onChange={(value) => setFormValues((prev) => ({ ...prev, payoutEmail: value }))}
-                      />
-                      <Field
-                        label="Cuenta bancaria (opcional)"
-                        name="bankAccount"
-                        placeholder="BancoEstado 12345678"
-                        value={formValues.bankAccount}
-                        required={false}
-                        onChange={(value) => setFormValues((prev) => ({ ...prev, bankAccount: value }))}
                       />
                       <div>
                         <label className="flex items-start gap-3 text-sm text-gray-600">
@@ -368,21 +528,51 @@ interface FieldProps {
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  autoComplete?: string;
+  multiline?: boolean;
+  rows?: number;
+  hint?: string;
 }
 
-function Field({ label, name, placeholder, type = "text", value, onChange, required = true }: FieldProps) {
+function Field({
+  label,
+  name,
+  placeholder,
+  type = "text",
+  value,
+  onChange,
+  required = true,
+  autoComplete,
+  multiline = false,
+  rows = 3,
+  hint,
+}: FieldProps) {
   return (
     <label className="space-y-2 text-sm text-gray-700">
       <span className="font-medium">{label}</span>
-      <input
-        type={type}
-        name={name}
-        required={required}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-      />
+      {multiline ? (
+        <textarea
+          name={name}
+          required={required}
+          value={value}
+          rows={rows}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+        />
+      ) : (
+        <input
+          type={type}
+          name={name}
+          required={required}
+          value={value}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+        />
+      )}
+      {hint ? <span className="block text-xs text-gray-500">{hint}</span> : null}
     </label>
   );
 }

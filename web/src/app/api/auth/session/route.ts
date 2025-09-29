@@ -14,6 +14,7 @@ export async function GET() {
         id: true,
         email: true,
         isAdmin: true,
+        role: true,
         profile: { select: { name: true, comuna: true, position: true, phone: true } },
       },
     });
@@ -24,6 +25,7 @@ export async function GET() {
         email: user.email,
         isAdmin: !!user.isAdmin,
         emailVerified: false,
+        role: (user.role ?? "PLAYER").toLowerCase(),
         name: user.profile?.name || null,
         comuna: user.profile?.comuna || null,
         position: user.profile?.position || null,

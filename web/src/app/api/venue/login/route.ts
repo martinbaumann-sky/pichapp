@@ -1,11 +1,11 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
+import { prisma } from "@/lib/db";
 import { getPasswordHash } from "@/lib/auth-password";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 
-const rl = createRateLimiter({ name: "auth_login", limit: 10, windowSec: 60 });
+const rl = createRateLimiter({ name: "venue_login", limit: 8, windowSec: 60 });
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,17 +13,19 @@ export async function POST(req: NextRequest) {
     const probe = await rl.check(`ip:${ip}`);
     if (!probe.allowed) {
       return NextResponse.json(
-        { ok: false, error: "Demasiados intentos. Intenta mas tarde." },
-        { status: 429 }
+        { error: "Demasiados intentos. Intenta nuevamente más tarde." },
+        { status: 429 },
       );
     }
+
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
     const password = String(body?.password || "");
+
     if (!email || !password) {
       return NextResponse.json(
-        { ok: false, error: "Email y contrasena requeridos" },
-        { status: 400 }
+        { error: "Ingresa tu correo y contraseña." },
+        { status: 400 },
       );
     }
 
@@ -32,15 +34,20 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         email: true,
-        isAdmin: true,
         role: true,
+        isAdmin: true,
         emailVerifiedAt: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
-    if (!user) {
-      return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+
+    if (!user || (user.role !== "VENUE_ADMIN" && user.role !== "SUPERADMIN")) {
+      return NextResponse.json(
+        { error: "Este correo no corresponde a una cuenta de cancha." },
+        { status: 403 },
+      );
     }
+
     let hash: string | null = null;
     try {
       hash = await getPasswordHash(user.id);
@@ -49,24 +56,23 @@ export async function POST(req: NextRequest) {
       hash = (user as any).passwordHash as string;
     }
     if (!hash) {
-      return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+      return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
 
     const ok = await bcrypt.compare(password, hash);
     if (!ok) {
-      return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+      return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
-
-    // Temporal: omitimos bloqueo por verificación de email hasta que la columna exista.
 
     const token = await createSession(user.id);
     const res = NextResponse.json({ ok: true, user: sanitizeUser(user) });
     attachSessionCookie(res, token);
     return res;
-  } catch (err: any) {
+  } catch (err) {
+    console.error("[venue/login]", err);
     return NextResponse.json(
-      { ok: false, error: err?.message || "Error al iniciar sesion" },
-      { status: 500 }
+      { error: "No pudimos iniciar sesión. Intenta nuevamente." },
+      { status: 500 },
     );
   }
 }
@@ -75,9 +81,9 @@ function sanitizeUser(u: any) {
   return {
     id: u.id,
     email: u.email,
+    role: (u.role ?? "PLAYER").toLowerCase(),
     emailVerified: !!u.emailVerifiedAt,
     isAdmin: !!u.isAdmin,
-    role: (u.role ?? "PLAYER").toLowerCase(),
     name: u.profile?.name || null,
     comuna: u.profile?.comuna || null,
     position: u.profile?.position || null,

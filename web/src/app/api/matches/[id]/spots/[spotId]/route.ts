@@ -31,10 +31,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Cupo no encontrado" }, { status: 404 });
     }
 
-    const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { isAdmin: true } }).catch(() => null);
+    const actor = await prisma.user
+      .findUnique({ where: { id: actorId }, select: { isAdmin: true, role: true } })
+      .catch(() => null);
     const isOrganizer = spot.match.organizerId === actorId;
     const isSelf = spot.userId === actorId;
-    const isAdmin = !!actor?.isAdmin;
+    const isAdmin = !!actor && (actor.isAdmin || actor.role === "SUPERADMIN");
 
     if (!isSelf && !isOrganizer && !isAdmin) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });

@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
       data: {
         email,
         isAdmin: false,
+        role: "PLAYER",
+        passwordHash,
         profile: {
           create: {
             name: fullName || name,

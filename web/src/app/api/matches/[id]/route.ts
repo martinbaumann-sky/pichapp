@@ -90,8 +90,8 @@ export async function GET(
     let viewerIsAdmin = false;
     if (viewerId) {
       try {
-        const viewer = await prisma.user.findUnique({ where: { id: viewerId }, select: { isAdmin: true } });
-        viewerIsAdmin = !!viewer?.isAdmin;
+        const viewer = await prisma.user.findUnique({ where: { id: viewerId }, select: { isAdmin: true, role: true } });
+        viewerIsAdmin = !!viewer && (viewer.isAdmin || viewer.role === "SUPERADMIN");
       } catch {}
     }
     const paidSpots = spots.filter((s: any) => s.status === "PAID");
@@ -224,8 +224,8 @@ export async function DELETE(
 
     let isAdmin = false;
     if (userId !== match.organizerId) {
-      const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
-      isAdmin = !!user?.isAdmin;
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true, role: true } });
+      isAdmin = !!user && (user.isAdmin || user.role === "SUPERADMIN");
       if (!isAdmin) {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
       }

@@ -75,6 +75,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
         data: {
           email: null,
           isAdmin: false,
+          role: "PLAYER",
         },
       });
 

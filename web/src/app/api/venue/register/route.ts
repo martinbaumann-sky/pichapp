@@ -1,83 +1,219 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcrypt";
+import { prisma } from "@/lib/db";
+import { normalizeForStorage } from "@/lib/phone";
+import { setPasswordHash } from "@/lib/auth-password";
+import { attachSessionCookie, createSession } from "@/lib/auth-core";
+import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 
 interface VenueRegistrationPayload {
-  venueName: string;
-  taxId: string;
-  email: string;
-  phone: string;
-  address: string;
-  comuna: string;
-  geo: string;
-  fields: string;
-  accountHolder: string;
-  payoutEmail: string;
-  bankAccount?: string;
-  acceptTerms: boolean;
+  venueName?: string;
+  taxId?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+  address?: string;
+  comuna?: string;
+  fields?: string;
+  lat?: number | string;
+  lng?: number | string;
+  placeId?: string;
+  accountHolder?: string;
+  payoutEmail?: string;
+  acceptTerms?: boolean | string;
 }
 
-export async function POST(request: Request) {
-  let payload: Partial<VenueRegistrationPayload> = {};
+const rl = createRateLimiter({ name: "venue_register", limit: 4, windowSec: 300 });
 
-  const contentType = request.headers.get("content-type") ?? "";
+function parseFields(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return Array.from(
+    new Set(
+      raw
+        .split(/[\n,]/)
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  ).slice(0, 12);
+}
 
-  if (contentType.includes("application/json")) {
-    payload = await request.json();
-  } else if (contentType.includes("multipart/form-data")) {
-    const formData = await request.formData();
-    payload = Object.fromEntries(formData.entries()) as Partial<VenueRegistrationPayload>;
-    if (typeof payload.acceptTerms !== "undefined") {
-      payload.acceptTerms =
-        payload.acceptTerms === true || payload.acceptTerms === "true" || payload.acceptTerms === "on";
-    }
-  }
-
-  const requiredFields: Array<keyof VenueRegistrationPayload> = [
-    "venueName",
-    "taxId",
-    "email",
-    "phone",
-    "address",
-    "comuna",
-    "geo",
-    "fields",
-    "accountHolder",
-    "payoutEmail",
-  ];
-
-  for (const field of requiredFields) {
-    if (!payload[field] || String(payload[field]).trim().length === 0) {
+export async function POST(request: NextRequest) {
+  try {
+    const ip = getClientIp(request as any);
+    const probe = await rl.check(`ip:${ip}`);
+    if (!probe.allowed) {
       return NextResponse.json(
-        {
-          error: "Faltan datos obligatorios en el registro de la cancha.",
-          missingField: field,
-        },
+        { error: "Demasiados intentos. Intenta nuevamente en unos minutos." },
+        { status: 429 },
+      );
+    }
+
+    let payload: VenueRegistrationPayload = {};
+    const contentType = request.headers.get("content-type") ?? "";
+
+    if (contentType.includes("application/json")) {
+      payload = (await request.json().catch(() => ({}))) as VenueRegistrationPayload;
+    } else if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      payload = Object.fromEntries(formData.entries()) as unknown as VenueRegistrationPayload;
+    }
+
+    const acceptTermsValue = payload.acceptTerms;
+    const acceptTerms =
+      acceptTermsValue === true ||
+      acceptTermsValue === "true" ||
+      acceptTermsValue === "on" ||
+      acceptTermsValue === "1";
+
+    const venueName = String(payload.venueName ?? "").trim();
+    const taxId = String(payload.taxId ?? "").trim();
+    const email = String(payload.email ?? "").trim().toLowerCase();
+    const phoneRaw = String(payload.phone ?? "").trim();
+    const password = String(payload.password ?? "");
+    const address = String(payload.address ?? "").trim();
+    const comuna = String(payload.comuna ?? "").trim();
+    const fieldsRaw = typeof payload.fields === "string" ? payload.fields : "";
+    const accountHolder = String(payload.accountHolder ?? "").trim();
+    const payoutEmail = String(payload.payoutEmail ?? "").trim().toLowerCase();
+    const placeId = payload.placeId ? String(payload.placeId).trim() : undefined;
+    const latValue = typeof payload.lat === "string" ? Number(payload.lat) : payload.lat;
+    const lngValue = typeof payload.lng === "string" ? Number(payload.lng) : payload.lng;
+    const lat = typeof latValue === "number" && Number.isFinite(latValue) ? latValue : null;
+    const lng = typeof lngValue === "number" && Number.isFinite(lngValue) ? lngValue : null;
+
+    if (!venueName || !taxId || !email || !phoneRaw || !password || !address || !comuna || !accountHolder || !payoutEmail) {
+      return NextResponse.json(
+        { error: "Completa todos los campos obligatorios del registro." },
         { status: 400 },
       );
     }
-  }
 
-  if (!payload.acceptTerms) {
-    return NextResponse.json(
+    if (!acceptTerms) {
+      return NextResponse.json(
+        { error: "Debes aceptar los términos y condiciones para continuar." },
+        { status: 400 },
+      );
+    }
+
+    if (lat == null || lng == null) {
+      return NextResponse.json(
+        { error: "Necesitamos ubicar tu cancha en el mapa. Selecciona una dirección válida." },
+        { status: 400 },
+      );
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "La contraseña debe tener al menos 8 caracteres." },
+        { status: 400 },
+      );
+    }
+
+    const normalizedPhone = normalizeForStorage(phoneRaw);
+    const fallbackPhone = normalizeForStorage("+56 9 0000 0000") ?? "56900000000";
+    const phoneForProfile = normalizedPhone ?? fallbackPhone;
+
+    const exists = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (exists) {
+      return NextResponse.json(
+        { error: "Este correo ya está registrado. Intenta iniciar sesión." },
+        { status: 409 },
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const fieldNames = parseFields(fieldsRaw);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          role: "VENUE_ADMIN",
+          isAdmin: false,
+          profile: {
+            create: {
+              name: venueName,
+              phone: phoneForProfile,
+              comuna,
+            },
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          profile: { select: { name: true, comuna: true, phone: true } },
+        },
+      });
+
+      const venue = await tx.venue.create({
+        data: {
+          ownerId: user.id,
+          name: venueName,
+          taxId,
+          address,
+          comuna,
+          lat,
+          lng,
+          phone: normalizedPhone ?? null,
+          payoutEmail,
+          accountHolder,
+          plan: "gratis",
+          verified: false,
+          mpAccountId: null,
+          placeId: placeId ?? null,
+        },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          comuna: true,
+          lat: true,
+          lng: true,
+          plan: true,
+          verified: true,
+        },
+      });
+
+      if (fieldNames.length > 0) {
+        await tx.field.createMany({
+          data: fieldNames.map((name) => ({ venueId: venue.id, name })),
+        });
+      }
+
+      return { user, venue };
+    });
+
+    try {
+      await setPasswordHash(result.user.id, passwordHash);
+    } catch (err) {
+      console.warn("[venue/register] setPasswordHash failed", err);
+    }
+
+    const token = await createSession(result.user.id);
+    const res = NextResponse.json(
       {
-        error: "Debes aceptar los términos y condiciones para continuar.",
+        ok: true,
+        venue: result.venue,
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          role: (result.user.role ?? "PLAYER").toLowerCase(),
+          name: result.user.profile?.name ?? venueName,
+          comuna: result.user.profile?.comuna ?? comuna,
+          phone: result.user.profile?.phone ?? null,
+        },
       },
-      { status: 400 },
+      { status: 201 },
+    );
+    attachSessionCookie(res, token);
+    return res;
+  } catch (err) {
+    console.error("[venue/register]", err);
+    return NextResponse.json(
+      { error: "No pudimos completar el registro. Inténtalo nuevamente." },
+      { status: 500 },
     );
   }
-
-  const now = new Date().toISOString();
-
-  const venueDraft = {
-    id: `venue_${Date.now()}`,
-    name: payload.venueName,
-    comuna: payload.comuna,
-    createdAt: now,
-    plan: "gratis",
-    status: "pending_review",
-  };
-
-  return NextResponse.json({
-    message: "Registro recibido. Revisaremos tu información y te contactaremos por correo electrónico.",
-    venue: venueDraft,
-  });
 }
