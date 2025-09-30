@@ -379,7 +379,11 @@ export default function MatchDetailPage() {
         if (data?.redirectUrl) {
           setJoinDialogOpen(false);
           setJoinSelectedSlot(null);
-          window.location.href = data.redirectUrl as string;
+          const targetUrl = String(data.redirectUrl);
+          const newTab = window.open(targetUrl, "_blank", "noopener,noreferrer");
+          if (!newTab) {
+            window.location.href = targetUrl;
+          }
           return;
         }
         throw new Error("No recibimos la URL de pago desde Mercado Pago.");
@@ -712,7 +716,7 @@ export default function MatchDetailPage() {
     <div className="space-y-1">
       <p className="text-base font-semibold text-slate-900">Total a pagar: {priceLabel}</p>
       <p className="text-sm text-slate-600">
-        Al confirmar te llevaremos a Mercado Pago para finalizar el pago de tu cupo.
+        Al confirmar abriremos Mercado Pago en una nueva pestaña para finalizar el pago de tu cupo.
       </p>
     </div>
   ) : null;
@@ -1175,6 +1179,7 @@ export default function MatchDetailPage() {
         confirmCtaLabel={isPaidMatch ? "Pagar con Mercado Pago" : "Confirmar registro"}
         confirmNotice={paymentConfirmNotice}
         importantNotice={paymentImportantNotice}
+        flowVariant={isPaidMatch ? "paid" : "free"}
       />
       {!isPaidMatch && inviteDialogOpen && (
         <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">

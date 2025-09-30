@@ -28,6 +28,7 @@ type Form = {
   totalSpots: number;
   minSpotsToConfirm: number;
   occupiedSpots: number;
+  pricePerSpot: number;
 };
 
 const stepTitles = ["Información básica", "Fecha y hora", "Cupos", "Confirmar"];
@@ -50,6 +51,7 @@ export default function CreateMatchWizard() {
     totalSpots: 10,
     minSpotsToConfirm: 6,
     occupiedSpots: 0,
+    pricePerSpot: 0,
   } as Form);
 
   useEffect(() => {
@@ -81,9 +83,21 @@ export default function CreateMatchWizard() {
   const allowNext = useMemo(() => {
     if (step === 0) return form.title.trim().length > 0 && !!form.level && venueReady;
     if (step === 1) return !!form.startsAt && form.durationMins >= 30;
-    if (step === 2) return form.totalSpots >= 6 && form.minSpotsToConfirm >= 1 && form.minSpotsToConfirm <= form.totalSpots;
+    if (step === 2)
+      return (
+        form.totalSpots >= 6 &&
+        form.minSpotsToConfirm >= 1 &&
+        form.minSpotsToConfirm <= form.totalSpots &&
+        form.pricePerSpot >= 0 &&
+        form.pricePerSpot <= 50000
+      );
     return true;
   }, [step, form, venueReady]);
+
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }),
+    [],
+  );
 
   const goTo = (next: number) => {
     setStep(next);
@@ -306,8 +320,34 @@ export default function CreateMatchWizard() {
               />
               <p className="mt-1 text-xs text-gray-500">Avisamos a los jugadores cuando se alcanza este mínimo.</p>
             </div>
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm text-gray-700">Precio por cupo (CLP)</label>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-gray-500">
+                  $
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={50000}
+                  step={500}
+                  value={form.pricePerSpot}
+                  onChange={(event) => {
+                    const raw = Number(event.target.value || 0);
+                    const next = Math.max(0, Math.min(50000, Math.round(raw)));
+                    setForm((prev) => ({ ...prev, pricePerSpot: next }));
+                  }}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 pl-7 text-gray-900 focus:border-black focus:outline-none"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Define el valor que cobran por cada cupo. Recuerda que PichangApp retiene el 10% como comisión.
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-gray-500">Durante este lanzamiento las reservas se confirman gratis automáticamente.</p>
+          <p className="text-sm text-gray-500">
+            El cobro se mostrará a los jugadores al reservar y el pago se procesa mediante Mercado Pago.
+          </p>
         </motion.div>
       )}
 
@@ -341,6 +381,9 @@ export default function CreateMatchWizard() {
             </p>
             <p>
               <span className="font-medium">Cupos:</span> {form.totalSpots} jugadores (mínimo {form.minSpotsToConfirm} para confirmar)
+            </p>
+            <p>
+              <span className="font-medium">Precio por cupo:</span> {form.pricePerSpot > 0 ? currencyFormatter.format(form.pricePerSpot) : "Gratis"} (PichangApp retiene 10%)
             </p>
           </div>
           <PreviewCard lat={form.lat} lng={form.lng} photoUrl={form.photoUrl} />

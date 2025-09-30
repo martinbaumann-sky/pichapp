@@ -49,6 +49,7 @@ export type JoinFormationDialogStepsProps = {
   confirmCtaLabel?: string;
   confirmNotice?: ReactNode;
   importantNotice?: ReactNode;
+  flowVariant?: "paid" | "free";
 };
 
 type Step = "position" | "friends" | "confirm";
@@ -75,11 +76,13 @@ export function JoinFormationDialogSteps({
   confirmCtaLabel = "Confirmar registro",
   confirmNotice = null,
   importantNotice,
+  flowVariant = "free",
 }: JoinFormationDialogStepsProps) {
   const [currentStep, setCurrentStep] = useState<Step>("position");
   const allowFriends = maxFriends > 0;
   const boundedFriendCount = allowFriends ? Math.min(friendCount, maxFriends) : 0;
   const canAdjustFriends = typeof onFriendCountChange === "function" && allowFriends;
+  const isPaidFlow = flowVariant === "paid";
 
   useEffect(() => {
     if (!allowFriends && currentStep === "friends") {
@@ -122,6 +125,7 @@ export function JoinFormationDialogSteps({
       case "friends":
         return allowFriends ? "Paso 2: Invita amigos" : "Paso 2: Revisa tu cupo";
       case "confirm":
+        if (isPaidFlow) return "Paso 2: Paga con Mercado Pago";
         return allowFriends ? "Paso 3: Confirma tu registro" : "Paso 2: Confirma tu registro";
       default:
         return title;
@@ -137,6 +141,7 @@ export function JoinFormationDialogSteps({
           ? "¿Quieres invitar amigos? Puedes traer hasta " + maxFriends + " amigos."
           : "Revisa que tu selección esté correcta antes de confirmar.";
       case "confirm":
+        if (isPaidFlow) return "Revisa tu selección. Abriremos el pago oficial en Mercado Pago.";
         return "Revisa tu selección y confirma tu registro.";
       default:
         return description;
