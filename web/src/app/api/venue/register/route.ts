@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/db";
+import { UserRole } from "@prisma/client";
 import { normalizeForStorage } from "@/lib/phone";
-import { setPasswordHash } from "@/lib/auth-password";
+import { setPasswordHash, getPasswordHash } from "@/lib/auth-password";
+import { sendVenueReviewEmail } from "@/lib/venue-review-email";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
+
+
+
 
 interface VenueRegistrationPayload {
   venueName?: string;
@@ -30,7 +35,7 @@ function parseFields(raw: string | undefined): string[] {
   return Array.from(
     new Set(
       raw
-        .split(/[\n,]/)
+        .split(/[\r\n,]+/)
         .map((item) => item.trim())
         .filter((item) => item.length > 0),
     ),
@@ -112,86 +117,208 @@ export async function POST(request: NextRequest) {
     const normalizedPhone = normalizeForStorage(phoneRaw);
     const fallbackPhone = normalizeForStorage("+56 9 0000 0000") ?? "56900000000";
     const phoneForProfile = normalizedPhone ?? fallbackPhone;
+    const userSelect = {
+      id: true,
+      email: true,
+      role: true,
+      profile: { select: { name: true, comuna: true, phone: true } },
+    };
+    const fieldNames = parseFields(fieldsRaw);
 
-    const exists = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-    if (exists) {
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        role: true,
+        passwordHash: true,
+        profile: { select: { id: true } },
+        },
+    });
+
+    const existingVenue = existingUser ? await prisma.venue.findFirst({ where: { ownerId: existingUser.id }, select: { id: true } }) : null;
+
+    if (existingUser && (existingUser.role === "VENUE_ADMIN" || existingUser.role === "SUPERADMIN" || !!existingVenue)) {
       return NextResponse.json(
-        { error: "Este correo ya está registrado. Intenta iniciar sesión." },
+        { error: "Este correo ya está registrado como cancha. Intenta iniciar sesión." },
         { status: 409 },
       );
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const fieldNames = parseFields(fieldsRaw);
+    let passwordHash: string;
+    let userId: string;
+    let result: { user: any; venue: any };
 
-    const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          email,
-          passwordHash,
-          role: "VENUE_ADMIN",
-          isAdmin: false,
-          profile: {
-            create: {
+    if (existingUser) {
+      let storedHash: string | null = null;
+      try {
+        storedHash = await getPasswordHash(existingUser.id);
+      } catch (err) {
+        console.warn("[venue/register] getPasswordHash failed", err);
+      }
+      if (!storedHash && existingUser.passwordHash) {
+        storedHash = existingUser.passwordHash;
+      }
+
+      if (storedHash) {
+        const matches = await bcrypt.compare(password, storedHash);
+        if (!matches) {
+          return NextResponse.json(
+            { error: "La contraseña no coincide con tu cuenta. Inicia sesión e intenta nuevamente." },
+            { status: 401 },
+          );
+        }
+        passwordHash = storedHash;
+      } else {
+        passwordHash = await bcrypt.hash(password, 10);
+      }
+
+      result = await prisma.$transaction(async (tx) => {
+        if (existingUser.profile) {
+          await tx.profile.update({
+            where: { id: existingUser.profile.id },
+            data: {
               name: venueName,
               phone: phoneForProfile,
               comuna,
             },
+          });
+        } else {
+          await tx.profile.create({
+            data: {
+              userId: existingUser.id,
+              name: venueName,
+              phone: phoneForProfile,
+              comuna,
+            },
+          });
+        }
+
+        const user = await tx.user.update({
+          where: { id: existingUser.id },
+          data: {
+            role: UserRole.VENUE_ADMIN,
+            passwordHash,
           },
-        },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          profile: { select: { name: true, comuna: true, phone: true } },
-        },
-      });
-
-      const venue = await tx.venue.create({
-        data: {
-          ownerId: user.id,
-          name: venueName,
-          taxId,
-          address,
-          comuna,
-          lat,
-          lng,
-          phone: normalizedPhone ?? null,
-          payoutEmail,
-          accountHolder,
-          plan: "gratis",
-          verified: false,
-          mpAccountId: null,
-          placeId: placeId ?? null,
-        },
-        select: {
-          id: true,
-          name: true,
-          address: true,
-          comuna: true,
-          lat: true,
-          lng: true,
-          plan: true,
-          verified: true,
-        },
-      });
-
-      if (fieldNames.length > 0) {
-        await tx.field.createMany({
-          data: fieldNames.map((name) => ({ venueId: venue.id, name })),
+          select: userSelect,
         });
-      }
 
-      return { user, venue };
-    });
+        const venue = await tx.venue.create({
+          data: {
+            ownerId: existingUser.id,
+            name: venueName,
+            taxId,
+            address,
+            comuna,
+            lat,
+            lng,
+            phone: normalizedPhone ?? null,
+            payoutEmail,
+            accountHolder,
+            plan: "gratis",
+            verified: false,
+            mpAccountId: null,
+            placeId: placeId ?? null,
+          },
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            comuna: true,
+            lat: true,
+            lng: true,
+            plan: true,
+            verified: true,
+            taxId: true,
+            phone: true,
+            payoutEmail: true,
+            accountHolder: true,
+          },
+        });
+
+        if (fieldNames.length > 0) {
+          await tx.field.createMany({
+            data: fieldNames.map((name) => ({ venueId: venue.id, name })),
+          });
+        }
+
+        return { user, venue };
+      });
+
+      userId = existingUser.id;
+    } else {
+      passwordHash = await bcrypt.hash(password, 10);
+
+      result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email,
+            passwordHash,
+            role: UserRole.VENUE_ADMIN,
+            isAdmin: false,
+            profile: {
+              create: {
+                name: venueName,
+                phone: phoneForProfile,
+                comuna,
+              },
+            },
+          },
+          select: userSelect,
+        });
+
+        const venue = await tx.venue.create({
+          data: {
+            ownerId: user.id,
+            name: venueName,
+            taxId,
+            address,
+            comuna,
+            lat,
+            lng,
+            phone: normalizedPhone ?? null,
+            payoutEmail,
+            accountHolder,
+            plan: "gratis",
+            verified: false,
+            mpAccountId: null,
+            placeId: placeId ?? null,
+          },
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            comuna: true,
+            lat: true,
+            lng: true,
+            plan: true,
+            verified: true,
+            taxId: true,
+            phone: true,
+            payoutEmail: true,
+            accountHolder: true,
+          },
+        });
+
+        if (fieldNames.length > 0) {
+          await tx.field.createMany({
+            data: fieldNames.map((name) => ({ venueId: venue.id, name })),
+          });
+        }
+
+        return { user, venue };
+      });
+
+      userId = result.user.id;
+    }
 
     try {
-      await setPasswordHash(result.user.id, passwordHash);
+      await setPasswordHash(userId, passwordHash);
     } catch (err) {
       console.warn("[venue/register] setPasswordHash failed", err);
     }
 
-    const token = await createSession(result.user.id);
+    const token = await createSession(userId);
+    const responseStatus = existingUser ? 200 : 201;
     const res = NextResponse.json(
       {
         ok: true,
@@ -205,10 +332,34 @@ export async function POST(request: NextRequest) {
           phone: result.user.profile?.phone ?? null,
         },
       },
-      { status: 201 },
+      { status: responseStatus },
     );
     attachSessionCookie(res, token);
+
+    sendVenueReviewEmail({
+      venue: {
+        id: result.venue.id,
+        name: result.venue.name,
+        taxId,
+        address,
+        comuna,
+        phone: normalizedPhone ?? null,
+        payoutEmail,
+        accountHolder,
+        lat,
+        lng,
+        fields: fieldNames.map((name) => ({ name })),
+      },
+      owner: {
+        id: result.user.id,
+        email: result.user.email!,
+        name: result.user.profile?.name ?? venueName,
+      },
+    }).catch((err) => {
+      console.error("[venue/register] review email error", err);
+    });
     return res;
+
   } catch (err) {
     console.error("[venue/register]", err);
     return NextResponse.json(
@@ -217,3 +368,13 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+

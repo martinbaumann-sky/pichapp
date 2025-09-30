@@ -59,13 +59,13 @@ export default function ExplorePage() {
     const normalized = new Date(date);
     normalized.setHours(0, 0, 0, 0);
     return normalized.toISOString();
-  }, [setFilters, setReloadToken]);
+  }, []);
 
   const today = useMemo(() => {
     const date = new Date();
     date.setHours(0, 0, 0, 0);
     return date;
-  }, [setFilters, setReloadToken]);
+  }, []);
 
   const tomorrow = useMemo(() => {
     const date = new Date(today);
@@ -111,7 +111,7 @@ export default function ExplorePage() {
       }
     });
     return params.toString();
-  }, [filters.comuna, filters.from, filters.level, filters.pageSize]);
+  }, [filters]);
 
   useEffect(() => {
     if (!gateAllowed) return;
@@ -331,7 +331,7 @@ export default function ExplorePage() {
         ),
       },
     ],
-    [pendingCustomDate, setFilters, setPendingCustomDate, today],
+    [pendingCustomDate, today],
   );
 
   const comunaData = useMemo(() => {
@@ -382,6 +382,14 @@ export default function ExplorePage() {
 
     return [...base, ...levels];
   }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setFilters({ comuna: "", from: "", level: "", page: 1, pageSize });
+    setComunaSearch("");
+    setShowAllComunas(false);
+    setPendingCustomDate("");
+    setReloadToken((t) => t + 1);
+  }, [pageSize]);
 
   const handleRetry = useCallback(() => {
     setFilters((f) => ({ ...f, page: 1 }));
@@ -628,11 +636,28 @@ export default function ExplorePage() {
 
         {items.length === 0 && !loading && !fetchError && (
           <div className="py-20 text-center">
-            <p className="mb-2 text-gray-600">No hay partidos oficiales en este momento.</p>
-            <p className="mb-6 text-sm text-gray-500">Revisa más tarde o invita a tu cancha favorita a sumarse a PichangApp.</p>
-            <Link href="/cancha" className="rounded-lg bg-black px-6 py-3 text-white transition hover:bg-gray-800">
-              Soy cancha
-            </Link>
+            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+              <Users className="h-6 w-6" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Aún no hay partidos con estos filtros</h3>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500">
+              Ajusta la comuna, la fecha o el nivel para descubrir nuevas pichangas. También puedes seguir tus canchas favoritas para recibir notificaciones apenas publiquen.
+            </p>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="inline-flex items-center justify-center rounded-full border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-700 transition hover:border-gray-400"
+              >
+                Limpiar filtros
+              </button>
+              <Link
+                href="/reservas"
+                className="inline-flex items-center justify-center rounded-full bg-black px-5 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+              >
+                Ver mis próximas reservas
+              </Link>
+            </div>
           </div>
         )}
 
@@ -660,3 +685,4 @@ export default function ExplorePage() {
     </motion.div>
   );
 }
+

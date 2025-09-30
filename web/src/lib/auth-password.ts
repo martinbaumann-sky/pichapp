@@ -37,3 +37,12 @@ export async function getPasswordHash(userId: string): Promise<string | null> {
   }
 }
 
+export async function deletePasswordHash(userId: string) {
+  await ensureTable();
+  try {
+    await (prisma as any).$executeRawUnsafe('DELETE FROM "LocalPassword" WHERE "userId" = $1', userId);
+  } catch (e) {
+    // ignore cleanup errors
+  }
+}
+

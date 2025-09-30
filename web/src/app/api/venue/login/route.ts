@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/db";
 import { getPasswordHash } from "@/lib/auth-password";
@@ -47,7 +47,6 @@ export async function POST(req: NextRequest) {
         { status: 403 },
       );
     }
-
     let hash: string | null = null;
     try {
       hash = await getPasswordHash(user.id);
@@ -89,3 +88,7 @@ function sanitizeUser(u: any) {
     position: u.profile?.position || null,
   };
 }
+
+
+
+
