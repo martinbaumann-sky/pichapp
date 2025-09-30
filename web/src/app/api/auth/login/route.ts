@@ -46,6 +46,16 @@ export async function POST(req: NextRequest) {
     if (user.disabledAt) {
       return NextResponse.json({ ok: false, error: "Tu cuenta está bloqueada." }, { status: 403 });
     }
+    const normalizedRole = String(user.role ?? (user.isAdmin ? "SUPERADMIN" : "PLAYER")).toUpperCase();
+    if (normalizedRole === "VENUE_ADMIN") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Inicia sesión como cancha desde /cancha/ingresar.",
+        },
+        { status: 403 }
+      );
+    }
     let hash: string | null = null;
     try {
       hash = await getPasswordHash(user.id);
