@@ -105,6 +105,8 @@ export default function VenueMatchesPage() {
     return { activeMatches: active, historicalMatches: historical };
   }, [matches]);
 
+  const reloadWithSpinner = useCallback(() => loadMatches({ withSpinner: true }), [loadMatches]);
+
   const handleRefresh = () => {
     if (refreshing || loading) return;
     loadMatches({ withSpinner: false });
@@ -143,7 +145,7 @@ export default function VenueMatchesPage() {
             </button>
             <Link
               href="/panel/cancha/partidos/nuevo"
-              className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand to-accent px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-brand-600 hover:to-accent-600"
             >
               Crear partido
             </Link>
@@ -167,12 +169,14 @@ export default function VenueMatchesPage() {
               emptyMessage="Aún no tienes partidos publicados en curso."
               matches={activeMatches}
               venueName={venueName}
+              onChanged={reloadWithSpinner}
             />
             <MatchSection
               title="Historial"
               emptyMessage="Aquí verás los partidos que ya finalizaron o fueron cancelados."
               matches={historicalMatches}
               venueName={venueName}
+              onChanged={reloadWithSpinner}
             />
           </div>
         )}
@@ -186,11 +190,13 @@ function MatchSection({
   matches,
   venueName,
   emptyMessage,
+  onChanged,
 }: {
   title: string;
   matches: VenueMatch[];
   venueName: string | null;
   emptyMessage: string;
+  onChanged: () => Promise<void> | void;
 }) {
   return (
     <section>
@@ -207,7 +213,7 @@ function MatchSection({
       ) : (
         <div className="mt-4 grid gap-4">
           {matches.map((match) => (
-            <MatchCard key={match.id} match={match} venueName={venueName} />
+            <MatchCard key={match.id} match={match} venueName={venueName} onChanged={onChanged} />
           ))}
         </div>
       )}
@@ -215,10 +221,52 @@ function MatchSection({
   );
 }
 
-function MatchCard({ match, venueName }: { match: VenueMatch; venueName: string | null }) {
+function MatchCard({
+  match,
+  venueName,
+  onChanged,
+}: {
+  match: VenueMatch;
+  venueName: string | null;
+  onChanged: () => Promise<void> | void;
+}) {
   const location = match.venueAddress || match.venueName || venueName || "Ubicación por confirmar";
   const paidCount = match.paidSpots;
   const reservedCount = match.reservedSpots;
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const startsAtDate = new Date(match.startsAt);
+  const msUntilStart = startsAtDate.getTime() - Date.now();
+  const cancellationWindowMs = 2 * 60 * 60 * 1000;
+  const normalizedStatus = match.status.toLowerCase();
+  const showCancelButton = normalizedStatus !== "canceled" && normalizedStatus !== "finished";
+  const canCancel = showCancelButton && msUntilStart >= cancellationWindowMs;
+  const cannotCancelAnymore = showCancelButton && msUntilStart > 0 && msUntilStart < cancellationWindowMs;
+
+  const handleCancel = async () => {
+    const confirmed = window.confirm("¿Cancelar este partido? Los jugadores recibirán la actualización.");
+    if (!confirmed) return;
+    try {
+      setBusy(true);
+      setActionError(null);
+      const response = await fetch(`/api/venue/matches/${match.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const message = typeof data?.error === "string" ? data.error : "No se pudo cancelar el partido.";
+        throw new Error(message);
+      }
+      await onChanged();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo cancelar el partido.";
+      setActionError(message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <article className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -260,7 +308,28 @@ function MatchCard({ match, venueName }: { match: VenueMatch; venueName: string 
         <span className="rounded-full bg-gray-100 px-3 py-1 font-semibold text-gray-700">
           Precio {formatCurrency(match.pricePerSpot)}
         </span>
+        {showCancelButton && (
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={busy || !canCancel}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              canCancel
+                ? "border-red-200 text-red-600 hover:bg-red-50"
+                : "border-gray-200 text-gray-400 cursor-not-allowed"
+            } ${busy ? "opacity-80" : ""}`}
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Cancelar partido
+          </button>
+        )}
       </div>
+      {cannotCancelAnymore && (
+        <p className="mt-2 text-xs text-amber-600">Solo puedes cancelar hasta 2 horas antes del inicio.</p>
+      )}
+      {actionError && (
+        <p className="mt-2 text-xs text-red-600">{actionError}</p>
+      )}
     </article>
   );
 }
