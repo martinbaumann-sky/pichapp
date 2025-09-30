@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   User as UserIcon,
   LayoutDashboard,
@@ -12,32 +12,30 @@ import {
   Bell,
   Loader2,
   RefreshCw,
-  X,
   CalendarDays,
   MessageSquare,
   MapPin,
   MoreVertical,
   Settings,
-  type LucideIcon,
 } from "lucide-react";
 import { cn } from "../utils/cn";
 import AuthDialog from "./AuthDialog";
-import { useAuth, resolveUserRole } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNotifications } from "@/hooks/useNotifications";
 
-type NavItem = { href: string; label: string };
-type ActionLink = { href: string; label: string; variant: "primary" | "secondary" };
-type MenuLink = { href: string; label: string; icon: LucideIcon };
+type NavItem =
+  | { type: "link"; href: string; label: string }
+  | { type: "action"; label: string; onClick: () => void };
 
 export default function Header() {
   const pathname = usePathname();
   const { user, loading, signOut } = useAuth();
-  const resolvedRole = resolveUserRole(user);
-  const isSuperAdmin = resolvedRole === "superadmin";
-  const isVenueAccount = resolvedRole === "venue_admin";
-  const [roleMessage, setRoleMessage] = useState<string | null>(null);
+  const userRole =
+    (user?.role as "player" | "venue_admin" | "superadmin" | undefined) ??
+    (user?.isAdmin ? "superadmin" : undefined);
+  const canAccessVenuePanel = userRole === "venue_admin" || userRole === "superadmin";
   const [authOpen, setAuthOpen] = useState(false);
   const [authNext, setAuthNext] = useState<string | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -53,146 +51,12 @@ export default function Header() {
     markAsSeen,
   } = useNotifications(Boolean(user));
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const key = "pichapp-role-message";
-    const stored = window.sessionStorage.getItem(key);
-    if (stored) {
-      setRoleMessage(stored);
-      window.sessionStorage.removeItem(key);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!roleMessage) return;
-    const timeout = window.setTimeout(() => setRoleMessage(null), 6000);
-    return () => window.clearTimeout(timeout);
-  }, [roleMessage]);
-
-  const navItems = useMemo<NavItem[]>(() => {
-    if (!user) {
-      return [
-        { href: "/explorar", label: "Explorar" },
-        { href: "/ayuda", label: "Ayuda" },
-      ];
-    }
-    if (isVenueAccount) {
-      return [
-        { href: "/panel/cancha/partidos/nuevo", label: "Crear partido" },
-        { href: "/panel/cancha/partidos", label: "Mis partidos" },
-        { href: "/panel/cancha", label: "Panel general" },
-        { href: "/ayuda", label: "Soporte" },
-      ];
-    }
-    const items: NavItem[] = [
-      { href: "/explorar", label: "Explorar" },
-      { href: "/amigos", label: "Amigos" },
-      { href: "/dashboard", label: "Mi actividad" },
-      { href: "/ayuda", label: "Ayuda" },
-    ];
-    if (isSuperAdmin) {
-      items.splice(3, 0, { href: "/panel/cancha", label: "Panel canchas" });
-    }
-    return items;
-  }, [isSuperAdmin, isVenueAccount, user]);
-
-  const primaryAction = useMemo<ActionLink | null>(() => {
-    if (isVenueAccount) {
-      return { href: "/panel/cancha/partidos/nuevo", label: "Crear partido", variant: "primary" };
-    }
-    if (!user) return null;
-    if (resolvedRole === "player" || isSuperAdmin) {
-      return { href: "/crear", label: "Crear pichanga", variant: "primary" };
-    }
-    return null;
-  }, [isVenueAccount, isSuperAdmin, resolvedRole, user]);
-
-  const secondaryAction = useMemo<ActionLink | null>(() => {
-    if (isVenueAccount) return null;
-    return { href: "/cancha", label: user ? "Registrar mi cancha" : "Soy cancha", variant: "secondary" };
-  }, [isVenueAccount, user]);
-
-  const menuLinks = useMemo<MenuLink[]>(() => {
-    if (!user) return [];
-    if (isVenueAccount) {
-      return [
-        { href: "/panel/cancha?tab=settings", label: "Datos de la cancha", icon: Settings },
-        { href: "/panel/cancha/partidos", label: "Mis partidos", icon: CalendarDays },
-        { href: "/panel/cancha", label: "Panel general", icon: LayoutDashboard },
-        { href: "/perfil", label: "Perfil", icon: UserCircle },
-      ];
-    }
-    const links: MenuLink[] = [
-      { href: "/dashboard", label: "Mi actividad", icon: LayoutDashboard },
-      { href: "/reservas", label: "Reservas", icon: CalendarDays },
-      { href: "/mensajes", label: "Mensajes", icon: MessageSquare },
-      { href: "/amigos", label: "Amigos", icon: Users },
-      { href: "/perfil", label: "Perfil", icon: UserCircle },
-    ];
-    if (isSuperAdmin) {
-      links.splice(1, 0, { href: "/panel/cancha", label: "Panel canchas", icon: LayoutDashboard });
-    }
-    return links;
-  }, [isSuperAdmin, isVenueAccount, user]);
-
-  const renderMenuContent = () => (
-    <DropdownMenu.Portal>
-      <DropdownMenu.Content
-        sideOffset={10}
-        align="end"
-        className="dropdown-content z-50 min-w-56 rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
-      >
-        <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
-          <div className="text-xs text-gray-500">Sesion</div>
-          <div className="font-medium text-black truncate">{user?.name ?? user?.email ?? ""}</div>
-        </div>
-        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-
-        {menuLinks.map((item) => (
-          <DropdownMenu.Item asChild key={item.href}>
-            <Link
-              href={item.href}
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-            >
-              <item.icon className="w-4 h-4 text-gray-600" />
-              <span>{item.label}</span>
-            </Link>
-          </DropdownMenu.Item>
-        ))}
-
-        {secondaryAction && !isVenueAccount ? (
-          <>
-            <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-            <DropdownMenu.Item asChild>
-              <Link
-                href={secondaryAction.href}
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 focus:bg-gray-100 cursor-pointer text-gray-600"
-              >
-                <MapPin className="w-4 h-4" />
-                <span>{secondaryAction.label}</span>
-              </Link>
-            </DropdownMenu.Item>
-          </>
-        ) : null}
-
-        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-        <DropdownMenu.Item asChild>
-          <button
-            onClick={async () => {
-              await signOut();
-              setMenuOpen(false);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-red-50 focus:bg-red-50 text-red-600 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Cerrar sesion</span>
-          </button>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Portal>
-  );
+  const openLoginDialog = () => {
+    if (loading) return;
+    setAuthNext(undefined);
+    setAuthInitialTab("login");
+    setAuthOpen(true);
+  };
 
   const formatNotificationDate = (value: string) => {
     const date = new Date(value);
@@ -205,22 +69,21 @@ export default function Header() {
     }).format(date);
   };
 
-  const navLink = ({ href, label }: NavItem) => {
+  const navLink = (href: string, label: string) => {
     const active = pathname === href || pathname.startsWith(`${href}/`);
     return (
       <Link
-        key={href}
         href={href}
         className={cn(
-          "relative px-3 py-2 rounded-full text-sm font-semibold transition-colors",
-          active ? "text-gray-900" : "text-gray-500 hover:text-gray-900"
+          "relative px-3 py-2 rounded-full text-sm font-medium transition-all duration-150",
+          active ? "text-black" : "text-gray-700 hover:bg-gray-100 hover:-translate-y-0.5"
         )}
       >
         {active && (
           <motion.span
             layoutId="navActiveBg"
-            className="absolute inset-0 rounded-full bg-gray-100/90"
-            transition={{ type: "spring", stiffness: 400, damping: 32, mass: 0.2 }}
+            className="absolute inset-0 rounded-full bg-gray-100 shadow-sm"
+            transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.2 }}
           />
         )}
         <span className="relative z-10">{label}</span>
@@ -228,7 +91,152 @@ export default function Header() {
     );
   };
 
-  // Cerrar menus al cambiar de ruta
+  const navButton = (label: string, onClick: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative px-3 py-2 rounded-full text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-100 hover:-translate-y-0.5"
+    >
+      <span className="relative z-10">{label}</span>
+    </button>
+  );
+
+  const mainNavItems: NavItem[] = canAccessVenuePanel
+    ? [
+        { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido" },
+        { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
+      ]
+    : user
+      ? [
+          { type: "link", href: "/explorar", label: "Explorar" },
+          { type: "link", href: "/reservas", label: "Reservas" },
+          { type: "link", href: "/amigos", label: "Amigos" },
+          { type: "link", href: "/mensajes", label: "Mensajes" },
+        ]
+      : [
+          { type: "link", href: "/explorar", label: "Explorar" },
+          { type: "action", label: "Iniciar sesiÃ³n", onClick: openLoginDialog },
+        ];
+
+  const renderMenuContent = () => (
+    <DropdownMenu.Portal>
+      <DropdownMenu.Content
+        sideOffset={10}
+        align="end"
+        className="dropdown-content z-50 min-w-56 rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
+      >
+        <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
+          <div className="text-xs text-gray-500">Sesión</div>
+          <div className="font-medium text-black truncate">{user.name}</div>
+        </div>
+        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+
+        {canAccessVenuePanel ? (
+          <>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/panel/cancha?tab=settings"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <Settings className="w-4 h-4 text-gray-600" />
+                <span>Datos de la cancha</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/panel/cancha/partidos"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <CalendarDays className="w-4 h-4 text-gray-600" />
+                <span>Mis partidos</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/panel/cancha"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <LayoutDashboard className="w-4 h-4 text-gray-600" />
+                <span>Panel general</span>
+              </Link>
+            </DropdownMenu.Item>
+          </>
+        ) : (
+          <>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/reservas"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <CalendarDays className="w-4 h-4 text-gray-600" />
+                <span>Reservas</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/amigos"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <Users className="w-4 h-4 text-gray-600" />
+                <span>Amigos</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/mensajes"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4 text-gray-600" />
+                <span>Mensajes</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/perfil"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+              >
+                <UserCircle className="w-4 h-4 text-gray-600" />
+                <span>Perfil</span>
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+            <DropdownMenu.Item asChild>
+              <Link
+                href="/cancha"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 focus:bg-gray-100 cursor-pointer text-gray-600"
+              >
+                <MapPin className="w-4 h-4" />
+                <span>¿Tienes una cancha?</span>
+              </Link>
+            </DropdownMenu.Item>
+          </>
+        )}
+
+        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+        <DropdownMenu.Item asChild>
+          <button
+            onClick={async () => {
+              await signOut();
+              setMenuOpen(false);
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-red-50 focus:bg-red-50 text-red-600 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar sesión</span>
+          </button>
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Portal>
+  );
+  // Cerrar menÃºs al cambiar de ruta
   useEffect(() => {
     setMenuOpen(false);
     setMobileOpen(false);
@@ -247,29 +255,6 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 border-b border-gray-200/50 shadow-sm">
-      <AnimatePresence>
-        {roleMessage ? (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="border-b border-amber-200/70 bg-amber-50/90 backdrop-blur-sm"
-          >
-            <div className="container container-px flex items-center justify-between gap-3 py-2 text-sm text-amber-900">
-              <span className="flex-1 leading-snug">{roleMessage}</span>
-              <button
-                type="button"
-                onClick={() => setRoleMessage(null)}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-200 text-amber-700 transition hover:bg-amber-100"
-                aria-label="Cerrar aviso"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
       <div className="container h-16 lg:h-18 container-px flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -285,252 +270,244 @@ export default function Header() {
           </Link>
         </div>
 
-        <div className="hidden md:flex items-center gap-1 lg:gap-2">
-          {navItems.map((item) => navLink(item))}
+        <nav className="hidden md:flex items-center gap-2 lg:gap-4">
+          {mainNavItems.map((item) => (
+            <div key={item.type === "link" ? item.href : `action-${item.label}`}>
+              {item.type === "link" ? navLink(item.href, item.label) : navButton(item.label, item.onClick)}
+            </div>
+          ))}
+        </nav>
+
+        {/* Perfil / Auth */}
+        <div className="relative flex items-center gap-1 lg:gap-2">
+          {!user ? (
+            <button
+              aria-label="perfil"
+              onClick={openLoginDialog}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors touch-target"
+            >
+              <UserIcon className="w-5 h-5" />
+            </button>
+          ) : (
+            <>
+              <DropdownMenu.Root open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setNotificationsOpen(true)}
+                    className={cn(
+                      "relative p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target",
+                      notificationsOpen && "bg-gray-100"
+                    )}
+                    aria-label="notificaciones"
+                  >
+                    <Bell className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-4 text-white shadow-lg animate-pulse">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    sideOffset={10}
+                    align="end"
+                    className="dropdown-content z-50 w-80 max-w-xs rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
+                  >
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-gray-50 to-white px-3 py-2">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">Notificaciones</div>
+                        <div className="text-xs text-gray-500">
+                          {notificationsLoading
+                            ? "Actualizando..."
+                            : unreadCount > 0
+                              ? `${unreadCount} nuevas`
+                              : "Todo al dÃ­a"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => refreshNotifications()}
+                        className="rounded-full p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+                        aria-label="Actualizar notificaciones"
+                      >
+                        {notificationsLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="mt-2 max-h-80 overflow-y-auto">
+                      {notificationsLoading && notifications.length === 0 ? (
+                        <div className="flex items-center justify-center px-4 py-8 text-sm text-gray-500">
+                          Cargando notificaciones...
+                        </div>
+                      ) : notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-sm text-gray-500">
+                          No tienes notificaciones nuevas por ahora.
+                        </div>
+                      ) : (
+                        notifications.map((item) => (
+                          <DropdownMenu.Item asChild key={item.id}>
+                            <Link
+                              href={item.href}
+                              onClick={() => setNotificationsOpen(false)}
+                              className="block rounded-xl px-3 py-3 transition hover:bg-gray-100 focus:bg-gray-100"
+                            >
+                              <div className="flex flex-col gap-1 text-left">
+                                <span className="text-sm font-medium text-gray-900">{item.title}</span>
+                                <span className="text-xs text-gray-500">{item.description}</span>
+                                <span className="text-[11px] uppercase tracking-wide text-gray-400">
+                                  {formatNotificationDate(item.createdAt)}
+                                </span>
+                              </div>
+                            </Link>
+                          </DropdownMenu.Item>
+                        ))
+                      )}
+                    </div>
+
+                    {notificationsError && (
+                      <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+                        {notificationsError}
+                      </div>
+                    )}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+
+              {canAccessVenuePanel ? (
+                <>
+                  <Link
+                    href="/panel/cancha?tab=settings"
+                    onClick={() => setMenuOpen(false)}
+                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                    aria-label="datos de la cancha"
+                  >
+                    <UserIcon className="w-5 h-5" />
+                  </Link>
+                  <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                    <DropdownMenu.Trigger asChild>
+                      <button
+                        onClick={() => setMenuOpen(true)}
+                        className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                        aria-label="acciones de la cuenta"
+                      >
+                        <MoreVertical className="w-5 h-5" />
+                      </button>
+                    </DropdownMenu.Trigger>
+                    {renderMenuContent()}
+                  </DropdownMenu.Root>
+                </>
+              ) : (
+                <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                  <DropdownMenu.Trigger asChild>
+                    <button
+                      onClick={() => setMenuOpen(true)}
+                      className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                    >
+                      <UserIcon className="w-5 h-5" />
+                    </button>
+                  </DropdownMenu.Trigger>
+                  {renderMenuContent()}
+                </DropdownMenu.Root>
+              )}
+            </>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 lg:gap-3">
-          {secondaryAction ? (
-            <Link
-              href={secondaryAction.href}
-              className="hidden md:inline-flex items-center rounded-full border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:text-gray-900"
+        <AuthDialog
+          open={authOpen}
+          onOpenChange={(o) => {
+            setAuthOpen(o);
+            if (!o) setAuthNext(undefined);
+          }}
+          initialTab={authInitialTab}
+          next={authNext}
+        />
+
+        {/* Mobile */}
+        <div className="md:hidden flex items-center">
+          <button onClick={() => setMobileOpen((v) => !v)} className="p-2 rounded-md hover:bg-gray-100 transition-colors touch-target">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden
             >
-              {secondaryAction.label}
-            </Link>
-          ) : null}
-          {primaryAction ? (
-            <Link
-              href={primaryAction.href}
-              className="hidden md:inline-flex items-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-900"
-            >
-              {primaryAction.label}
-            </Link>
-          ) : null}
-          <div className="relative flex items-center gap-1 lg:gap-2">
-            {!user ? (
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
-              <button
+              <path
+                d="M3 6h18M3 12h18M3 18h18"
+                stroke="#0f172a"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {mobileOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.2, 0.8, 0.4, 1] }}
+            className="md:hidden overflow-hidden"
+          >
+            <div className="container container-px pb-4">
+              <div className="flex flex-col gap-2">
+                {mainNavItems.map((item) =>
+                  item.type === "link" ? (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <button
+                      key={"mobile-action-" + item.label}
+                      type="button"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        item.onClick();
+                      }}
+                      className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors text-left touch-target"
+                    >
+                      {item.label}
+                    </button>
+                  )
+                )}
+                {!canAccessVenuePanel && (
+                  <Link
+                    href="/cancha"
+                    onClick={() => setMobileOpen(false)}
+                    className="px-4 py-3 rounded-xl text-sm text-gray-600 bg-white/80 border border-gray-200 hover:bg-white transition-colors touch-target"
+                  >
+                    Â¿Tienes una cancha?
+                  </Link>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
+  );
+}
+
+
+
+
+
+
+
