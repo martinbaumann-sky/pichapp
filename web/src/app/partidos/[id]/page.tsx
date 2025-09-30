@@ -921,40 +921,47 @@ export default function MatchDetailPage() {
                     <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
                   </div>
                   {(() => {
-                    if (isVenueViewer) {
-                      return (
-                        <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
-                          Vista solo informativa para cuentas de cancha.
-                        </span>
-                      );
-                    }
-                    if (isFull) {
-                      return (
-                        <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
-                          Partido completo
-                        </span>
+                  if (isVenueViewer) {
+                    return (
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                        Vista solo informativa para cuentas de cancha.
+                      </span>
                     );
                   }
                   if (viewer?.hasJoined) {
-                    return viewerTeamLabel ? (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
-                        Inscrito en el {viewerTeamLabel.toLowerCase()}
-                      </span>
-                    ) : (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
-                        Ya estás inscrito
+                    return (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={startJoinFlow}
+                          disabled={joining}
+                          className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Modificar mi posición
+                        </button>
+                        {viewerTeamLabel ? (
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                            Inscrito en el {viewerTeamLabel.toLowerCase()}
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                            Ya estás inscrito
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
+                  if (isFull) {
+                    return (
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                        Partido completo
                       </span>
                     );
                   }
                   return (
-                    <button
-                      onClick={startJoinFlow}
-                      disabled={joining}
-                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Elegir mi posición
-                    </button>
+                    <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                      Reserva tu cupo para elegir tu posición.
+                    </span>
                   );
                 })()}
               </div>

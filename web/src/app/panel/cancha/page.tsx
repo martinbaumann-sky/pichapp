@@ -14,6 +14,8 @@ import {
   Loader2,
   RefreshCw,
   Settings,
+  ShieldAlert,
+  ShieldCheck,
   Ticket,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -154,45 +156,81 @@ export default function VenueDashboardPage() {
     fetchData();
   }, [authLoading, user, role, router, fetchData]);
 
-  const handleRefresh = useCallback(() => {
-    fetchData();
-  }, [fetchData]);
+  const reloadPage = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  }, []);
 
   const isVenueVerified = Boolean(data?.venue?.verified);
 
   return (
-    <div className="bg-white min-h-[calc(100vh-4rem)]">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Panel de cancha</h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Administra tus partidos oficiales, revisa reservas y concilia tus pagos en un solo lugar.
-            </p>
-            {data?.venue ? (
-              <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600">
-                <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-                {data.venue.name} · {data.venue.comuna}
+    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+      <div
+        className="pointer-events-none absolute -top-36 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-300/40 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 translate-x-1/3 translate-y-1/3 rounded-full bg-sky-300/30 blur-3xl"
+        aria-hidden
+      />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <div className="mb-10 overflow-hidden rounded-3xl border border-white/60 bg-white/80 p-6 shadow-xl backdrop-blur">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-emerald-700">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Gestión de cancha
               </div>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/panel/cancha/partidos/nuevo"
-              className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
-            >
-              Crear partido
-            </Link>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              className="rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:border-gray-400"
-              aria-label="Actualizar panel"
-            >
-              <span className="inline-flex items-center gap-2">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Panel de cancha</h1>
+                <p className="mt-2 max-w-xl text-sm text-gray-600">
+                  Administra tus partidos, sigue tus métricas financieras y ofrece una mejor experiencia a tus jugadores desde un solo lugar.
+                </p>
+              </div>
+              {data?.venue ? (
+                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-emerald-700 shadow-sm">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {data.venue.name} · {data.venue.comuna}
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-gray-600 shadow-sm">
+                    <CreditCard className="h-3.5 w-3.5 text-emerald-500" /> Plan {String(data.venue.plan ?? "básico").toUpperCase()}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold shadow-sm",
+                      isVenueVerified
+                        ? "bg-emerald-500/10 text-emerald-700"
+                        : "bg-amber-500/10 text-amber-700",
+                    )}
+                  >
+                    {isVenueVerified ? (
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                    ) : (
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                    )}
+                    {isVenueVerified ? "Cancha verificada" : "Verificación en proceso"}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/panel/cancha/partidos/nuevo"
+                className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl"
+              >
+                <Ticket className="h-4 w-4 transition group-hover:scale-110" />
+                Crear partido
+              </Link>
+              <button
+                type="button"
+                onClick={reloadPage}
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/70 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-white"
+                aria-label="Actualizar panel"
+              >
                 <RefreshCw className="h-4 w-4" /> Actualizar
-              </span>
-            </button>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -205,21 +243,24 @@ export default function VenueDashboardPage() {
         <MetricsSummary data={data?.metrics} loading={loading} verified={isVenueVerified} />
 
         <div className="mt-8 overflow-x-auto">
-          <div className="inline-flex min-w-full gap-2 rounded-2xl border border-gray-200 bg-gray-50 p-1">
+          <div className="inline-flex min-w-full gap-2 rounded-full border border-white/70 bg-white/80 p-1 shadow-inner backdrop-blur">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const iconClasses = isActive ? "text-white" : "text-emerald-500/80";
               return (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition",
-                    isActive ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900",
+                    "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition",
+                    isActive
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow"
+                      : "text-gray-600 hover:text-emerald-700",
                   )}
                 >
-                  <Icon className="h-4 w-4" aria-hidden />
+                  <Icon className={cn("h-4 w-4", iconClasses)} aria-hidden />
                   {tab.label}
                 </button>
               );
@@ -239,7 +280,7 @@ export default function VenueDashboardPage() {
           ) : activeTab === "reports" ? (
             <ReportsTab loading={loading} data={data} />
           ) : activeTab === "settings" ? (
-            <SettingsTab loading={loading} data={data} onSaved={handleRefresh} />
+            <SettingsTab loading={loading} data={data} onSaved={fetchData} />
           ) : null}
         </div>
       </div>
@@ -271,7 +312,7 @@ function MetricsSummary({
   const upcoming = data.upcomingMatch;
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
       <MetricCard
         title="Ingresos aprobados"
         value={formatCurrency(data.totalRevenue)}
@@ -282,31 +323,42 @@ function MetricsSummary({
         value={data.totalPaidSpots.toString()}
         subtitle={`${Math.round((data.fillRate || 0) * 100)}% de ocupación`}
       />
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/80 p-5 shadow-lg backdrop-blur">
+        <div className="absolute -left-8 -top-12 h-28 w-28 rounded-full bg-sky-200/30 blur-2xl" aria-hidden />
+        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-gray-600">
           Próximo partido
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
-              verified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700",
+              "inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-semibold",
+              verified ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700",
             )}
           >
-            {verified ? "Cancha verificada" : "Verificación pendiente"}
+            {verified ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
+            {verified ? "Verificada" : "Verificación pendiente"}
           </span>
         </div>
         {upcoming ? (
-          <div className="mt-3 space-y-1 text-sm text-gray-700">
-            <p className="font-semibold text-gray-900">{upcoming.title}</p>
-            <p>{formatDateTime(upcoming.startsAt)}</p>
+          <div className="mt-4 space-y-2 text-sm text-gray-700">
+            <p className="text-lg font-semibold text-gray-900">{upcoming.title}</p>
+            <p className="text-xs uppercase tracking-wider text-emerald-700">{formatDateTime(upcoming.startsAt)}</p>
             {upcoming.venueName ? (
               <p className="text-xs text-gray-500">{upcoming.venueName}</p>
             ) : null}
-            <p className="text-xs text-gray-500">
-              Cupos confirmados: {upcoming.paidSpots} / {upcoming.totalSpots}
-            </p>
+            <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
+              <span>Cupos confirmados</span>
+              <span>
+                {upcoming.paidSpots} / {upcoming.totalSpots}
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-sky-400"
+                style={{ width: `${Math.min(100, (upcoming.paidSpots / upcoming.totalSpots) * 100)}%` }}
+              />
+            </div>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-gray-500">Aún no tienes partidos programados.</p>
+          <p className="mt-4 text-sm text-gray-500">Aún no tienes partidos programados.</p>
         )}
       </div>
     </div>
@@ -318,7 +370,7 @@ function MatchesTab({ loading, matches }: { loading: boolean; matches: PanelMatc
     return (
       <div className="space-y-4">
         {[0, 1].map((key) => (
-          <div key={key} className="h-32 rounded-3xl border border-gray-200 bg-gray-50 animate-pulse" />
+          <div key={key} className="h-32 rounded-3xl border border-white/60 bg-white/60 animate-pulse" />
         ))}
       </div>
     );
@@ -326,12 +378,12 @@ function MatchesTab({ loading, matches }: { loading: boolean; matches: PanelMatc
 
   if (!loading && matches.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-600">
-        <p className="font-semibold text-gray-900">Aún no publicas partidos.</p>
-        <p className="mt-2">Crea tu primer partido para que los jugadores puedan reservar y pagar sus cupos.</p>
+      <div className="rounded-3xl border border-dashed border-white/60 bg-white/70 p-10 text-center text-sm text-gray-600 shadow-sm backdrop-blur">
+        <p className="text-lg font-semibold text-gray-900">Aún no publicas partidos.</p>
+        <p className="mt-2 text-sm text-gray-600">Crea tu primer partido para que los jugadores puedan reservar y pagar sus cupos.</p>
         <Link
           href="/panel/cancha/partidos/nuevo"
-          className="mt-4 inline-flex items-center justify-center rounded-xl bg-black px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
+          className="mt-4 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl"
         >
           Crear partido
         </Link>
@@ -340,49 +392,65 @@ function MatchesTab({ loading, matches }: { loading: boolean; matches: PanelMatc
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {matches.map((match) => {
         const paidRatio = match.totalSpots > 0 ? Math.round((match.paidSpots / match.totalSpots) * 100) : 0;
         return (
-          <article key={match.id} className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{match.title}</h3>
-                <p className="text-sm text-gray-500">{formatDateTime(match.startsAt)}</p>
+          <article
+            key={match.id}
+            className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur"
+          >
+            <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-emerald-200/40 blur-3xl" aria-hidden />
+            <div className="relative flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-gray-900">{match.title}</h3>
+                <p className="text-sm text-gray-600">{formatDateTime(match.startsAt)}</p>
                 {match.venueName ? (
-                  <p className="mt-1 text-xs text-gray-500 flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 text-emerald-600" /> {match.venueName}
+                  <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                    <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                    {match.venueName}
                   </p>
                 ) : null}
               </div>
-              <span className="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+              <span
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide",
+                  matchStatusClass(match.status),
+                )}
+              >
                 {match.status}
               </span>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-gray-600 sm:grid-cols-4">
-              <div>
-                <span className="block text-xs uppercase text-gray-400">Cupos</span>
-                <span className="font-medium text-gray-900">
+            <div className="relative mt-5 grid grid-cols-2 gap-4 text-sm text-gray-600 sm:grid-cols-4">
+              <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
+                <span className="block text-xs uppercase tracking-wide text-gray-400">Cupos</span>
+                <span className="mt-1 block text-lg font-semibold text-gray-900">
                   {match.paidSpots} / {match.totalSpots}
                 </span>
               </div>
-              <div>
-                <span className="block text-xs uppercase text-gray-400">Reservados</span>
-                <span className="font-medium text-gray-900">{match.reservedSpots}</span>
+              <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
+                <span className="block text-xs uppercase tracking-wide text-gray-400">Reservados</span>
+                <span className="mt-1 block text-lg font-semibold text-gray-900">{match.reservedSpots}</span>
               </div>
-              <div>
-                <span className="block text-xs uppercase text-gray-400">Precio por cupo</span>
-                <span className="font-medium text-gray-900">{formatCurrency(match.pricePerSpot)}</span>
+              <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
+                <span className="block text-xs uppercase tracking-wide text-gray-400">Precio por cupo</span>
+                <span className="mt-1 block text-lg font-semibold text-gray-900">{formatCurrency(match.pricePerSpot)}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-gray-500" aria-hidden />
-                <Link href={`/partidos/${match.id}`} className="text-sm font-semibold text-gray-900 hover:underline">
+              <div className="flex items-center justify-center rounded-2xl bg-white/70 p-4 shadow-sm">
+                <Link
+                  href={`/partidos/${match.id}`}
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                >
+                  <MessageSquare className="h-4 w-4" aria-hidden />
                   Ver detalle
                 </Link>
               </div>
             </div>
-            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, paidRatio)}%` }} />
+            <div className="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-sky-400"
+                style={{ width: `${Math.min(100, paidRatio)}%` }}
+              />
             </div>
           </article>
         );
@@ -401,12 +469,12 @@ function CalendarTab({ loading, matches }: { loading: boolean; matches: PanelMat
   );
 
   if (loading && upcoming.length === 0) {
-    return <div className="h-52 rounded-3xl border border-gray-200 bg-gray-50 animate-pulse" />;
+    return <div className="h-52 rounded-3xl border border-white/60 bg-white/60 animate-pulse" />;
   }
 
   if (upcoming.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-600">
+      <div className="rounded-3xl border border-dashed border-white/60 bg-white/70 p-10 text-center text-sm text-gray-600 shadow-sm backdrop-blur">
         No hay partidos próximos. Programa uno nuevo para llenar tu calendario.
       </div>
     );
@@ -423,21 +491,27 @@ function CalendarTab({ loading, matches }: { loading: boolean; matches: PanelMat
   }, {});
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {Object.entries(grouped).map(([day, items]) => (
-        <div key={day} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{day}</h3>
+        <div
+          key={day}
+          className="rounded-3xl border border-white/70 bg-white/80 p-5 shadow-lg backdrop-blur"
+        >
+          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-700">{day}</h3>
           <div className="mt-3 space-y-3">
             {items.map((match) => (
-              <div key={match.id} className="flex flex-col gap-1 rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+              <div
+                key={match.id}
+                className="flex flex-col gap-2 rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="space-y-1">
                   <p className="text-sm font-semibold text-gray-900">{match.title}</p>
-                  <p className="text-xs text-gray-500">{formatTime(match.startsAt)}</p>
+                  <p className="text-xs uppercase tracking-wider text-emerald-700">{formatTime(match.startsAt)}</p>
                   {match.venueName ? (
                     <p className="text-xs text-gray-500">{match.venueName}</p>
                   ) : null}
                 </div>
-                <div className="text-xs text-gray-600">
+                <div className="text-xs font-semibold text-emerald-700">
                   {match.paidSpots} pagados · {match.reservedSpots} reservados
                 </div>
               </div>
@@ -451,19 +525,19 @@ function CalendarTab({ loading, matches }: { loading: boolean; matches: PanelMat
 
 function BookingsTab({ loading, bookings }: { loading: boolean; bookings: PanelBooking[] }) {
   if (loading && bookings.length === 0) {
-    return <div className="h-64 rounded-3xl border border-gray-200 bg-gray-50 animate-pulse" />;
+    return <div className="h-64 rounded-3xl border border-white/60 bg-white/60 animate-pulse" />;
   }
 
   if (!loading && bookings.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-600">
+      <div className="rounded-3xl border border-dashed border-white/60 bg-white/70 p-10 text-center text-sm text-gray-600 shadow-sm backdrop-blur">
         Aún no recibes reservas pagadas. Comparte tus partidos para comenzar a llenar cupos.
       </div>
     );
   }
 
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Reservas</h2>
@@ -471,14 +545,14 @@ function BookingsTab({ loading, bookings }: { loading: boolean; bookings: PanelB
         </div>
         <Link
           href="/panel/cancha/reservas/export"
-          className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-gray-400"
+          className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/70 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-white"
         >
           Exportar CSV
         </Link>
       </div>
       <div className="mt-6 overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <table className="min-w-full divide-y divide-white/60 text-sm">
+          <thead className="bg-white/60 text-left text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
             <tr>
               <th scope="col" className="px-4 py-3">
                 Jugador
@@ -497,9 +571,9 @@ function BookingsTab({ loading, bookings }: { loading: boolean; bookings: PanelB
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-white/60">
             {bookings.map((booking) => (
-              <tr key={booking.id} className="hover:bg-gray-50">
+              <tr key={booking.id} className="transition hover:bg-white/60">
                 <td className="px-4 py-3 font-medium text-gray-900">
                   <div>{booking.playerName}</div>
                   {booking.playerEmail ? <div className="text-xs text-gray-500">{booking.playerEmail}</div> : null}
@@ -526,12 +600,12 @@ function BookingsTab({ loading, bookings }: { loading: boolean; bookings: PanelB
 
 function PaymentsTab({ loading, payments }: { loading: boolean; payments: PanelPayment[] }) {
   if (loading && payments.length === 0) {
-    return <div className="h-56 rounded-3xl border border-gray-200 bg-gray-50 animate-pulse" />;
+    return <div className="h-56 rounded-3xl border border-white/60 bg-white/60 animate-pulse" />;
   }
 
   if (!loading && payments.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-600">
+      <div className="rounded-3xl border border-dashed border-white/60 bg-white/70 p-10 text-center text-sm text-gray-600 shadow-sm backdrop-blur">
         Aún no recibes pagos confirmados. Comparte tus enlaces de partidos para generar reservas.
       </div>
     );
@@ -542,7 +616,7 @@ function PaymentsTab({ loading, payments }: { loading: boolean; payments: PanelP
       {payments.map((payment) => (
         <div
           key={payment.id}
-          className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+          className="rounded-3xl border border-white/70 bg-white/80 p-5 shadow-lg backdrop-blur flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
             <p className="text-sm font-semibold text-gray-900">
@@ -552,8 +626,8 @@ function PaymentsTab({ loading, payments }: { loading: boolean; payments: PanelP
               {payment.playerName} · {formatDateTime(payment.createdAt)}
             </p>
           </div>
-          <div className="flex items-center gap-3 text-xs text-gray-600">
-            <span className="rounded-full border border-gray-200 px-2 py-1 uppercase tracking-wide">
+          <div className="flex items-center gap-3 text-xs text-emerald-700">
+            <span className="rounded-full border border-emerald-200 bg-white/70 px-2 py-1 uppercase tracking-wide">
               {payment.provider}
             </span>
             <StatusBadge status={payment.status} />
@@ -566,16 +640,16 @@ function PaymentsTab({ loading, payments }: { loading: boolean; payments: PanelP
 
 function ReportsTab({ loading, data }: { loading: boolean; data: PanelData | null }) {
   if (loading && !data) {
-    return <div className="h-40 rounded-3xl border border-gray-200 bg-gray-50 animate-pulse" />;
+    return <div className="h-40 rounded-3xl border border-white/60 bg-white/60 animate-pulse" />;
   }
 
   if (!data) return null;
 
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
       <h2 className="text-xl font-semibold text-gray-900">Resumen</h2>
       <p className="mt-2 text-sm text-gray-600">Indicadores clave de tus partidos en la plataforma.</p>
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard title="Partidos publicados" value={data.metrics.totalMatches.toString()} subtitle="Últimos 100" />
         <MetricCard
           title="Cupos pagados"
@@ -617,14 +691,6 @@ function SettingsTab({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get("tab");
-    if (!tabParam) return;
-    if (!tabs.some((tab) => tab.id === tabParam)) return;
-    setActiveTab((current) => (current === tabParam ? current : (tabParam as TabId)));
-  }, []);
-
-  useEffect(() => {
     if (!data?.venue) return;
     setForm({
       name: data.venue.name ?? "",
@@ -639,7 +705,7 @@ function SettingsTab({
   }, [data]);
 
   if (loading && !data) {
-    return <div className="h-48 rounded-3xl border border-gray-200 bg-gray-50 animate-pulse" />;
+    return <div className="h-48 rounded-3xl border border-white/60 bg-white/60 animate-pulse" />;
   }
 
   if (!data) return null;
@@ -676,19 +742,22 @@ function SettingsTab({
   };
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+    <div className="space-y-5">
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur space-y-6"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-2xl space-y-2">
             <h2 className="text-xl font-semibold text-gray-900">Datos de la cancha</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="text-sm text-gray-600">
               Actualiza la información que verán los jugadores al reservar. Solo puedes modificar los datos de contacto y los tipos de cancha desde este panel.
             </p>
           </div>
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Guardar cambios
@@ -702,7 +771,7 @@ function SettingsTab({
               value={form.name}
               readOnly
               aria-readonly="true"
-              className="mt-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-gray-500 cursor-not-allowed"
+              className="mt-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-gray-500"
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
@@ -711,7 +780,7 @@ function SettingsTab({
               value={form.taxId}
               readOnly
               aria-readonly="true"
-              className="mt-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-gray-500 cursor-not-allowed"
+              className="mt-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-gray-500"
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
@@ -720,7 +789,7 @@ function SettingsTab({
               value={form.address}
               readOnly
               aria-readonly="true"
-              className="mt-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-gray-500 cursor-not-allowed"
+              className="mt-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-gray-500"
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
@@ -729,7 +798,7 @@ function SettingsTab({
               value={form.comuna}
               readOnly
               aria-readonly="true"
-              className="mt-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-gray-500 cursor-not-allowed"
+              className="mt-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-gray-500"
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
@@ -738,7 +807,7 @@ function SettingsTab({
               type="email"
               value={form.payoutEmail}
               onChange={(event) => setForm((prev) => ({ ...prev, payoutEmail: event.target.value }))}
-              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
               required
             />
           </label>
@@ -747,7 +816,7 @@ function SettingsTab({
             <input
               value={form.accountHolder}
               onChange={(event) => setForm((prev) => ({ ...prev, accountHolder: event.target.value }))}
-              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
               required
             />
           </label>
@@ -756,16 +825,16 @@ function SettingsTab({
             <input
               value={form.phone}
               onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
-              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
               placeholder="+56 9 1234 5678"
             />
           </label>
-          <label className="flex flex-col text-sm text-gray-600">
+          <label className="flex flex-col text-sm text-gray-600 md:col-span-2">
             Tipos de cancha
             <textarea
               value={form.fields}
               onChange={(event) => setForm((prev) => ({ ...prev, fields: event.target.value }))}
-              className="mt-1 h-28 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
+              className="mt-1 h-28 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
               placeholder="Ej: Cancha 1 - Pasto sintético\nCancha techada"
             />
             <span className="mt-1 text-xs text-gray-400">Una por línea. Máximo 12.</span>
@@ -773,14 +842,14 @@ function SettingsTab({
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          <div className="rounded-2xl border border-rose-200/70 bg-rose-500/10 px-4 py-3 text-sm text-rose-700">{error}</div>
         ) : null}
         {success ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div>
+          <div className="rounded-2xl border border-emerald-200/70 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">{success}</div>
         ) : null}
       </form>
 
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
         <h3 className="text-lg font-semibold text-gray-900">Verificación</h3>
         <p className="mt-2 text-sm text-gray-600">
           {data.venue.verified
@@ -794,39 +863,50 @@ function SettingsTab({
 
 function MetricCard({ title, value, subtitle }: { title: string; value: string; subtitle?: string }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</div>
-      <div className="mt-2 text-2xl font-bold text-gray-900">{value}</div>
-      {subtitle ? <div className="mt-1 text-xs text-gray-500">{subtitle}</div> : null}
+    <div className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/80 p-5 shadow-lg backdrop-blur">
+      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-emerald-200/40 blur-2xl" aria-hidden />
+      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">{title}</div>
+      <div className="mt-2 text-3xl font-bold text-gray-900">{value}</div>
+      {subtitle ? <div className="mt-1 text-xs text-gray-600">{subtitle}</div> : null}
     </div>
   );
+}
+
+function matchStatusClass(status: string | null | undefined) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized.includes("cancel")) return "bg-rose-500/10 text-rose-700";
+  if (normalized.includes("confirm")) return "bg-emerald-500/10 text-emerald-700";
+  if (normalized.includes("pend") || normalized.includes("program")) {
+    return "bg-amber-500/10 text-amber-700";
+  }
+  return "bg-slate-900/90 text-white";
 }
 
 function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
   if (normalized === "paid" || normalized === "approved") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/70 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 shadow-sm">
         <CheckCircle2 className="h-3.5 w-3.5" /> Pagado
       </span>
     );
   }
   if (normalized === "reserved" || normalized === "pending") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
-        En revisión
+      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/70 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 shadow-sm">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> En revisión
       </span>
     );
   }
   if (normalized === "refunded") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">
-        Reembolsado
+      <span className="inline-flex items-center gap-1 rounded-full border border-sky-200/70 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 shadow-sm">
+        <RefreshCw className="h-3.5 w-3.5" /> Reembolsado
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700">
+    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-slate-200/70 px-2.5 py-1 text-xs font-semibold text-slate-700">
       {status}
     </span>
   );
