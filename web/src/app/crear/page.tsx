@@ -8,8 +8,17 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DateTimePicker from "@/components/DateTimePicker";
 import { staticMapUrl } from "@/lib/maps";
 import { streetViewUrl } from "@/lib/places";
+import { useRoleGate } from "@/hooks/useRoleGate";
 
 export default function CreateMatchPage() {
+  const { status } = useRoleGate({
+    allow: ["player", "superadmin"],
+    allowAnonymous: true,
+    enforceLogout: true,
+    message: "Cerramos tu sesión de cancha. Ingresa como jugador para crear una nueva pichanga.",
+  });
+  const gateAllowed = status === "allowed";
+
   const [formData, setFormData] = useState({
     title: "",
     comuna: "",
@@ -184,6 +193,17 @@ export default function CreateMatchPage() {
       photoUrl: v.photoUrl ?? prev.photoUrl 
     }));
   }, []);
+
+  if (!gateAllowed) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center text-sm text-gray-600">
+          <div className="h-10 w-10 rounded-full border-b-2 border-gray-800 animate-spin" />
+          <p>{status === "denied" ? "Cerrando sesión de cuenta de cancha…" : "Preparando el formulario..."}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

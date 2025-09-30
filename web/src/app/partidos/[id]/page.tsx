@@ -6,6 +6,7 @@ import AuthDialog from "@/components/AuthDialog";
 import AddFriendButton from "@/components/AddFriendButton";
 import type { FriendStatus } from "@/lib/friendship";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoleGate } from "@/hooks/useRoleGate";
 import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
@@ -50,6 +51,13 @@ export default function MatchDetailPage() {
   const showRoster = activeTab === "roster";
   const { user } = useAuth();
   const router = useRouter();
+  const { status } = useRoleGate({
+    allow: ["player", "superadmin"],
+    allowAnonymous: true,
+    enforceLogout: true,
+    message: "Cerramos tu sesión de cancha. Ingresa como jugador para revisar y unirte a partidos.",
+  });
+  const gateAllowed = status === "allowed";
 
   const [joining, setJoining] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -101,8 +109,9 @@ export default function MatchDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    if (!gateAllowed) return;
     loadMatch();
-  }, [loadMatch]);
+  }, [gateAllowed, loadMatch]);
 
   const formationData = useMemo(() => {
     if (!match) {
@@ -569,6 +578,17 @@ export default function MatchDetailPage() {
       setJoinFriends((prev) => prev.slice(0, maxInvitableFriends));
     }
   }, [joinFriendCount, maxInvitableFriends]);
+
+  if (!gateAllowed) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center text-sm text-gray-600">
+          <div className="h-10 w-10 rounded-full border-b-2 border-gray-800 animate-spin" />
+          <p>{status === "denied" ? "Cerrando sesión de cuenta de cancha…" : "Preparando el partido..."}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

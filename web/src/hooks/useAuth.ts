@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-type UserRole = "player" | "venue_admin" | "superadmin";
+export type UserRole = "player" | "venue_admin" | "superadmin";
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name: string;
@@ -14,6 +14,13 @@ interface User {
   phone?: string | null;
   phoneDisplay?: string | null;
   role?: UserRole | null;
+}
+
+export function resolveUserRole(user: User | null | undefined): UserRole | null {
+  if (!user) return null;
+  if (user.role === "venue_admin") return "venue_admin";
+  if (user.role === "superadmin" || user.isAdmin) return "superadmin";
+  return "player";
 }
 
 export function useAuth() {

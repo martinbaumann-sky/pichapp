@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoleGate } from "@/hooks/useRoleGate";
 import Avatar from "@/components/Avatar";
 
 export default function MatchChatPage(props: any) {
@@ -11,6 +12,13 @@ export default function MatchChatPage(props: any) {
   const id = routeParams?.id ?? (props.params?.id ?? "");
   const cacheKey = `chat:${id}`;
   const { user, loading } = useAuth();
+  const { status } = useRoleGate({
+    allow: ["player", "superadmin"],
+    allowAnonymous: true,
+    enforceLogout: true,
+    message: "Cerramos tu sesión de cancha. Ingresa como jugador para chatear con tu equipo.",
+  });
+  const gateAllowed = status === "allowed";
   const [restricted, setRestricted] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [text, setText] = useState("");
@@ -18,6 +26,7 @@ export default function MatchChatPage(props: any) {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (!gateAllowed) return;
     (async () => {
       if (!id) return;
       // Prefer cached messages first to avoid UI flicker
@@ -54,7 +63,7 @@ export default function MatchChatPage(props: any) {
         setTimeout(() => setError(null), 3000);
       }
     })();
-  }, [id]);
+  }, [cacheKey, gateAllowed, id]);
 
   // realtime removed in simple auth implementation
 
@@ -152,6 +161,17 @@ export default function MatchChatPage(props: any) {
       setTimeout(() => setError(null), 5000);
     }
   };
+
+  if (!gateAllowed) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center text-sm text-gray-600">
+          <div className="h-10 w-10 rounded-full border-b-2 border-gray-800 animate-spin" />
+          <p>{status === "denied" ? "Cerrando sesión de cuenta de cancha…" : "Preparando el chat del partido..."}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">

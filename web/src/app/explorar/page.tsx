@@ -11,6 +11,7 @@ import LevelBadge from "@/components/LevelBadge";
 import { Button } from "@/components/ui/button";
 import { comunasRM } from "@/lib/comunas-rm";
 import { nivelES } from "@/lib/i18n";
+import { useRoleGate } from "@/hooks/useRoleGate";
 
 const POPULAR_COMUNAS = ["Santiago", "Providencia", "Las Condes", "Ñuñoa", "La Florida"];
 
@@ -23,6 +24,14 @@ type MatchFilters = {
 };
 
 export default function ExplorePage() {
+  const { status } = useRoleGate({
+    allow: ["player", "superadmin"],
+    allowAnonymous: true,
+    enforceLogout: true,
+    message: "Cerramos tu sesión de cancha. Ingresa como jugador para explorar partidos y unirte a pichangas.",
+  });
+  const gateAllowed = status === "allowed";
+
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
@@ -105,6 +114,7 @@ export default function ExplorePage() {
   }, [filters.comuna, filters.from, filters.level, filters.pageSize]);
 
   useEffect(() => {
+    if (!gateAllowed) return;
     const controller = new AbortController();
 
     async function loadMatches() {
@@ -143,9 +153,10 @@ export default function ExplorePage() {
     loadMatches();
 
     return () => controller.abort();
-  }, [queryString, pageSize, reloadToken]);
+  }, [gateAllowed, pageSize, queryString, reloadToken]);
 
   useEffect(() => {
+    if (!gateAllowed) return;
     const target = loadMoreRef.current;
     if (!target) return;
 
@@ -214,7 +225,7 @@ export default function ExplorePage() {
         pendingController.abort();
       }
     };
-  }, [filters]);
+  }, [filters, gateAllowed]);
 
   const handleDateOptionChange = useCallback(
     (optionValue: string) => {
@@ -376,6 +387,17 @@ export default function ExplorePage() {
     setFilters((f) => ({ ...f, page: 1 }));
     setReloadToken((token) => token + 1);
   }, [setFilters, setReloadToken]);
+
+  if (!gateAllowed) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center text-sm text-gray-600">
+          <div className="h-10 w-10 rounded-full border-b-2 border-gray-800 animate-spin" />
+          <p>{status === "denied" ? "Cerrando sesión de cuenta de cancha…" : "Preparando tu experiencia..."}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div

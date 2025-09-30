@@ -7,6 +7,7 @@ import { sampleMatches } from "@/lib/samples";
 import { useSearchParams, useRouter } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoleGate } from "@/hooks/useRoleGate";
 
 function DashboardContent() {
   const searchParams = useSearchParams();
@@ -14,6 +15,12 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState<"organizer" | "player">("organizer");
   const [authOpen, setAuthOpen] = useState(false);
   const { user, loading } = useAuth();
+  const { status } = useRoleGate({
+    allow: ["player", "superadmin"],
+    allowAnonymous: true,
+    enforceLogout: true,
+    message: "Cerramos tu sesión de cancha. Ingresa como jugador para revisar tu actividad y partidos.",
+  });
 
   useEffect(() => {
     if (!loading && !user) setAuthOpen(true);
@@ -47,6 +54,17 @@ function DashboardContent() {
       } catch {}
     })();
   }, [user]);
+
+  if (status !== "allowed") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center text-sm text-gray-600">
+          <div className="h-10 w-10 rounded-full border-b-2 border-gray-800 animate-spin" />
+          <p>{status === "denied" ? "Cerrando sesión de cuenta de cancha…" : "Preparando tu dashboard..."}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">

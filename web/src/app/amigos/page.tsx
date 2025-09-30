@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoleGate } from "@/hooks/useRoleGate";
 import AuthDialog from "@/components/AuthDialog";
 import Link from "next/link";
 import { digitsOnly } from "@/lib/phone";
@@ -18,6 +19,12 @@ type FriendItem = {
 export default function AmigosPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { status } = useRoleGate({
+    allow: ["player", "superadmin"],
+    allowAnonymous: true,
+    enforceLogout: true,
+    message: "Cerramos tu sesión de cancha. Ingresa como jugador para gestionar a tus amigos y armar equipos.",
+  });
   const [authOpen, setAuthOpen] = useState(false);
 
   const [tab, setTab] = useState<'friends' | 'requests'>('friends');
@@ -77,6 +84,17 @@ export default function AmigosPage() {
       setBusyAdd(false);
     }
   };
+
+  if (status !== "allowed") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center text-sm text-gray-600">
+          <div className="h-10 w-10 rounded-full border-b-2 border-gray-800 animate-spin" />
+          <p>{status === "denied" ? "Cerrando sesión de cuenta de cancha…" : "Preparando tu experiencia..."}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
