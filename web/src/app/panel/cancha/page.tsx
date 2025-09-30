@@ -172,7 +172,7 @@ export default function VenueDashboardPage() {
             {data?.venue ? (
               <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600">
                 <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-                {data.venue.name} Â· {data.venue.comuna}
+                {data.venue.name} · {data.venue.comuna}
               </div>
             ) : null}
           </div>
@@ -280,18 +280,18 @@ function MetricsSummary({
       <MetricCard
         title="Cupos pagados"
         value={data.totalPaidSpots.toString()}
-        subtitle={`${Math.round((data.fillRate || 0) * 100)}% de ocupaciÃ³n`}
+        subtitle={`${Math.round((data.fillRate || 0) * 100)}% de ocupación`}
       />
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
-          PrÃ³ximo partido
+          Próximo partido
           <span
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
               verified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700",
             )}
           >
-            {verified ? "Cancha verificada" : "VerificaciÃ³n pendiente"}
+            {verified ? "Cancha verificada" : "Verificación pendiente"}
           </span>
         </div>
         {upcoming ? (
@@ -306,7 +306,7 @@ function MetricsSummary({
             </p>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-gray-500">AÃºn no tienes partidos programados.</p>
+          <p className="mt-3 text-sm text-gray-500">Aún no tienes partidos programados.</p>
         )}
       </div>
     </div>
@@ -327,7 +327,7 @@ function MatchesTab({ loading, matches }: { loading: boolean; matches: PanelMatc
   if (!loading && matches.length === 0) {
     return (
       <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-600">
-        <p className="font-semibold text-gray-900">AÃºn no publicas partidos.</p>
+        <p className="font-semibold text-gray-900">Aún no publicas partidos.</p>
         <p className="mt-2">Crea tu primer partido para que los jugadores puedan reservar y pagar sus cupos.</p>
         <Link
           href="/panel/cancha/partidos/nuevo"
@@ -407,7 +407,7 @@ function CalendarTab({ loading, matches }: { loading: boolean; matches: PanelMat
   if (upcoming.length === 0) {
     return (
       <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-600">
-        No hay partidos prÃ³ximos. Programa uno nuevo para llenar tu calendario.
+        No hay partidos próximos. Programa uno nuevo para llenar tu calendario.
       </div>
     );
   }
@@ -438,7 +438,7 @@ function CalendarTab({ loading, matches }: { loading: boolean; matches: PanelMat
                   ) : null}
                 </div>
                 <div className="text-xs text-gray-600">
-                  {match.paidSpots} pagados Â· {match.reservedSpots} reservados
+                  {match.paidSpots} pagados · {match.reservedSpots} reservados
                 </div>
               </div>
             ))}
@@ -457,7 +457,7 @@ function BookingsTab({ loading, bookings }: { loading: boolean; bookings: PanelB
   if (!loading && bookings.length === 0) {
     return (
       <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-600">
-        AÃºn no recibes reservas pagadas. Comparte tus partidos para comenzar a llenar cupos.
+        Aún no recibes reservas pagadas. Comparte tus partidos para comenzar a llenar cupos.
       </div>
     );
   }
@@ -532,7 +532,7 @@ function PaymentsTab({ loading, payments }: { loading: boolean; payments: PanelP
   if (!loading && payments.length === 0) {
     return (
       <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-600">
-        AÃºn no recibes pagos confirmados. Comparte tus enlaces de partidos para generar reservas.
+        Aún no recibes pagos confirmados. Comparte tus enlaces de partidos para generar reservas.
       </div>
     );
   }
@@ -546,10 +546,10 @@ function PaymentsTab({ loading, payments }: { loading: boolean; payments: PanelP
         >
           <div>
             <p className="text-sm font-semibold text-gray-900">
-              {formatCurrency(payment.amountCLP)} Â· {payment.matchTitle}
+              {formatCurrency(payment.amountCLP)} · {payment.matchTitle}
             </p>
             <p className="text-xs text-gray-500">
-              {payment.playerName} Â· {formatDateTime(payment.createdAt)}
+              {payment.playerName} · {formatDateTime(payment.createdAt)}
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs text-gray-600">
@@ -576,17 +576,17 @@ function ReportsTab({ loading, data }: { loading: boolean; data: PanelData | nul
       <h2 className="text-xl font-semibold text-gray-900">Resumen</h2>
       <p className="mt-2 text-sm text-gray-600">Indicadores clave de tus partidos en la plataforma.</p>
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard title="Partidos publicados" value={data.metrics.totalMatches.toString()} subtitle="Ãšltimos 100" />
+        <MetricCard title="Partidos publicados" value={data.metrics.totalMatches.toString()} subtitle="Últimos 100" />
         <MetricCard
           title="Cupos pagados"
           value={data.metrics.totalPaidSpots.toString()}
-          subtitle={`${Math.round(data.metrics.fillRate * 100)}% ocupaciÃ³n`}
+          subtitle={`${Math.round(data.metrics.fillRate * 100)}% ocupación`}
         />
         <MetricCard title="Ingresos" value={formatCurrency(data.metrics.totalRevenue)} subtitle="Pagos aprobados" />
         <MetricCard
           title="Plan"
           value={data.venue.plan === "pro" ? "Pro" : "Gratis"}
-          subtitle={data.venue.verified ? "Cancha verificada" : "VerificaciÃ³n pendiente"}
+          subtitle={data.venue.verified ? "Cancha verificada" : "Verificación pendiente"}
         />
       </div>
     </div>
@@ -651,7 +651,9 @@ function SettingsTab({
     setSuccess(null);
     try {
       const payload = {
-        ...form,
+        payoutEmail: form.payoutEmail.trim(),
+        accountHolder: form.accountHolder.trim(),
+        phone: form.phone.trim(),
         fields: form.fields.split(/\n+/).map((value) => value.trim()).filter(Boolean),
       };
       const res = await fetch("/api/venue/profile", {
@@ -679,7 +681,9 @@ function SettingsTab({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Datos de la cancha</h2>
-            <p className="mt-1 text-sm text-gray-500">Actualiza la informaciÃ³n que verÃ¡n los jugadores al reservar.</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Actualiza la información que verán los jugadores al reservar. Solo puedes modificar los datos de contacto y los tipos de cancha desde este panel.
+            </p>
           </div>
           <button
             type="submit"
@@ -696,36 +700,36 @@ function SettingsTab({
             Nombre de la cancha
             <input
               value={form.name}
-              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
-              required
+              readOnly
+              aria-readonly="true"
+              className="mt-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-gray-500 cursor-not-allowed"
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
             RUT / Tax ID
             <input
               value={form.taxId}
-              onChange={(event) => setForm((prev) => ({ ...prev, taxId: event.target.value }))}
-              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
-              required
+              readOnly
+              aria-readonly="true"
+              className="mt-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-gray-500 cursor-not-allowed"
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
-            DirecciÃ³n
+            Dirección
             <input
               value={form.address}
-              onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
-              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
-              required
+              readOnly
+              aria-readonly="true"
+              className="mt-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-gray-500 cursor-not-allowed"
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
             Comuna
             <input
               value={form.comuna}
-              onChange={(event) => setForm((prev) => ({ ...prev, comuna: event.target.value }))}
-              className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
-              required
+              readOnly
+              aria-readonly="true"
+              className="mt-1 rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-gray-500 cursor-not-allowed"
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
@@ -748,7 +752,7 @@ function SettingsTab({
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
-            TelÃ©fono de contacto
+            Teléfono de contacto
             <input
               value={form.phone}
               onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
@@ -762,9 +766,9 @@ function SettingsTab({
               value={form.fields}
               onChange={(event) => setForm((prev) => ({ ...prev, fields: event.target.value }))}
               className="mt-1 h-28 rounded-xl border border-gray-300 px-3 py-2 text-gray-900 focus:border-black focus:outline-none"
-              placeholder="Ej: Cancha 1 - Pasto sintÃ©tico\nCancha techada"
+              placeholder="Ej: Cancha 1 - Pasto sintético\nCancha techada"
             />
-            <span className="mt-1 text-xs text-gray-400">Una por lÃ­nea. MÃ¡ximo 12.</span>
+            <span className="mt-1 text-xs text-gray-400">Una por línea. Máximo 12.</span>
           </label>
         </div>
 
@@ -777,11 +781,11 @@ function SettingsTab({
       </form>
 
       <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900">VerificaciÃ³n</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Verificación</h3>
         <p className="mt-2 text-sm text-gray-600">
           {data.venue.verified
-            ? "Tu cancha estÃ¡ verificada. Puedes publicar partidos sin restricciones."
-            : "Estamos revisando tu informaciÃ³n. Publica con normalidad y te avisaremos cuando el sello de verificaciÃ³n estÃ© activo."}
+            ? "Tu cancha está verificada. Puedes publicar partidos sin restricciones."
+            : "Estamos revisando tu información. Publica con normalidad y te avisaremos cuando el sello de verificación esté activo."}
         </p>
       </div>
     </div>
@@ -810,7 +814,7 @@ function StatusBadge({ status }: { status: string }) {
   if (normalized === "reserved" || normalized === "pending") {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
-        En revisiÃ³n
+        En revisión
       </span>
     );
   }

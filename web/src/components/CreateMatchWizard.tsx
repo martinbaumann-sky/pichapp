@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import DateTimePicker from "@/components/DateTimePicker";
 import dynamic from "next/dynamic";
 import { nivelES } from "@/lib/i18n";
@@ -33,6 +34,7 @@ const stepTitles = ["Información básica", "Fecha y hora", "Cupos", "Confirmar"
 
 export default function CreateMatchWizard() {
   const MiniMap = dynamic(() => import("@/components/MatchMiniMap"), { ssr: false });
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [venueReady, setVenueReady] = useState(false);
@@ -122,9 +124,8 @@ export default function CreateMatchWizard() {
         alert(txt || "Error al crear partido");
         return;
       }
-      const data = await res.json().catch(() => null);
-      const id = data?.match?.id;
-      window.location.href = id ? `/match/${id}` : "/explorar";
+      await res.json().catch(() => null);
+      router.push("/panel/cancha/partidos");
     } finally {
       setBusy(false);
     }

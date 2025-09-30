@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
         role: true,
         emailVerifiedAt: true,
         disabledAt: true,
+        passwordHash: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
@@ -49,8 +50,8 @@ export async function POST(req: NextRequest) {
     try {
       hash = await getPasswordHash(user.id);
     } catch {}
-    if (!hash && (user as any).passwordHash) {
-      hash = (user as any).passwordHash as string;
+    if (!hash && user.passwordHash) {
+      hash = user.passwordHash;
     }
     if (!hash) {
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
