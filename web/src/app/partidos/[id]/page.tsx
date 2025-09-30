@@ -1049,11 +1049,6 @@ export default function MatchDetailPage() {
                     );
                   }
                   return (
-<<<<<<< HEAD
-                    <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
-                      Reserva tu cupo para elegir tu posición.
-                    </span>
-=======
                   <button
                     onClick={startJoinFlow}
                     disabled={joining}
@@ -1062,7 +1057,6 @@ export default function MatchDetailPage() {
                     <Pencil className="h-4 w-4" />
                     {isPaidMatch ? "Reservar y pagar" : "Elegir mi posición"}
                   </button>
->>>>>>> 13f9ce2da8f1aa00fd7ed8a458e93f0cbcbe2d5d
                   );
                 })()}
               </div>
