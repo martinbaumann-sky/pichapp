@@ -35,6 +35,7 @@ export default function Header() {
     (user?.isAdmin ? "superadmin" : undefined);
   const canAccessVenuePanel = userRole === "venue_admin" || userRole === "superadmin";
   const isVenueAdmin = userRole === "venue_admin";
+  const isVenueMarketingView = pathname?.startsWith("/cancha") ?? false;
   const [authOpen, setAuthOpen] = useState(false);
   const [authNext, setAuthNext] = useState<string | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -109,23 +110,25 @@ export default function Header() {
     </button>
   );
 
-  const mainNavItems: NavItem[] = canAccessVenuePanel
-    ? [
-        { type: "link", href: "/panel/cancha", label: "Mi Panel" },
-        { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido", variant: "primary" },
-        { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
-      ]
-    : user
+  const mainNavItems: NavItem[] = isVenueMarketingView
+    ? []
+    : canAccessVenuePanel
       ? [
-          { type: "link", href: "/explorar", label: "Explorar" },
-          { type: "link", href: "/reservas", label: "Reservas" },
-          { type: "link", href: "/amigos", label: "Amigos" },
-          { type: "link", href: "/mensajes", label: "Mensajes" },
+          { type: "link", href: "/panel/cancha", label: "Mi Panel" },
+          { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido", variant: "primary" },
+          { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
         ]
-      : [
-          { type: "link", href: "/explorar", label: "Explorar" },
-          { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
-        ];
+      : user
+        ? [
+            { type: "link", href: "/explorar", label: "Explorar" },
+            { type: "link", href: "/reservas", label: "Reservas" },
+            { type: "link", href: "/amigos", label: "Amigos" },
+            { type: "link", href: "/mensajes", label: "Mensajes" },
+          ]
+        : [
+            { type: "link", href: "/explorar", label: "Explorar" },
+            { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
+          ];
 
   const renderMenuContent = () => (
     <DropdownMenu.Portal>
@@ -279,7 +282,14 @@ export default function Header() {
 
         {/* Perfil / Auth */}
         <div className="relative flex items-center gap-3">
-          {!user ? (
+          {isVenueMarketingView && !user ? (
+            <Link
+              href="/cancha/ingresar"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand to-accent px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-brand-600 hover:to-accent-600"
+            >
+              Iniciar sesión
+            </Link>
+          ) : !user ? (
             <button
               aria-label="perfil"
               onClick={openLoginDialog}
@@ -436,31 +446,41 @@ export default function Header() {
           >
             <div className="container container-px pb-4">
               <div className="flex flex-col gap-2">
-                {mainNavItems.map((item) =>
-                  item.type === "link" ? (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
-                    >
-                      {item.label}
-                    </Link>
-                  ) : (
-                    <button
-                      key={"mobile-action-" + item.label}
-                      type="button"
-                      onClick={() => {
-                        setMobileOpen(false);
-                        item.onClick();
-                      }}
-                      className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors text-left touch-target"
-                    >
-                      {item.label}
-                    </button>
+                {isVenueMarketingView && !user ? (
+                  <Link
+                    href="/cancha/ingresar"
+                    onClick={() => setMobileOpen(false)}
+                    className="px-4 py-3 rounded-xl text-sm bg-white/90 font-semibold text-gray-900 shadow-sm transition hover:bg-white"
+                  >
+                    Iniciar sesión
+                  </Link>
+                ) : (
+                  mainNavItems.map((item) =>
+                    item.type === "link" ? (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
+                      >
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <button
+                        key={"mobile-action-" + item.label}
+                        type="button"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          item.onClick();
+                        }}
+                        className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors text-left touch-target"
+                      >
+                        {item.label}
+                      </button>
+                    )
                   )
                 )}
-                {!canAccessVenuePanel && (
+                {!isVenueMarketingView && !canAccessVenuePanel && (
                   <Link
                     href="/cancha"
                     onClick={() => setMobileOpen(false)}

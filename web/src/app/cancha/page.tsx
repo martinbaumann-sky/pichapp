@@ -172,34 +172,18 @@ export default function CanchaLandingPage() {
       </section>
 
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold text-gray-900">Onboarding guiado y soporte local</h2>
-            <p className="text-gray-600">
-              Nuestro equipo te acompaña en cada paso para que publiques tu primer partido oficial en minutos y comiences a cobrar de inmediato.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {onboardingSteps.map((step) => (
-                <div key={step.title} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <h3 className="font-semibold text-gray-900">{step.title}</h3>
-                  <p className="mt-2 text-xs text-gray-600">{step.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-gray-900 text-white rounded-3xl p-8 lg:p-10 space-y-6">
-            <h3 className="text-2xl font-semibold">¿Listo para escalar tus reservas?</h3>
-            <p className="text-sm text-gray-300">
-              Agenda una demo con nuestro equipo para conocer a fondo el panel de canchas y resolver tus dudas de integración.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <a href="mailto:hola@pichangapp.cl" className="btn-secondary btn-mobile sm:px-10 sm:py-4">
-                Solicitar demo
-              </a>
-              <Link href="/ayuda" className="btn-ghost btn-mobile sm:px-10 sm:py-4 text-white border-white/40 hover:border-white">
-                Ver documentación
-              </Link>
-            </div>
+        <div className="space-y-6">
+          <h2 className="text-3xl font-bold text-gray-900">Onboarding guiado y soporte local</h2>
+          <p className="text-gray-600">
+            Nuestro equipo te acompaña en cada paso para que publiques tu primer partido oficial en minutos y comiences a cobrar de inmediato.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {onboardingSteps.map((step) => (
+              <div key={step.title} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <h3 className="font-semibold text-gray-900">{step.title}</h3>
+                <p className="mt-2 text-xs text-gray-600">{step.description}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
