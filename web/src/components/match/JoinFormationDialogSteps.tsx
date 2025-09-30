@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import type { PositionKey, TeamKey } from "@/lib/teams";
 import { FormationBoard, type FormationSlotView, type FormationPlayer } from "@/components/match/FormationBoard";
@@ -45,6 +46,9 @@ export type JoinFormationDialogStepsProps = {
   onFriendCountChange?: (count: number) => void;
   friends?: InviteFriendDraft[];
   onUpdateFriend?: (index: number, draft: InviteFriendDraft) => void;
+  confirmCtaLabel?: string;
+  confirmNotice?: ReactNode;
+  importantNotice?: ReactNode;
 };
 
 type Step = "position" | "friends" | "confirm";
@@ -68,15 +72,30 @@ export function JoinFormationDialogSteps({
   onFriendCountChange,
   friends = [],
   onUpdateFriend,
+  confirmCtaLabel = "Confirmar registro",
+  confirmNotice = null,
+  importantNotice,
 }: JoinFormationDialogStepsProps) {
   const [currentStep, setCurrentStep] = useState<Step>("position");
-  const boundedFriendCount = Math.min(friendCount, maxFriends);
-  const canAdjustFriends = typeof onFriendCountChange === "function" && maxFriends > 0;
+  const allowFriends = maxFriends > 0;
+  const boundedFriendCount = allowFriends ? Math.min(friendCount, maxFriends) : 0;
+  const canAdjustFriends = typeof onFriendCountChange === "function" && allowFriends;
+
+  useEffect(() => {
+    if (!allowFriends && currentStep === "friends") {
+      setCurrentStep("confirm");
+    }
+  }, [allowFriends, currentStep]);
+
+  const stepOrder = useMemo<Step[]>(
+    () => (allowFriends ? ["position", "friends", "confirm"] : ["position", "confirm"]),
+    [allowFriends],
+  );
 
   const handleNext = () => {
     if (currentStep === "position") {
       if (selectedSlot) {
-        setCurrentStep("friends");
+        setCurrentStep(allowFriends ? "friends" : "confirm");
       }
     } else if (currentStep === "friends") {
       setCurrentStep("confirm");
@@ -87,7 +106,7 @@ export function JoinFormationDialogSteps({
     if (currentStep === "friends") {
       setCurrentStep("position");
     } else if (currentStep === "confirm") {
-      setCurrentStep("friends");
+      setCurrentStep(allowFriends ? "friends" : "position");
     }
   };
 
@@ -101,9 +120,9 @@ export function JoinFormationDialogSteps({
       case "position":
         return "Paso 1: Elige tu posición";
       case "friends":
-        return "Paso 2: Invita amigos";
+        return allowFriends ? "Paso 2: Invita amigos" : "Paso 2: Revisa tu cupo";
       case "confirm":
-        return "Paso 3: Confirma tu registro";
+        return allowFriends ? "Paso 3: Confirma tu registro" : "Paso 2: Confirma tu registro";
       default:
         return title;
     }
@@ -114,7 +133,9 @@ export function JoinFormationDialogSteps({
       case "position":
         return "Selecciona el equipo y posición donde quieres jugar.";
       case "friends":
-        return "¿Quieres invitar amigos? Puedes traer hasta " + maxFriends + " amigos.";
+        return allowFriends
+          ? "¿Quieres invitar amigos? Puedes traer hasta " + maxFriends + " amigos."
+          : "Revisa que tu selección esté correcta antes de confirmar.";
       case "confirm":
         return "Revisa tu selección y confirma tu registro.";
       default:
@@ -286,8 +307,8 @@ export function JoinFormationDialogSteps({
   const renderConfirmStep = () => {
     const selectedTeamData = teams.find((t) => t.team === selectedTeam);
     const selectedSlotData = selectedTeamData?.slots.find((s) => s.index === selectedSlot?.slotIndex);
-    const friendEntries = friends.slice(0, friendCount);
-    const hasFriends = friendCount > 0 && friendEntries.length > 0;
+    const friendEntries = friends.slice(0, boundedFriendCount);
+    const hasFriends = allowFriends && boundedFriendCount > 0 && friendEntries.length > 0;
 
     return (
       <div className="space-y-6">
@@ -328,6 +349,12 @@ export function JoinFormationDialogSteps({
             </div>
           </div>
         </div>
+
+        {confirmNotice ? (
+          <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-700 shadow-sm">
+            {confirmNotice}
+          </div>
+        ) : null}
 
         {hasFriends && (
           <div className="rounded-3xl border border-slate-200 bg-slate-50/90 p-6 shadow-sm">
@@ -393,18 +420,22 @@ export function JoinFormationDialogSteps({
         )}
 
         <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white p-6 shadow-inner">
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
-              <AlertTriangle className="h-5 w-5" />
-            </span>
-            <div className="text-sm text-amber-800">
-              <p className="font-semibold">Importante</p>
-              <p className="mt-1">
-                Al confirmar, tu cupo quedará reservado. Si tienes amigos invitados,
-                también se reservarán sus cupos automáticamente.
-              </p>
+          {importantNotice ? (
+            importantNotice
+          ) : (
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+              <div className="text-sm text-amber-800">
+                <p className="font-semibold">Importante</p>
+                <p className="mt-1">
+                  Al confirmar, tu cupo quedará reservado. Si tienes amigos invitados,
+                  también se reservarán sus cupos automáticamente.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     );
@@ -415,7 +446,7 @@ export function JoinFormationDialogSteps({
       case "position":
         return renderPositionStep();
       case "friends":
-        return renderFriendsStep();
+        return allowFriends ? renderFriendsStep() : renderConfirmStep();
       case "confirm":
         return renderConfirmStep();
       default:
@@ -475,11 +506,11 @@ export function JoinFormationDialogSteps({
                     <div className="flex items-center gap-2">
                       {currentStep !== "position" && (
                         <div className="flex items-center gap-1">
-                          {["position", "friends", "confirm"].map((step, index) => (
+                          {stepOrder.map((step, index) => (
                             <div
                               key={step}
                               className={`h-2 w-2 rounded-full ${
-                                index <= ["position", "friends", "confirm"].indexOf(currentStep)
+                                index <= stepOrder.indexOf(currentStep)
                                   ? "bg-emerald-500"
                                   : "bg-slate-200"
                               }`}
@@ -487,7 +518,7 @@ export function JoinFormationDialogSteps({
                           ))}
                         </div>
                       )}
-                      
+
                       {currentStep === "confirm" ? (
                         <button
                           type="button"
@@ -495,7 +526,7 @@ export function JoinFormationDialogSteps({
                           disabled={!canProceed() || loading}
                           className="rounded-full bg-emerald-500 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {loading ? "Confirmando..." : "Confirmar registro"}
+                          {loading ? "Confirmando..." : confirmCtaLabel}
                         </button>
                       ) : (
                         <button

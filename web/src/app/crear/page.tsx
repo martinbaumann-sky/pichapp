@@ -24,6 +24,7 @@ export default function CreateMatchPage() {
     comuna: "",
     startsAt: "",
     durationMins: 90,
+    pricePerSpot: "0",
     totalSpots: 10,
     minSpotsToConfirm: 6,
     level: "BEGINNER",
@@ -51,15 +52,16 @@ export default function CreateMatchPage() {
         coverImageUrl = undefined;
       }
              // Construir el título final incluyendo el número de cancha si existe
-       const finalTitle = formData.fieldNumber 
+       const finalTitle = formData.fieldNumber
          ? `${formData.title} - ${formData.fieldNumber}`
          : formData.title;
-         
+
        const payload = {
          ...formData,
          title: finalTitle,
          // Normalizar strings a números
          durationMins: Number(formData.durationMins || 0),
+         pricePerSpot: Number(formData.pricePerSpot || 0),
          totalSpots: Number(formData.totalSpots || 0),
          minSpotsToConfirm: Number(formData.minSpotsToConfirm || 0),
          occupiedSpots: Number(formData.occupiedSpots || 0) || 0,
@@ -168,6 +170,13 @@ export default function CreateMatchPage() {
           });
         }
         return { ...prev, occupiedSpots: clamped.toString() };
+      }
+      if (name === "pricePerSpot") {
+        const cleaned = value.replace(/[^0-9]/g, "");
+        return {
+          ...prev,
+          pricePerSpot: cleaned,
+        };
       }
       return {
         ...prev,
@@ -323,9 +332,29 @@ export default function CreateMatchPage() {
               <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">
                 Detalles del Partido
               </h2>
-              
+
               <div className="grid md:grid-cols-3 gap-6">
-                
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Precio por cupo (CLP)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      name="pricePerSpot"
+                      value={formData.pricePerSpot}
+                      onChange={handleChange}
+                      className="w-full pl-7 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
+                      placeholder="0"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Puedes cobrar en pesos chilenos. PichangApp retiene el 10% de cada cupo vendido.
+                  </p>
+                </div>
+
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Cupos máximos disponibles

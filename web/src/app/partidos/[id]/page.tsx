@@ -7,7 +7,7 @@ import type { FriendStatus } from "@/lib/friendship";
 import { useAuth, resolveUserRole } from "@/hooks/useAuth";
 import { useRoleGate } from "@/hooks/useRoleGate";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, AlertTriangle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
@@ -73,6 +73,10 @@ export default function MatchDetailPage() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteTempCount, setInviteTempCount] = useState(0);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+
+  const pricePerSpot = match?.pricePerSpot ?? 0;
+  const isPaidMatch = pricePerSpot > 0;
+  const holdMinutes = 15;
 
   const loadMatch = useCallback(async () => {
     setLoading(true);
@@ -217,7 +221,10 @@ export default function MatchDetailPage() {
   const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
   const isFull = availableSpots === 0;
   const isAlmostFull = availableSpots <= 2;
-  const maxInvitableFriends = useMemo(() => Math.max(0, availableSpots - 1), [availableSpots]);
+  const maxInvitableFriends = useMemo(
+    () => (isPaidMatch ? 0 : Math.max(0, availableSpots - 1)),
+    [availableSpots, isPaidMatch],
+  );
 
   const initializeJoinSelection = useCallback(() => {
     const sorted = [...formationData.teams].sort((a, b) => b.availableSlots - a.availableSlots);
@@ -250,8 +257,15 @@ export default function MatchDetailPage() {
       return;
     }
     setInviteTempCount(0);
+    if (isPaidMatch) {
+      initializeJoinSelection();
+      setJoinFriendCount(0);
+      setJoinFriends([]);
+      setJoinDialogOpen(true);
+      return;
+    }
     setInviteDialogOpen(true);
-  }, [isVenueViewer, user]);
+  }, [user, isPaidMatch, initializeJoinSelection]);
 
   const proceedFromInvite = useCallback(() => {
     initializeJoinSelection();
@@ -267,6 +281,14 @@ export default function MatchDetailPage() {
     setInviteDialogOpen(false);
     setJoinDialogOpen(true);
   }, [initializeJoinSelection, inviteTempCount, maxInvitableFriends]);
+
+  useEffect(() => {
+    if (isPaidMatch) {
+      setJoinFriendCount(0);
+      setJoinFriends([]);
+      setInviteDialogOpen(false);
+    }
+  }, [isPaidMatch]);
 
 
   const closeJoinDialog = useCallback(() => {
@@ -313,6 +335,10 @@ export default function MatchDetailPage() {
       setJoinError("Selecciona una posición disponible.");
       return;
     }
+    if (isPaidMatch && joinFriendCount > 0) {
+      setJoinError("Cada jugador debe pagar su propio cupo en este partido.");
+      return;
+    }
     const localFriendEntries = joinFriends.slice(0, joinFriendCount);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const localFriendsValid = joinFriendCount === 0 || localFriendEntries.every((friend) => {
@@ -322,6 +348,47 @@ export default function MatchDetailPage() {
     });
     if (!localFriendsValid) {
       setJoinError("Completa los datos de tus invitados antes de continuar.");
+      return;
+    }
+    if (isPaidMatch) {
+      setJoining(true);
+      setJoinError(null);
+      try {
+        const res = await fetch(`/api/matches/${id}/checkout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            team: joinSelectedSlot.team,
+            position: joinSelectedSlot.position,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error || data?.message || "No se pudo iniciar el pago");
+        }
+        if (data?.alreadyJoined) {
+          const successMessage = data?.message || "Tu cupo ya estaba confirmado.";
+          setToast(successMessage);
+          setTimeout(() => setToast(null), 3000);
+          setJoinDialogOpen(false);
+          setJoinSelectedSlot(null);
+          await loadMatch();
+          return;
+        }
+        if (data?.redirectUrl) {
+          setJoinDialogOpen(false);
+          setJoinSelectedSlot(null);
+          window.location.href = data.redirectUrl as string;
+          return;
+        }
+        throw new Error("No recibimos la URL de pago desde Mercado Pago.");
+      } catch (e: any) {
+        const msg = e?.message ?? "No se pudo iniciar el pago";
+        setJoinError(msg);
+      } finally {
+        setJoining(false);
+      }
       return;
     }
     const teamPositionPool = new Map<TeamKey, PositionKey[]>();
@@ -396,6 +463,7 @@ export default function MatchDetailPage() {
     joinFriends,
     joinFriendCount,
     formationData,
+    isPaidMatch,
   ]);
 
   useEffect(() => {
@@ -640,6 +708,28 @@ export default function MatchDetailPage() {
   const timeLabel = startAt ? `${timeFormatter.format(startAt)}${estimatedEndAt ? ` - ${timeFormatter.format(estimatedEndAt)}` : ""}` : "Horario por confirmar";
   const durationLabel = `${match.durationMins ?? 90} minutos`;
   const priceLabel = match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(match.pricePerSpot) : "Gratis";
+  const paymentConfirmNotice = isPaidMatch ? (
+    <div className="space-y-1">
+      <p className="text-base font-semibold text-slate-900">Total a pagar: {priceLabel}</p>
+      <p className="text-sm text-slate-600">
+        Al confirmar te llevaremos a Mercado Pago para finalizar el pago de tu cupo.
+      </p>
+    </div>
+  ) : null;
+  const paymentImportantNotice = isPaidMatch ? (
+    <div className="flex items-start gap-3">
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+        <AlertTriangle className="h-5 w-5" />
+      </span>
+      <div className="text-sm text-amber-800">
+        <p className="font-semibold">Importante</p>
+        <p className="mt-1">
+          Tu cupo quedará reservado por {holdMinutes} minuto{holdMinutes === 1 ? "" : "s"} mientras completas el pago en
+          Mercado Pago. Si el pago no se confirma a tiempo, liberaremos el cupo automáticamente.
+        </p>
+      </div>
+    </div>
+  ) : null;
   const spotsLeft = Math.max(availableSpots, 0);
   const spotsHeadline = isFull
     ? "Partido completo"
@@ -959,9 +1049,20 @@ export default function MatchDetailPage() {
                     );
                   }
                   return (
+<<<<<<< HEAD
                     <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
                       Reserva tu cupo para elegir tu posición.
                     </span>
+=======
+                  <button
+                    onClick={startJoinFlow}
+                    disabled={joining}
+                    className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    {isPaidMatch ? "Reservar y pagar" : "Elegir mi posición"}
+                  </button>
+>>>>>>> 13f9ce2da8f1aa00fd7ed8a458e93f0cbcbe2d5d
                   );
                 })()}
               </div>
@@ -1066,13 +1167,22 @@ export default function MatchDetailPage() {
         confirmDisabled={!joinSelectedSlot || joining || !friendsValid}
         loading={joining}
         errorMessage={joinError}
-        maxFriends={maxInvitableFriends}
+        maxFriends={isPaidMatch ? 0 : maxInvitableFriends}
         friendCount={joinFriendCount}
         onFriendCountChange={handleFriendCountChange}
         friends={joinFriends}
         onUpdateFriend={handleUpdateFriend}
+        title={isPaidMatch ? "Reserva y paga tu cupo" : undefined}
+        description={
+          isPaidMatch
+            ? "Selecciona equipo y posición antes de ir al pago con Mercado Pago."
+            : undefined
+        }
+        confirmCtaLabel={isPaidMatch ? "Pagar con Mercado Pago" : "Confirmar registro"}
+        confirmNotice={paymentConfirmNotice}
+        importantNotice={paymentImportantNotice}
       />
-      {inviteDialogOpen && (
+      {!isPaidMatch && inviteDialogOpen && (
         <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setInviteDialogOpen(false)} />
           <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
