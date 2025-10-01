@@ -8,7 +8,7 @@ import type { FriendStatus } from "@/lib/friendship";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoleGate } from "@/hooks/useRoleGate";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, AlertTriangle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
@@ -69,9 +69,11 @@ export default function MatchDetailPage() {
   const [joinFriendCount, setJoinFriendCount] = useState(0);
   const [joinFriends, setJoinFriends] = useState<InviteFriendDraft[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [inviteTempCount, setInviteTempCount] = useState(0);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+
+  const pricePerSpot = match?.pricePerSpot ?? 0;
+  const isPaidMatch = pricePerSpot > 0;
+  const holdMinutes = 15;
 
   const loadMatch = useCallback(async () => {
     setLoading(true);
@@ -216,7 +218,10 @@ export default function MatchDetailPage() {
   const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
   const isFull = availableSpots === 0;
   const isAlmostFull = availableSpots <= 2;
-  const maxInvitableFriends = useMemo(() => Math.max(0, availableSpots - 1), [availableSpots]);
+  const maxInvitableFriends = useMemo(
+    () => Math.max(0, availableSpots - 1),
+    [availableSpots],
+  );
 
   const initializeJoinSelection = useCallback(() => {
     const sorted = [...formationData.teams].sort((a, b) => b.availableSlots - a.availableSlots);
@@ -245,24 +250,11 @@ export default function MatchDetailPage() {
       setAuthOpen(true);
       return;
     }
-    setInviteTempCount(0);
-    setInviteDialogOpen(true);
-  }, [user]);
-
-  const proceedFromInvite = useCallback(() => {
     initializeJoinSelection();
-    const bounded = Math.max(0, Math.min(inviteTempCount, maxInvitableFriends));
-    setJoinFriendCount(bounded);
-    setJoinFriends((prev) => {
-      const next = [...prev];
-      while (next.length < bounded) {
-        next.push({ name: "", email: "", team: "", position: "" });
-      }
-      return next.slice(0, bounded);
-    });
-    setInviteDialogOpen(false);
+    setJoinFriendCount(0);
+    setJoinFriends([]);
     setJoinDialogOpen(true);
-  }, [initializeJoinSelection, inviteTempCount, maxInvitableFriends]);
+  }, [user, initializeJoinSelection]);
 
 
   const closeJoinDialog = useCallback(() => {
@@ -318,6 +310,55 @@ export default function MatchDetailPage() {
     });
     if (!localFriendsValid) {
       setJoinError("Completa los datos de tus invitados antes de continuar.");
+      return;
+    }
+    if (isPaidMatch) {
+      setJoining(true);
+      setJoinError(null);
+      try {
+        const sanitizedFriends = localFriendEntries.map((friend) => ({
+          name: friend.name.trim(),
+          email: friend.email.trim(),
+          team: friend.team || null,
+          position: friend.position || null,
+        }));
+        const res = await fetch(`/api/matches/${id}/checkout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            team: joinSelectedSlot.team,
+            position: joinSelectedSlot.position,
+            friendCount: joinFriendCount,
+            friends: sanitizedFriends,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error || data?.message || "No se pudo iniciar el pago");
+        }
+        if (data?.alreadyJoined) {
+          const successMessage = data?.message || "Tu cupo ya estaba confirmado.";
+          setToast(successMessage);
+          setTimeout(() => setToast(null), 3000);
+          setJoinDialogOpen(false);
+          setJoinSelectedSlot(null);
+          await loadMatch();
+          return;
+        }
+        if (data?.redirectUrl) {
+          setJoinDialogOpen(false);
+          setJoinSelectedSlot(null);
+          window.location.href = data.redirectUrl as string;
+          return;
+        }
+        throw new Error("No recibimos la URL de pago desde Mercado Pago.");
+      } catch (e: any) {
+        const msg = e?.message ?? "No se pudo iniciar el pago";
+        setJoinError(msg);
+      } finally {
+        setJoining(false);
+      }
       return;
     }
     const teamPositionPool = new Map<TeamKey, PositionKey[]>();
@@ -392,6 +433,7 @@ export default function MatchDetailPage() {
     joinFriends,
     joinFriendCount,
     formationData,
+    isPaidMatch,
   ]);
 
   useEffect(() => {
@@ -571,6 +613,15 @@ export default function MatchDetailPage() {
       return nameOk && emailOk;
     });
   }, [friendEntries, joinFriendCount]);
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("es-CL", {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0,
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (joinFriendCount > maxInvitableFriends) {
@@ -634,7 +685,38 @@ export default function MatchDetailPage() {
   const dateLabel = startAt ? capitalize(dateFormatter.format(startAt)) : "Fecha por confirmar";
   const timeLabel = startAt ? `${timeFormatter.format(startAt)}${estimatedEndAt ? ` - ${timeFormatter.format(estimatedEndAt)}` : ""}` : "Horario por confirmar";
   const durationLabel = `${match.durationMins ?? 90} minutos`;
-  const priceLabel = match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(match.pricePerSpot) : "Gratis";
+  const priceLabel = match.pricePerSpot > 0 ? currencyFormatter.format(match.pricePerSpot) : "Gratis";
+  const totalPlayersSelected = 1 + joinFriendCount;
+  const totalAmountCLP = (match.pricePerSpot ?? 0) * totalPlayersSelected;
+  const totalAmountLabel = match.pricePerSpot > 0 ? currencyFormatter.format(totalAmountCLP) : "Gratis";
+  const paymentConfirmNotice = isPaidMatch ? (
+    <div className="space-y-1">
+      <p className="text-base font-semibold text-slate-900">Total a pagar: {totalAmountLabel}</p>
+      {match.pricePerSpot > 0 && totalPlayersSelected > 1 ? (
+        <p className="text-xs font-medium text-slate-500">
+          {priceLabel} × {totalPlayersSelected} jugador{totalPlayersSelected === 1 ? "" : "es"}
+        </p>
+      ) : null}
+      <p className="text-sm text-slate-600">
+        Al confirmar te llevaremos a Mercado Pago para finalizar el pago de tus cupos.
+      </p>
+    </div>
+  ) : null;
+  const paymentImportantNotice = isPaidMatch ? (
+    <div className="flex items-start gap-3">
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+        <AlertTriangle className="h-5 w-5" />
+      </span>
+      <div className="text-sm text-amber-800">
+        <p className="font-semibold">Importante</p>
+        <p className="mt-1">
+          Reservaremos {totalPlayersSelected} cupo{totalPlayersSelected === 1 ? "" : "s"} por {holdMinutes} minuto
+          {holdMinutes === 1 ? "" : "s"} mientras completas el pago en Mercado Pago. Si el pago no se confirma a tiempo,
+          liberaremos los cupos automáticamente.
+        </p>
+      </div>
+    </div>
+  ) : null;
   const spotsLeft = Math.max(availableSpots, 0);
   const spotsHeadline = isFull
     ? "Partido completo"
@@ -667,6 +749,14 @@ export default function MatchDetailPage() {
     { icon: Timer, label: "Duración", value: durationLabel },
     { icon: Users, label: "Jugadores", value: `${minSpotsToConfirm} - ${totalSpots} jugadores` },
   ] as const;
+  const joinDialogMatchSummary = {
+    title: typeof match.title === "string" && match.title.trim().length > 0 ? match.title : "Partido",
+    dateLabel,
+    timeLabel,
+    venueLabel: addressLabel,
+    spotsLeftLabel: spotsHeadline,
+    pricePerSpot: match.pricePerSpot ?? 0,
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900">
@@ -914,14 +1004,14 @@ export default function MatchDetailPage() {
                     );
                   }
                   return (
-                    <button
-                      onClick={startJoinFlow}
-                      disabled={joining}
-                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Elegir mi posición
-                    </button>
+                  <button
+                    onClick={startJoinFlow}
+                    disabled={joining}
+                    className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    {isPaidMatch ? "Reservar y pagar" : "Elegir mi posición"}
+                  </button>
                   );
                 })()}
               </div>
@@ -1031,55 +1121,19 @@ export default function MatchDetailPage() {
         onFriendCountChange={handleFriendCountChange}
         friends={joinFriends}
         onUpdateFriend={handleUpdateFriend}
+        title={isPaidMatch ? "Reserva y paga tu cupo" : undefined}
+        description={
+          isPaidMatch
+            ? "Selecciona equipo y posición antes de ir al pago con Mercado Pago."
+            : undefined
+        }
+        confirmCtaLabel={isPaidMatch ? "Pagar con Mercado Pago" : "Confirmar registro"}
+        confirmNotice={paymentConfirmNotice}
+        importantNotice={paymentImportantNotice}
+        matchSummary={joinDialogMatchSummary}
+        isPaidMatch={isPaidMatch}
+        friendsValid={friendsValid}
       />
-      {inviteDialogOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setInviteDialogOpen(false)} />
-          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-slate-800">¿Quieres invitar amigos?</h3>
-            <p className="mt-1 text-sm text-slate-600">Elige cuántos amigos traerás además de tu cupo.</p>
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                onClick={() => setInviteTempCount(Math.max(0, inviteTempCount - 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
-                aria-label="disminuir"
-              >
-                -
-              </button>
-              <input
-                type="number"
-                min={0}
-                max={maxInvitableFriends}
-                value={inviteTempCount}
-                onChange={(e) => setInviteTempCount(Math.max(0, Math.min(Number(e.target.value) || 0, maxInvitableFriends)))}
-                className="w-20 rounded-lg border border-slate-200 bg-white p-2 text-center text-slate-800"
-              />
-              <button
-                onClick={() => setInviteTempCount(Math.min(maxInvitableFriends, inviteTempCount + 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
-                aria-label="aumentar"
-              >
-                +
-              </button>
-              <span className="text-sm text-slate-500">máx. {maxInvitableFriends}</span>
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setInviteDialogOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={proceedFromInvite}
-                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
-              >
-                Continuar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {leaveConfirmOpen && (
         <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setLeaveConfirmOpen(false)} />
