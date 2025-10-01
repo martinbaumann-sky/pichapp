@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
         role: true,
         emailVerifiedAt: true,
         disabledAt: true,
+        passwordHash: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
@@ -45,12 +46,22 @@ export async function POST(req: NextRequest) {
     if (user.disabledAt) {
       return NextResponse.json({ ok: false, error: "Tu cuenta está bloqueada." }, { status: 403 });
     }
+    const normalizedRole = String(user.role ?? (user.isAdmin ? "SUPERADMIN" : "PLAYER")).toUpperCase();
+    if (normalizedRole === "VENUE_ADMIN") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Inicia sesión como cancha desde /cancha/ingresar.",
+        },
+        { status: 403 }
+      );
+    }
     let hash: string | null = null;
     try {
       hash = await getPasswordHash(user.id);
     } catch {}
-    if (!hash && (user as any).passwordHash) {
-      hash = (user as any).passwordHash as string;
+    if (!hash && user.passwordHash) {
+      hash = user.passwordHash;
     }
     if (!hash) {
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });

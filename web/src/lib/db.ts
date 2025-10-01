@@ -6,21 +6,40 @@ const shouldSkipValidation =
   process.env.npm_lifecycle_event === "build";
 
 const ensureDatabaseEnv = () => {
+  const pickFirst = (...candidates: (string | undefined)[]) =>
+    candidates.find((value) => typeof value === "string" && value.trim().length > 0);
+
   if (!process.env.DATABASE_URL) {
-    const fallback = process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL;
+    const prismaDb = process.env.PRISMA_DATABASE_URL;
+    const fallback = pickFirst(
+      process.env.POSTGRES_PRISMA_URL,
+      process.env.POSTGRES_URL,
+      process.env.POSTGRES_DATABASE_URL,
+      process.env.POSTGRES_URL_POSTGRES,
+      process.env.POSTGRES_URL_NON_POOLING,
+      // Explicit Prisma Accelerate connection strings start with prisma:// so avoid using them for direct connections.
+      prismaDb && prismaDb.startsWith("postgres") ? prismaDb : undefined,
+      process.env.DIRECT_URL,
+    );
     if (fallback) {
       process.env.DATABASE_URL = fallback;
     }
   }
+
   if (!process.env.DIRECT_URL) {
-    const direct = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
+    const direct = pickFirst(
+      process.env.POSTGRES_URL_NON_POOLING,
+      process.env.POSTGRES_DIRECT_URL,
+      process.env.POSTGRES_URL,
+      process.env.POSTGRES_DATABASE_URL,
+      process.env.POSTGRES_URL_POSTGRES,
+      process.env.DATABASE_URL,
+    );
     if (direct) {
       process.env.DIRECT_URL = direct;
     }
   }
-  if (!process.env.DIRECT_URL && process.env.DATABASE_URL) {
-    process.env.DIRECT_URL = process.env.DATABASE_URL;
-  }
+
   if (!process.env.DATABASE_URL && !shouldSkipValidation) {
     throw new Error("DATABASE_URL environment variable is required for Prisma.");
   }

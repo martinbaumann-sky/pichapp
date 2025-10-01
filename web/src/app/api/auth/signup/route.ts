@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { setPasswordHash } from "@/lib/auth-password";
+import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 import { normalizeForStorage } from "@/lib/phone";
 
@@ -62,19 +63,46 @@ export async function POST(req: NextRequest) {
           },
         },
       },
-      select: { id: true, email: true, profile: { select: { name: true } } },
+      select: { id: true, email: true, profile: { select: { name: true, comuna: true, position: true } } },
     });
 
     try {
       await setPasswordHash(user.id, passwordHash);
     } catch {}
 
-    // Respondemos indicando éxito y omitiendo el paso de verificación.
-    return NextResponse.json({ ok: true, requiresVerification: false, email });
+    const token = await createSession(user.id);
+    const responseBody = {
+      ok: true,
+      requiresVerification: false,
+      email,
+      user: sanitizeUser({
+        id: user.id,
+        email: user.email,
+        profile: user.profile,
+      }),
+    };
+    const res = NextResponse.json(responseBody);
+    attachSessionCookie(res, token);
+    return res;
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message || "No se pudo crear la cuenta" },
       { status: 500 }
     );
   }
+}
+
+function sanitizeUser(
+  u: { id: string; email: string; profile?: { name: string | null; comuna: string | null; position: string | null } | null },
+) {
+  return {
+    id: u.id,
+    email: u.email,
+    emailVerified: false,
+    isAdmin: false,
+    role: "player",
+    name: u.profile?.name ?? null,
+    comuna: u.profile?.comuna ?? null,
+    position: u.profile?.position ?? null,
+  };
 }

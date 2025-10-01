@@ -51,10 +51,10 @@ export default function PerfilPage() {
   }, [user]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Inicia sesiÃ³n para ver tu perfil.</div>;
+    return <div className="min-h-screen flex items-center justify-center">Inicia sesión para ver tu perfil.</div>;
   }
   if (!user) {
-    return <div className="min-h-screen flex items-center justify-center">Inicia sesiÃ³n para ver tu perfil.</div>;
+    return <div className="min-h-screen flex items-center justify-center">Inicia sesión para ver tu perfil.</div>;
   }
 
   const digitsPreview = form.phone.replace(/\D/g, "");
@@ -68,7 +68,7 @@ export default function PerfilPage() {
     // validate phone: fixed +569 XXXXXXXX (8 digits after 9)
     const digits = form.phone.replace(/\D/g, "");
     if (!/^\d{8}$/.test(digits)) {
-      alert("Ingresa 8 dÃ­Â­gitos para el celular (formato +569 XXXXXXXX)");
+      alert("Ingresa 8 dígitos para el celular (formato +569 XXXXXXXX)");
       setSaving(false);
       return;
     }
@@ -126,7 +126,7 @@ export default function PerfilPage() {
         </div>
         <div className="flex items-center gap-3">
           <button type="submit" disabled={saving} className="px-4 py-2 bg-black text-white rounded">{saving?"Guardando...":"Guardar cambios"}</button>
-          <button type="button" onClick={signOut} className="px-4 py-2 bg-gray-200 rounded">Cerrar sesiÃ³n</button>
+          <button type="button" onClick={signOut} className="px-4 py-2 bg-gray-200 rounded">Cerrar sesión</button>
         </div>
       </form>
     </div>

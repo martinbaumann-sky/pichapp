@@ -3,9 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
-import AddFriendButton from "@/components/AddFriendButton";
 import type { FriendStatus } from "@/lib/friendship";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, resolveUserRole } from "@/hooks/useAuth";
 import { useRoleGate } from "@/hooks/useRoleGate";
 import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
@@ -52,12 +51,14 @@ export default function MatchDetailPage() {
   const { user } = useAuth();
   const router = useRouter();
   const { status } = useRoleGate({
-    allow: ["player", "superadmin"],
+    allow: ["player", "superadmin", "venue_admin"],
     allowAnonymous: true,
-    enforceLogout: true,
-    message: "Cerramos tu sesión de cancha. Ingresa como jugador para revisar y unirte a partidos.",
+    enforceLogout: false,
+    message: "Tu cuenta no tiene permisos para ver este partido.",
   });
   const gateAllowed = status === "allowed";
+  const viewerRole = resolveUserRole(user);
+  const isVenueViewer = viewerRole === "venue_admin";
 
   const [joining, setJoining] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -241,13 +242,16 @@ export default function MatchDetailPage() {
   }, [formationData]);
 
   const startJoinFlow = useCallback(() => {
+    if (isVenueViewer) {
+      return;
+    }
     if (!user) {
       setAuthOpen(true);
       return;
     }
     setInviteTempCount(0);
     setInviteDialogOpen(true);
-  }, [user]);
+  }, [isVenueViewer, user]);
 
   const proceedFromInvite = useCallback(() => {
     initializeJoinSelection();
@@ -584,7 +588,7 @@ export default function MatchDetailPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-center text-sm text-gray-600">
           <div className="h-10 w-10 rounded-full border-b-2 border-gray-800 animate-spin" />
-          <p>{status === "denied" ? "Cerrando sesión de cuenta de cancha…" : "Preparando el partido..."}</p>
+          <p>{status === "denied" ? "Redirigiendo..." : "Preparando el partido..."}</p>
         </div>
       </div>
     );
@@ -620,6 +624,7 @@ export default function MatchDetailPage() {
   const canOpenChat = !!(viewer?.hasJoined || isOrganizer);
   const organizerFriendship = match.organizerFriendship ?? { status: "NONE", friendId: null };
   const initialFriendStatus = (organizerFriendship.status ?? "NONE") as FriendStatus;
+  const backHref = isVenueViewer ? "/panel/cancha/partidos" : "/explorar";
 
   const mapSectionId = "match-hero-map-section";
   const tabs: Array<{ id: "about" | "roster"; label: string }> = [
@@ -673,7 +678,7 @@ export default function MatchDetailPage() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center gap-3">
-            <Link href="/explorar" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition hover:bg-slate-50">
+            <Link href={backHref} className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition hover:bg-slate-50">
               <ArrowLeft className="h-5 w-5 text-slate-600" />
             </Link>
             <div className="flex-1 text-center sm:text-left">
@@ -755,10 +760,31 @@ export default function MatchDetailPage() {
             <div className="sticky top-20 z-10 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm backdrop-blur-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-800">¿Quieres jugar?</h3>
-                  <p className="text-sm text-slate-500">Reserva tu cupo. Podrás invitar amigos en el siguiente paso.</p>
+                  <h3 className="text-xl font-semibold text-slate-800">
+                    {isVenueViewer ? "Vista del partido" : "¿Quieres jugar?"}
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    {isVenueViewer
+                      ? "Estás revisando este partido como cancha. Gestiona cambios desde tu panel."
+                      : "Reserva tu cupo. Podrás invitar amigos en el siguiente paso."}
+                  </p>
                 </div>
                 {(() => {
+                  if (isVenueViewer) {
+                    return (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href="/panel/cancha/partidos"
+                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Volver al panel
+                        </Link>
+                        <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                          Los cupos se reservan con cuentas de jugador.
+                        </span>
+                      </div>
+                    );
+                  }
                   if (isFull) {
                     return (
                       <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">Partido completo</span>
@@ -889,12 +915,42 @@ export default function MatchDetailPage() {
         ) : (
           <section className="mt-8 space-y-6" id="jugadores">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-xl font-semibold text-slate-800">Formaciones</h3>
-                  <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
-                </div>
-                {(() => {
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xl font-semibold text-slate-800">Formaciones</h3>
+                    <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
+                  </div>
+                  {(() => {
+                  if (isVenueViewer) {
+                    return (
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                        Vista solo informativa para cuentas de cancha.
+                      </span>
+                    );
+                  }
+                  if (viewer?.hasJoined) {
+                    return (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={startJoinFlow}
+                          disabled={joining}
+                          className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Modificar mi posición
+                        </button>
+                        {viewerTeamLabel ? (
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                            Inscrito en el {viewerTeamLabel.toLowerCase()}
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+                            Ya estás inscrito
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
                   if (isFull) {
                     return (
                       <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
@@ -902,26 +958,10 @@ export default function MatchDetailPage() {
                       </span>
                     );
                   }
-                  if (viewer?.hasJoined) {
-                    return viewerTeamLabel ? (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
-                        Inscrito en el {viewerTeamLabel.toLowerCase()}
-                      </span>
-                    ) : (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
-                        Ya estás inscrito
-                      </span>
-                    );
-                  }
                   return (
-                    <button
-                      onClick={startJoinFlow}
-                      disabled={joining}
-                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Elegir mi posición
-                    </button>
+                    <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                      Reserva tu cupo para elegir tu posición.
+                    </span>
                   );
                 })()}
               </div>

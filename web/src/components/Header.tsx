@@ -5,12 +5,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   User as UserIcon,
-  LayoutDashboard,
   Users,
   UserCircle,
   LogOut,
   Bell,
-  Loader2,
   RefreshCw,
   CalendarDays,
   MessageSquare,
@@ -26,7 +24,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useNotifications } from "@/hooks/useNotifications";
 
 type NavItem =
-  | { type: "link"; href: string; label: string }
+  | { type: "link"; href: string; label: string; variant?: "primary" }
   | { type: "action"; label: string; onClick: () => void };
 
 export default function Header() {
@@ -36,6 +34,8 @@ export default function Header() {
     (user?.role as "player" | "venue_admin" | "superadmin" | undefined) ??
     (user?.isAdmin ? "superadmin" : undefined);
   const canAccessVenuePanel = userRole === "venue_admin" || userRole === "superadmin";
+  const isVenueAdmin = userRole === "venue_admin";
+  const isVenueMarketingView = pathname?.startsWith("/cancha") ?? false;
   const [authOpen, setAuthOpen] = useState(false);
   const [authNext, setAuthNext] = useState<string | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -49,7 +49,8 @@ export default function Header() {
     error: notificationsError,
     refresh: refreshNotifications,
     markAsSeen,
-  } = useNotifications(Boolean(user));
+  } = useNotifications(Boolean(user) && !isVenueAdmin);
+  const showNotifications = Boolean(user) && !isVenueAdmin;
 
   const openLoginDialog = () => {
     if (loading) return;
@@ -69,17 +70,25 @@ export default function Header() {
     }).format(date);
   };
 
-  const navLink = (href: string, label: string) => {
+  const navLink = (item: Extract<NavItem, { type: "link" }>) => {
+    const { href, label, variant } = item;
     const active = pathname === href || pathname.startsWith(`${href}/`);
+    const isPrimary = variant === "primary";
     return (
       <Link
         href={href}
         className={cn(
-          "relative px-3 py-2 rounded-full text-sm font-medium transition-all duration-150",
-          active ? "text-black" : "text-gray-700 hover:bg-gray-100 hover:-translate-y-0.5"
+          "relative rounded-full text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30",
+          isPrimary ? "px-4 py-2.5 bg-gradient-to-r from-brand to-accent text-white shadow-lg hover:from-brand-600 hover:to-accent-600 hover:shadow-xl"
+          : [
+              "px-3 py-2",
+              active
+                ? "text-black"
+                : "text-gray-700 hover:bg-gray-100 hover:-translate-y-0.5",
+            ],
         )}
       >
-        {active && (
+        {!isPrimary && active && (
           <motion.span
             layoutId="navActiveBg"
             className="absolute inset-0 rounded-full bg-gray-100 shadow-sm"
@@ -101,22 +110,25 @@ export default function Header() {
     </button>
   );
 
-  const mainNavItems: NavItem[] = canAccessVenuePanel
-    ? [
-        { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido" },
-        { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
-      ]
-    : user
+  const mainNavItems: NavItem[] = isVenueMarketingView
+    ? []
+    : canAccessVenuePanel
       ? [
-          { type: "link", href: "/explorar", label: "Explorar" },
-          { type: "link", href: "/reservas", label: "Reservas" },
-          { type: "link", href: "/amigos", label: "Amigos" },
-          { type: "link", href: "/mensajes", label: "Mensajes" },
+          { type: "link", href: "/panel/cancha", label: "Mi Panel" },
+          { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido", variant: "primary" },
+          { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
         ]
-      : [
-          { type: "link", href: "/explorar", label: "Explorar" },
-          { type: "action", label: "Iniciar sesiÃ³n", onClick: openLoginDialog },
-        ];
+      : user
+        ? [
+            { type: "link", href: "/explorar", label: "Explorar" },
+            { type: "link", href: "/reservas", label: "Reservas" },
+            { type: "link", href: "/amigos", label: "Amigos" },
+            { type: "link", href: "/mensajes", label: "Mensajes" },
+          ]
+        : [
+            { type: "link", href: "/explorar", label: "Explorar" },
+            { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
+          ];
 
   const renderMenuContent = () => (
     <DropdownMenu.Portal>
@@ -151,16 +163,6 @@ export default function Header() {
               >
                 <CalendarDays className="w-4 h-4 text-gray-600" />
                 <span>Mis partidos</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/panel/cancha"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <LayoutDashboard className="w-4 h-4 text-gray-600" />
-                <span>Panel general</span>
               </Link>
             </DropdownMenu.Item>
           </>
@@ -236,7 +238,7 @@ export default function Header() {
       </DropdownMenu.Content>
     </DropdownMenu.Portal>
   );
-  // Cerrar menÃºs al cambiar de ruta
+  // Cerrar menús al cambiar de ruta
   useEffect(() => {
     setMenuOpen(false);
     setMobileOpen(false);
@@ -273,14 +275,21 @@ export default function Header() {
         <nav className="hidden md:flex items-center gap-2 lg:gap-4">
           {mainNavItems.map((item) => (
             <div key={item.type === "link" ? item.href : `action-${item.label}`}>
-              {item.type === "link" ? navLink(item.href, item.label) : navButton(item.label, item.onClick)}
+              {item.type === "link" ? navLink(item) : navButton(item.label, item.onClick)}
             </div>
           ))}
         </nav>
 
         {/* Perfil / Auth */}
-        <div className="relative flex items-center gap-1 lg:gap-2">
-          {!user ? (
+        <div className="relative flex items-center gap-3">
+          {isVenueMarketingView && !user ? (
+            <Link
+              href="/cancha/ingresar"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand to-accent px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-brand-600 hover:to-accent-600"
+            >
+              Iniciar sesión
+            </Link>
+          ) : !user ? (
             <button
               aria-label="perfil"
               onClick={openLoginDialog}
@@ -290,131 +299,105 @@ export default function Header() {
             </button>
           ) : (
             <>
-              <DropdownMenu.Root open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-                <DropdownMenu.Trigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => setNotificationsOpen(true)}
-                    className={cn(
-                      "relative p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target",
-                      notificationsOpen && "bg-gray-100"
-                    )}
-                    aria-label="notificaciones"
-                  >
-                    <Bell className="w-5 h-5" />
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-4 text-white shadow-lg animate-pulse">
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </span>
-                    )}
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    sideOffset={10}
-                    align="end"
-                    className="dropdown-content z-50 w-80 max-w-xs rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
-                  >
-                    <div className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-gray-50 to-white px-3 py-2">
-                      <div>
-                        <div className="text-sm font-semibold text-gray-900">Notificaciones</div>
-                        <div className="text-xs text-gray-500">
-                          {notificationsLoading
-                            ? "Actualizando..."
-                            : unreadCount > 0
-                              ? `${unreadCount} nuevas`
-                              : "Todo al dÃ­a"}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => refreshNotifications()}
-                        className="rounded-full p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
-                        aria-label="Actualizar notificaciones"
-                      >
-                        {notificationsLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="mt-2 max-h-80 overflow-y-auto">
-                      {notificationsLoading && notifications.length === 0 ? (
-                        <div className="flex items-center justify-center px-4 py-8 text-sm text-gray-500">
-                          Cargando notificaciones...
-                        </div>
-                      ) : notifications.length === 0 ? (
-                        <div className="px-4 py-8 text-center text-sm text-gray-500">
-                          No tienes notificaciones nuevas por ahora.
-                        </div>
-                      ) : (
-                        notifications.map((item) => (
-                          <DropdownMenu.Item asChild key={item.id}>
-                            <Link
-                              href={item.href}
-                              onClick={() => setNotificationsOpen(false)}
-                              className="block rounded-xl px-3 py-3 transition hover:bg-gray-100 focus:bg-gray-100"
-                            >
-                              <div className="flex flex-col gap-1 text-left">
-                                <span className="text-sm font-medium text-gray-900">{item.title}</span>
-                                <span className="text-xs text-gray-500">{item.description}</span>
-                                <span className="text-[11px] uppercase tracking-wide text-gray-400">
-                                  {formatNotificationDate(item.createdAt)}
-                                </span>
-                              </div>
-                            </Link>
-                          </DropdownMenu.Item>
-                        ))
-                      )}
-                    </div>
-
-                    {notificationsError && (
-                      <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
-                        {notificationsError}
-                      </div>
-                    )}
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-
-              {canAccessVenuePanel ? (
-                <>
-                  <Link
-                    href="/panel/cancha?tab=settings"
-                    onClick={() => setMenuOpen(false)}
-                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
-                    aria-label="datos de la cancha"
-                  >
-                    <UserIcon className="w-5 h-5" />
-                  </Link>
-                  <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-                    <DropdownMenu.Trigger asChild>
-                      <button
-                        onClick={() => setMenuOpen(true)}
-                        className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
-                        aria-label="acciones de la cuenta"
-                      >
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    </DropdownMenu.Trigger>
-                    {renderMenuContent()}
-                  </DropdownMenu.Root>
-                </>
-              ) : (
-                <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+              {showNotifications && (
+                <DropdownMenu.Root open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                   <DropdownMenu.Trigger asChild>
                     <button
-                      onClick={() => setMenuOpen(true)}
-                      className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                      type="button"
+                      onClick={() => setNotificationsOpen(true)}
+                      className={cn(
+                        "relative p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target",
+                        notificationsOpen && "bg-gray-100"
+                      )}
+                      aria-label="notificaciones"
                     >
-                      <UserIcon className="w-5 h-5" />
+                      <Bell className="w-5 h-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-4 text-white shadow-lg animate-pulse">
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                      )}
                     </button>
                   </DropdownMenu.Trigger>
-                  {renderMenuContent()}
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      sideOffset={10}
+                      align="end"
+                      className="dropdown-content z-50 w-80 max-w-xs rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
+                    >
+                      <div className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-gray-50 to-white px-3 py-2">
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">Notificaciones</div>
+                          <div className="text-xs text-gray-500">
+                            {notificationsLoading
+                              ? "Actualizando..."
+                              : unreadCount > 0
+                                ? `${unreadCount} nuevas`
+                                : "Todo al día"}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => refreshNotifications()}
+                          className="rounded-full p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+                          aria-label="Actualizar notificaciones"
+                        >
+                          <RefreshCw className={cn("h-4 w-4", notificationsLoading && "animate-spin")} />
+                        </button>
+                      </div>
+
+                      <div className="mt-2 max-h-80 overflow-y-auto">
+                        {notificationsLoading && notifications.length === 0 ? (
+                          <div className="flex items-center justify-center px-4 py-8 text-sm text-gray-500">
+                            Cargando notificaciones...
+                          </div>
+                        ) : notifications.length === 0 ? (
+                          <div className="px-4 py-8 text-center text-sm text-gray-500">
+                            No tienes notificaciones nuevas por ahora.
+                          </div>
+                        ) : (
+                          notifications.map((item) => (
+                            <DropdownMenu.Item asChild key={item.id}>
+                              <Link
+                                href={item.href}
+                                onClick={() => setNotificationsOpen(false)}
+                                className="block rounded-xl px-3 py-3 transition hover:bg-gray-100 focus:bg-gray-100"
+                              >
+                                <div className="flex flex-col gap-1 text-left">
+                                  <span className="text-sm font-medium text-gray-900">{item.title}</span>
+                                  <span className="text-xs text-gray-500">{item.description}</span>
+                                  <span className="text-[11px] uppercase tracking-wide text-gray-400">
+                                    {formatNotificationDate(item.createdAt)}
+                                  </span>
+                                </div>
+                              </Link>
+                            </DropdownMenu.Item>
+                          ))
+                        )}
+                      </div>
+
+                      {notificationsError && (
+                        <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+                          {notificationsError}
+                        </div>
+                      )}
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
                 </DropdownMenu.Root>
               )}
+
+              <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    onClick={() => setMenuOpen(true)}
+                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                    aria-label={isVenueAdmin ? "acciones de la cuenta" : "perfil"}
+                  >
+                    {isVenueAdmin ? <MoreVertical className="w-5 h-5" /> : <UserIcon className="w-5 h-5" />}
+                  </button>
+                </DropdownMenu.Trigger>
+                {renderMenuContent()}
+              </DropdownMenu.Root>
             </>
           )}
         </div>
@@ -463,37 +446,47 @@ export default function Header() {
           >
             <div className="container container-px pb-4">
               <div className="flex flex-col gap-2">
-                {mainNavItems.map((item) =>
-                  item.type === "link" ? (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
-                    >
-                      {item.label}
-                    </Link>
-                  ) : (
-                    <button
-                      key={"mobile-action-" + item.label}
-                      type="button"
-                      onClick={() => {
-                        setMobileOpen(false);
-                        item.onClick();
-                      }}
-                      className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors text-left touch-target"
-                    >
-                      {item.label}
-                    </button>
+                {isVenueMarketingView && !user ? (
+                  <Link
+                    href="/cancha/ingresar"
+                    onClick={() => setMobileOpen(false)}
+                    className="px-4 py-3 rounded-xl text-sm bg-white/90 font-semibold text-gray-900 shadow-sm transition hover:bg-white"
+                  >
+                    Iniciar sesión
+                  </Link>
+                ) : (
+                  mainNavItems.map((item) =>
+                    item.type === "link" ? (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors touch-target"
+                      >
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <button
+                        key={"mobile-action-" + item.label}
+                        type="button"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          item.onClick();
+                        }}
+                        className="px-4 py-3 rounded-xl text-sm bg-white/90 hover:bg-white transition-colors text-left touch-target"
+                      >
+                        {item.label}
+                      </button>
+                    )
                   )
                 )}
-                {!canAccessVenuePanel && (
+                {!isVenueMarketingView && !canAccessVenuePanel && (
                   <Link
                     href="/cancha"
                     onClick={() => setMobileOpen(false)}
                     className="px-4 py-3 rounded-xl text-sm text-gray-600 bg-white/80 border border-gray-200 hover:bg-white transition-colors touch-target"
                   >
-                    Â¿Tienes una cancha?
+                    ¿Tienes una cancha?
                   </Link>
                 )}
               </div>
