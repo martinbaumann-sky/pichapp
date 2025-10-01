@@ -4,7 +4,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-clear
+if [ -t 1 ]; then
+  clear
+fi
+
 printf '========================================\n'
 printf '    PICHANGAPP - PREPARAR ENTORNO DEV\n'
 printf '========================================\n\n'

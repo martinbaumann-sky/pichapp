@@ -4,7 +4,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-clear
+if [ -t 1 ]; then
+  clear
+fi
+
 printf '========================================\n'
 printf '     PICHANGAPP - ARRANQUE DESARROLLO\n'
 printf '========================================\n\n'
@@ -23,10 +26,11 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 printf 'Abriendo nueva ventana de Terminal...\n'
+command=$(printf 'cd %q && npm run dev' "$SCRIPT_DIR")
 osascript <<APPLESCRIPT
 tell application "Terminal"
   activate
-  do script "cd $SCRIPT_DIR && npm run dev"
+  do script "$command"
 end tell
 APPLESCRIPT
 
