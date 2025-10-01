@@ -7,7 +7,7 @@ import type { PositionKey, TeamKey } from "@/lib/teams";
 import { FormationBoard, type FormationSlotView, type FormationPlayer } from "@/components/match/FormationBoard";
 import { TEAM_KEYS, TEAM_LABELS, POSITION_KEYS } from "@/lib/teams";
 import { posicionES } from "@/lib/i18n";
-import { AlertTriangle, ShieldCheck, Users } from "lucide-react";
+import { AlertTriangle, CalendarDays, MapPin, ShieldCheck, Users } from "lucide-react";
 
 export type InviteFriendDraft = {
   name: string;
@@ -49,16 +49,26 @@ export type JoinFormationDialogStepsProps = {
   confirmCtaLabel?: string;
   confirmNotice?: ReactNode;
   importantNotice?: ReactNode;
+  matchSummary?: {
+    title: string;
+    dateLabel?: string;
+    timeLabel?: string;
+    venueLabel?: string;
+    spotsLeftLabel?: string;
+    pricePerSpot?: number;
+  };
+  isPaidMatch?: boolean;
+  friendsValid?: boolean;
 };
 
-type Step = "position" | "friends" | "confirm";
+type Step = "overview" | "friends" | "position" | "confirm";
 
 export function JoinFormationDialogSteps({
   open,
   onClose,
   teams,
   selectedTeam,
-  onSelectTeam,
+  onSelectTeam: _onSelectTeam,
   selectedSlot,
   onSelectSlot,
   onConfirm,
@@ -75,54 +85,82 @@ export function JoinFormationDialogSteps({
   confirmCtaLabel = "Confirmar registro",
   confirmNotice = null,
   importantNotice,
+  matchSummary,
+  isPaidMatch = false,
+  friendsValid = true,
 }: JoinFormationDialogStepsProps) {
-  const [currentStep, setCurrentStep] = useState<Step>("position");
+  const [currentStep, setCurrentStep] = useState<Step>("overview");
   const allowFriends = maxFriends > 0;
   const boundedFriendCount = allowFriends ? Math.min(friendCount, maxFriends) : 0;
   const canAdjustFriends = typeof onFriendCountChange === "function" && allowFriends;
+  const totalSelectedPlayers = 1 + boundedFriendCount;
+  const pricePerSpot = matchSummary?.pricePerSpot ?? 0;
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("es-CL", {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0,
+      }),
+    [],
+  );
+  const spotPriceLabel = pricePerSpot > 0 ? currencyFormatter.format(pricePerSpot) : "Gratis";
+  const totalPrice = pricePerSpot > 0 ? pricePerSpot * totalSelectedPlayers : 0;
+  const totalPriceLabel = pricePerSpot > 0 ? currencyFormatter.format(totalPrice) : "Gratis";
 
   useEffect(() => {
     if (!allowFriends && currentStep === "friends") {
-      setCurrentStep("confirm");
+      setCurrentStep("position");
     }
   }, [allowFriends, currentStep]);
 
   const stepOrder = useMemo<Step[]>(
-    () => (allowFriends ? ["position", "friends", "confirm"] : ["position", "confirm"]),
+    () => {
+      const base: Step[] = ["overview"];
+      if (allowFriends) base.push("friends");
+      base.push("position", "confirm");
+      return base;
+    },
     [allowFriends],
   );
 
   const handleNext = () => {
-    if (currentStep === "position") {
-      if (selectedSlot) {
-        setCurrentStep(allowFriends ? "friends" : "confirm");
-      }
+    if (currentStep === "overview") {
+      setCurrentStep(allowFriends ? "friends" : "position");
     } else if (currentStep === "friends") {
-      setCurrentStep("confirm");
+      setCurrentStep("position");
+    } else if (currentStep === "position") {
+      if (selectedSlot) {
+        setCurrentStep("confirm");
+      }
     }
   };
 
   const handleBack = () => {
     if (currentStep === "friends") {
-      setCurrentStep("position");
+      setCurrentStep("overview");
+    } else if (currentStep === "position") {
+      setCurrentStep(allowFriends ? "friends" : "overview");
     } else if (currentStep === "confirm") {
-      setCurrentStep(allowFriends ? "friends" : "position");
+      setCurrentStep("position");
     }
   };
 
   const handleClose = () => {
-    setCurrentStep("position");
+    setCurrentStep("overview");
     onClose();
   };
 
   const getStepTitle = () => {
     switch (currentStep) {
+      case "overview":
+        return allowFriends ? "Paso 1: Reserva tus cupos" : "Paso 1: Reserva tu cupo";
       case "position":
-        return "Paso 1: Elige tu posición";
+        return allowFriends ? "Paso 3: Elige tu posición" : "Paso 2: Elige tu posición";
       case "friends":
-        return allowFriends ? "Paso 2: Invita amigos" : "Paso 2: Revisa tu cupo";
+        return "Paso 2: Datos de tus amigos";
       case "confirm":
-        return allowFriends ? "Paso 3: Confirma tu registro" : "Paso 2: Confirma tu registro";
+        return allowFriends ? "Paso 4: Confirma tu registro" : "Paso 3: Confirma tu registro";
       default:
         return title;
     }
@@ -130,12 +168,16 @@ export function JoinFormationDialogSteps({
 
   const getStepDescription = () => {
     switch (currentStep) {
+      case "overview":
+        return allowFriends
+          ? "Define cuántos cupos necesitas y revisa el total antes de continuar."
+          : "Revisa los detalles del partido y confirma tu cupo.";
       case "position":
         return "Selecciona el equipo y posición donde quieres jugar.";
       case "friends":
-        return allowFriends
-          ? "¿Quieres invitar amigos? Puedes traer hasta " + maxFriends + " amigos."
-          : "Revisa que tu selección esté correcta antes de confirmar.";
+        return boundedFriendCount > 0
+          ? "Completa los datos de tus amigos para reservar sus cupos contigo."
+          : "Si cambias de opinión puedes volver atrás y ajustar el número de amigos.";
       case "confirm":
         return "Revisa tu selección y confirma tu registro.";
       default:
@@ -145,15 +187,135 @@ export function JoinFormationDialogSteps({
 
   const canProceed = () => {
     switch (currentStep) {
+      case "overview":
+        return true;
       case "position":
         return !!selectedSlot;
       case "friends":
-        return true; // Friends are optional
+        return boundedFriendCount === 0 || friendsValid;
       case "confirm":
         return !confirmDisabled;
       default:
         return false;
     }
+  };
+
+  const renderOverviewStep = () => {
+    const spotsLabel = matchSummary?.spotsLeftLabel;
+    const hasFriends = allowFriends && maxFriends > 0;
+    const disableMinus = !canAdjustFriends || boundedFriendCount <= 0;
+    const disablePlus = !canAdjustFriends || boundedFriendCount >= maxFriends;
+
+    return (
+      <div className="space-y-6">
+        <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-emerald-50 via-white to-white p-6 shadow-inner">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600">
+                  <ShieldCheck className="h-6 w-6" />
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">{matchSummary?.title ?? "Partido"}</h3>
+                  <p className="text-sm text-slate-600">Revisa el detalle del partido antes de elegir posición.</p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-sm">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+                    <CalendarDays className="h-4 w-4" /> Fecha
+                  </div>
+                  <p className="mt-1 text-sm font-medium text-slate-800">{matchSummary?.dateLabel ?? "Por confirmar"}</p>
+                  <p className="text-xs text-slate-500">{matchSummary?.timeLabel ?? "Horario por confirmar"}</p>
+                </div>
+                <div className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-sm">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+                    <MapPin className="h-4 w-4" /> Cancha
+                  </div>
+                  <p className="mt-1 text-sm font-medium text-slate-800">{matchSummary?.venueLabel ?? "Pronto anunciaremos"}</p>
+                  <p className="text-xs text-slate-500">{spotsLabel ?? "Cupos disponibles"}</p>
+                </div>
+                <div className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-sm">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Valor por jugador</span>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{spotPriceLabel}</p>
+                  {isPaidMatch ? (
+                    <p className="text-xs text-slate-500">Pagas en Mercado Pago al confirmar.</p>
+                  ) : (
+                    <p className="text-xs text-slate-500">Confirma tu cupo al siguiente paso.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h4 className="text-base font-semibold text-slate-900">¿Quieres invitar amigos?</h4>
+              <p className="mt-1 text-sm text-slate-600">
+                {allowFriends
+                  ? `Puedes traer hasta ${maxFriends} amigo${maxFriends === 1 ? "" : "s"} además de tu cupo.`
+                  : "Para este partido no se pueden agregar cupos extra desde aquí."}
+              </p>
+            </div>
+            <div className="flex items-center gap-5">
+              <button
+                type="button"
+                onClick={() => onFriendCountChange?.(Math.max(0, boundedFriendCount - 1))}
+                disabled={disableMinus}
+                className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Restar amigo"
+              >
+                −
+              </button>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-slate-900">{boundedFriendCount}</div>
+                <div className="text-xs uppercase tracking-wide text-slate-500">amigos</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onFriendCountChange?.(Math.min(maxFriends, boundedFriendCount + 1))}
+                disabled={disablePlus}
+                className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Sumar amigo"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cupos reservados</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">
+                {totalSelectedPlayers} jugador{totalSelectedPlayers === 1 ? "" : "es"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Total estimado</p>
+              <p className="mt-2 text-lg font-semibold text-emerald-700">{totalPriceLabel}</p>
+              {pricePerSpot > 0 && (
+                <p className="text-xs text-emerald-600">
+                  {spotPriceLabel} × {totalSelectedPlayers} jugador{totalSelectedPlayers === 1 ? "" : "es"}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {allowFriends && !friendsValid && boundedFriendCount > 0 ? (
+            <p className="mt-4 text-xs font-medium text-amber-600">
+              Completa los datos de contacto de tus amigos en el siguiente paso antes de continuar.
+            </p>
+          ) : null}
+          {!hasFriends && (
+            <p className="mt-4 text-xs text-slate-500">
+              Puedes continuar sin agregar amigos ahora y compartir el partido luego.
+            </p>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const renderPositionStep = () => (
@@ -208,9 +370,9 @@ export function JoinFormationDialogSteps({
   const renderFriendsStep = () => (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-lg font-semibold text-slate-800">¿Quieres invitar amigos?</h3>
+        <h3 className="text-lg font-semibold text-slate-800">Invita a tus amigos</h3>
         <p className="mt-1 text-sm text-slate-600">
-          Puedes invitar hasta {maxFriends} amigos además de tu cupo.
+          Completa sus datos para reservar los cupos seleccionados.
         </p>
       </div>
 
@@ -309,9 +471,32 @@ export function JoinFormationDialogSteps({
     const selectedSlotData = selectedTeamData?.slots.find((s) => s.index === selectedSlot?.slotIndex);
     const friendEntries = friends.slice(0, boundedFriendCount);
     const hasFriends = allowFriends && boundedFriendCount > 0 && friendEntries.length > 0;
+    const showPriceSummary = pricePerSpot >= 0;
 
     return (
       <div className="space-y-6">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cupos reservados</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">
+                {totalSelectedPlayers} jugador{totalSelectedPlayers === 1 ? "" : "es"}
+              </p>
+            </div>
+            {showPriceSummary && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Total a pagar</p>
+                <p className="mt-2 text-lg font-semibold text-emerald-700">{totalPriceLabel}</p>
+                {pricePerSpot > 0 && (
+                  <p className="text-xs text-emerald-600">
+                    {spotPriceLabel} × {totalSelectedPlayers} jugador{totalSelectedPlayers === 1 ? "" : "es"}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white p-6 shadow-inner">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3">
@@ -443,6 +628,8 @@ export function JoinFormationDialogSteps({
 
   const renderCurrentStep = () => {
     switch (currentStep) {
+      case "overview":
+        return renderOverviewStep();
       case "position":
         return renderPositionStep();
       case "friends":
@@ -496,15 +683,15 @@ export function JoinFormationDialogSteps({
                   <div className="mt-8 flex items-center justify-between">
                     <button
                       type="button"
-                      onClick={currentStep === "position" ? handleClose : handleBack}
+                      onClick={currentStep === "overview" ? handleClose : handleBack}
                       disabled={loading}
                       className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {currentStep === "position" ? "Cancelar" : "Atrás"}
+                      {currentStep === "overview" ? "Cancelar" : "Atrás"}
                     </button>
 
                     <div className="flex items-center gap-2">
-                      {currentStep !== "position" && (
+                      {currentStep !== "overview" && (
                         <div className="flex items-center gap-1">
                           {stepOrder.map((step, index) => (
                             <div

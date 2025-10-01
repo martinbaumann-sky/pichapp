@@ -69,8 +69,6 @@ export default function MatchDetailPage() {
   const [joinFriendCount, setJoinFriendCount] = useState(0);
   const [joinFriends, setJoinFriends] = useState<InviteFriendDraft[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [inviteTempCount, setInviteTempCount] = useState(0);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
   const pricePerSpot = match?.pricePerSpot ?? 0;
@@ -221,8 +219,8 @@ export default function MatchDetailPage() {
   const isFull = availableSpots === 0;
   const isAlmostFull = availableSpots <= 2;
   const maxInvitableFriends = useMemo(
-    () => (isPaidMatch ? 0 : Math.max(0, availableSpots - 1)),
-    [availableSpots, isPaidMatch],
+    () => Math.max(0, availableSpots - 1),
+    [availableSpots],
   );
 
   const initializeJoinSelection = useCallback(() => {
@@ -252,39 +250,11 @@ export default function MatchDetailPage() {
       setAuthOpen(true);
       return;
     }
-    setInviteTempCount(0);
-    if (isPaidMatch) {
-      initializeJoinSelection();
-      setJoinFriendCount(0);
-      setJoinFriends([]);
-      setJoinDialogOpen(true);
-      return;
-    }
-    setInviteDialogOpen(true);
-  }, [user, isPaidMatch, initializeJoinSelection]);
-
-  const proceedFromInvite = useCallback(() => {
     initializeJoinSelection();
-    const bounded = Math.max(0, Math.min(inviteTempCount, maxInvitableFriends));
-    setJoinFriendCount(bounded);
-    setJoinFriends((prev) => {
-      const next = [...prev];
-      while (next.length < bounded) {
-        next.push({ name: "", email: "", team: "", position: "" });
-      }
-      return next.slice(0, bounded);
-    });
-    setInviteDialogOpen(false);
+    setJoinFriendCount(0);
+    setJoinFriends([]);
     setJoinDialogOpen(true);
-  }, [initializeJoinSelection, inviteTempCount, maxInvitableFriends]);
-
-  useEffect(() => {
-    if (isPaidMatch) {
-      setJoinFriendCount(0);
-      setJoinFriends([]);
-      setInviteDialogOpen(false);
-    }
-  }, [isPaidMatch]);
+  }, [user, initializeJoinSelection]);
 
 
   const closeJoinDialog = useCallback(() => {
@@ -331,10 +301,6 @@ export default function MatchDetailPage() {
       setJoinError("Selecciona una posición disponible.");
       return;
     }
-    if (isPaidMatch && joinFriendCount > 0) {
-      setJoinError("Cada jugador debe pagar su propio cupo en este partido.");
-      return;
-    }
     const localFriendEntries = joinFriends.slice(0, joinFriendCount);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const localFriendsValid = joinFriendCount === 0 || localFriendEntries.every((friend) => {
@@ -350,6 +316,12 @@ export default function MatchDetailPage() {
       setJoining(true);
       setJoinError(null);
       try {
+        const sanitizedFriends = localFriendEntries.map((friend) => ({
+          name: friend.name.trim(),
+          email: friend.email.trim(),
+          team: friend.team || null,
+          position: friend.position || null,
+        }));
         const res = await fetch(`/api/matches/${id}/checkout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -357,6 +329,8 @@ export default function MatchDetailPage() {
           body: JSON.stringify({
             team: joinSelectedSlot.team,
             position: joinSelectedSlot.position,
+            friendCount: joinFriendCount,
+            friends: sanitizedFriends,
           }),
         });
         const data = await res.json().catch(() => ({}));
@@ -639,6 +613,15 @@ export default function MatchDetailPage() {
       return nameOk && emailOk;
     });
   }, [friendEntries, joinFriendCount]);
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("es-CL", {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0,
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (joinFriendCount > maxInvitableFriends) {
@@ -702,12 +685,20 @@ export default function MatchDetailPage() {
   const dateLabel = startAt ? capitalize(dateFormatter.format(startAt)) : "Fecha por confirmar";
   const timeLabel = startAt ? `${timeFormatter.format(startAt)}${estimatedEndAt ? ` - ${timeFormatter.format(estimatedEndAt)}` : ""}` : "Horario por confirmar";
   const durationLabel = `${match.durationMins ?? 90} minutos`;
-  const priceLabel = match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(match.pricePerSpot) : "Gratis";
+  const priceLabel = match.pricePerSpot > 0 ? currencyFormatter.format(match.pricePerSpot) : "Gratis";
+  const totalPlayersSelected = 1 + joinFriendCount;
+  const totalAmountCLP = (match.pricePerSpot ?? 0) * totalPlayersSelected;
+  const totalAmountLabel = match.pricePerSpot > 0 ? currencyFormatter.format(totalAmountCLP) : "Gratis";
   const paymentConfirmNotice = isPaidMatch ? (
     <div className="space-y-1">
-      <p className="text-base font-semibold text-slate-900">Total a pagar: {priceLabel}</p>
+      <p className="text-base font-semibold text-slate-900">Total a pagar: {totalAmountLabel}</p>
+      {match.pricePerSpot > 0 && totalPlayersSelected > 1 ? (
+        <p className="text-xs font-medium text-slate-500">
+          {priceLabel} × {totalPlayersSelected} jugador{totalPlayersSelected === 1 ? "" : "es"}
+        </p>
+      ) : null}
       <p className="text-sm text-slate-600">
-        Al confirmar te llevaremos a Mercado Pago para finalizar el pago de tu cupo.
+        Al confirmar te llevaremos a Mercado Pago para finalizar el pago de tus cupos.
       </p>
     </div>
   ) : null;
@@ -719,8 +710,9 @@ export default function MatchDetailPage() {
       <div className="text-sm text-amber-800">
         <p className="font-semibold">Importante</p>
         <p className="mt-1">
-          Tu cupo quedará reservado por {holdMinutes} minuto{holdMinutes === 1 ? "" : "s"} mientras completas el pago en
-          Mercado Pago. Si el pago no se confirma a tiempo, liberaremos el cupo automáticamente.
+          Reservaremos {totalPlayersSelected} cupo{totalPlayersSelected === 1 ? "" : "s"} por {holdMinutes} minuto
+          {holdMinutes === 1 ? "" : "s"} mientras completas el pago en Mercado Pago. Si el pago no se confirma a tiempo,
+          liberaremos los cupos automáticamente.
         </p>
       </div>
     </div>
@@ -757,6 +749,14 @@ export default function MatchDetailPage() {
     { icon: Timer, label: "Duración", value: durationLabel },
     { icon: Users, label: "Jugadores", value: `${minSpotsToConfirm} - ${totalSpots} jugadores` },
   ] as const;
+  const joinDialogMatchSummary = {
+    title: typeof match.title === "string" && match.title.trim().length > 0 ? match.title : "Partido",
+    dateLabel,
+    timeLabel,
+    venueLabel: addressLabel,
+    spotsLeftLabel: spotsHeadline,
+    pricePerSpot: match.pricePerSpot ?? 0,
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900">
@@ -1116,7 +1116,7 @@ export default function MatchDetailPage() {
         confirmDisabled={!joinSelectedSlot || joining || !friendsValid}
         loading={joining}
         errorMessage={joinError}
-        maxFriends={isPaidMatch ? 0 : maxInvitableFriends}
+        maxFriends={maxInvitableFriends}
         friendCount={joinFriendCount}
         onFriendCountChange={handleFriendCountChange}
         friends={joinFriends}
@@ -1130,55 +1130,10 @@ export default function MatchDetailPage() {
         confirmCtaLabel={isPaidMatch ? "Pagar con Mercado Pago" : "Confirmar registro"}
         confirmNotice={paymentConfirmNotice}
         importantNotice={paymentImportantNotice}
+        matchSummary={joinDialogMatchSummary}
+        isPaidMatch={isPaidMatch}
+        friendsValid={friendsValid}
       />
-      {!isPaidMatch && inviteDialogOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setInviteDialogOpen(false)} />
-          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-slate-800">¿Quieres invitar amigos?</h3>
-            <p className="mt-1 text-sm text-slate-600">Elige cuántos amigos traerás además de tu cupo.</p>
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                onClick={() => setInviteTempCount(Math.max(0, inviteTempCount - 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
-                aria-label="disminuir"
-              >
-                -
-              </button>
-              <input
-                type="number"
-                min={0}
-                max={maxInvitableFriends}
-                value={inviteTempCount}
-                onChange={(e) => setInviteTempCount(Math.max(0, Math.min(Number(e.target.value) || 0, maxInvitableFriends)))}
-                className="w-20 rounded-lg border border-slate-200 bg-white p-2 text-center text-slate-800"
-              />
-              <button
-                onClick={() => setInviteTempCount(Math.min(maxInvitableFriends, inviteTempCount + 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
-                aria-label="aumentar"
-              >
-                +
-              </button>
-              <span className="text-sm text-slate-500">máx. {maxInvitableFriends}</span>
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setInviteDialogOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={proceedFromInvite}
-                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
-              >
-                Continuar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {leaveConfirmOpen && (
         <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setLeaveConfirmOpen(false)} />
