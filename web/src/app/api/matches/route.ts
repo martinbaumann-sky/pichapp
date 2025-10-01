@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
       ? Math.max(1, Math.min(derivedMinSpots, totalSpotsNumber))
       : Math.max(1, derivedMinSpots);
 
+    const rawPrice = Number(json?.pricePerSpot ?? 0);
+    const safePrice = Number.isFinite(rawPrice) && rawPrice >= 0 ? Math.round(rawPrice) : 0;
+
     const defensivelyFilled = {
       ...json,
       title: (json?.title?.trim?.() || json?.venueName?.trim?.() || "Partido"),
@@ -78,7 +81,7 @@ export async function POST(req: NextRequest) {
       startsAt: safeStartsAt,
       level: ["BEGINNER", "INTERMEDIATE", "ADVANCED"].includes(json?.level) ? json.level : "INTERMEDIATE",
       comuna: derivedComuna ?? "Santiago",
-      pricePerSpot: 0,
+      pricePerSpot: safePrice,
       totalSpots: totalSpotsNumber,
       minSpotsToConfirm: safeMinSpots,
       durationMins: Number(json?.durationMins ?? 0),
