@@ -1,9 +1,9 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 import { createVerificationCode, sendVerificationEmail } from "@/lib/email-verification";
 
-const rl = createRateLimiter({ name: "auth_resend_verification", limit: 3, windowSec: 180 });
+const rl = createRateLimiter({ name: "auth_verification_resend", limit: 5, windowSec: 300 });
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const probe = await rl.check(`ip:${ip}`);
     if (!probe.allowed) {
       return NextResponse.json(
-        { ok: false, error: "Demasiados reintentos. Intenta mas tarde." },
+        { ok: false, error: "Has solicitado demasiados codigos. Intenta mas tarde." },
         { status: 429 }
       );
     }
@@ -30,37 +30,37 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         email: true,
+        emailVerifiedAt: true,
         profile: { select: { name: true } },
       },
     });
 
     if (!user) {
+      // No revelamos si el correo existe
+      return NextResponse.json({ ok: true });
+    }
+
+    if (user.emailVerifiedAt) {
       return NextResponse.json(
-        { ok: false, error: "No encontramos una cuenta con ese correo" },
-        { status: 404 }
+        { ok: false, error: "Este correo ya esta verificado" },
+        { status: 400 }
       );
     }
 
-    // Temporal: asumimos que no verificado para permitir reenvio o evitar errores por columna faltante.
+    if (!user.email) {
+      return NextResponse.json(
+        { ok: false, error: "No encontramos una direccion de correo valida" },
+        { status: 400 }
+      );
+    }
 
     const verification = await createVerificationCode(user.id);
-    try {
-      await sendVerificationEmail(user.email!, verification.code, { name: user.profile?.name });
-    } catch (err: any) {
-      return NextResponse.json(
-        { ok: false, error: err?.message || "No se pudo enviar el correo" },
-        { status: 500 }
-      );
-    }
+    await sendVerificationEmail(user.email, verification.code, { name: user.profile?.name ?? null });
 
-    return NextResponse.json({
-      ok: true,
-      email,
-      expiresAt: verification.expiresAt.toISOString(),
-    });
+    return NextResponse.json({ ok: true, expiresAt: verification.expiresAt.toISOString() });
   } catch (err: any) {
     return NextResponse.json(
-      { ok: false, error: err?.message || "No se pudo reenviar el codigo" },
+      { ok: false, error: err?.message || "No se pudo enviar el codigo" },
       { status: 500 }
     );
   }

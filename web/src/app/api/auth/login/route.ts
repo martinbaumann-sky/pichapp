@@ -4,6 +4,8 @@ import bcrypt from "bcrypt";
 import { getPasswordHash } from "@/lib/auth-password";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
+import { createVerificationCode, sendVerificationEmail } from "@/lib/email-verification";
+import { toAuthUser } from "@/lib/auth-user";
 
 const rl = createRateLimiter({ name: "auth_login", limit: 10, windowSec: 60 });
 
@@ -72,10 +74,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
     }
 
-    // Temporal: omitimos bloqueo por verificación de email hasta que la columna exista.
+    if (!user.emailVerifiedAt) {
+      try {
+        if (!user.email) {
+          throw new Error("Falta correo electronico asociado a la cuenta");
+        }
+        const verification = await createVerificationCode(user.id);
+        await sendVerificationEmail(user.email, verification.code, { name: user.profile?.name ?? null });
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Debes verificar tu correo para continuar.",
+            requiresVerification: true,
+            email: user.email,
+            expiresAt: verification.expiresAt.toISOString(),
+          },
+          { status: 403 }
+        );
+      } catch (err: any) {
+        const message = err instanceof Error ? err.message : err?.message;
+        return NextResponse.json(
+          {
+            ok: false,
+            error: message || "No se pudo reenviar el codigo de verificacion",
+            requiresVerification: true,
+            email: user.email,
+          },
+          { status: 500 }
+        );
+      }
+    }
 
     const token = await createSession(user.id);
-    const res = NextResponse.json({ ok: true, user: sanitizeUser(user) });
+    const res = NextResponse.json({ ok: true, user: toAuthUser(user) });
     attachSessionCookie(res, token);
     return res;
   } catch (err: any) {
@@ -84,17 +115,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function sanitizeUser(u: any) {
-  return {
-    id: u.id,
-    email: u.email,
-    emailVerified: !!u.emailVerifiedAt,
-    isAdmin: !!u.isAdmin,
-    role: (u.role ?? "PLAYER").toLowerCase(),
-    name: u.profile?.name || null,
-    comuna: u.profile?.comuna || null,
-    position: u.profile?.position || null,
-  };
 }

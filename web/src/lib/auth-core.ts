@@ -4,7 +4,7 @@ import * as jose from "jose";
 
 const SESSION_COOKIE = "session_token";
 
-function shouldUseSecureCookie(): boolean {
+function resolveSecureCookie(): boolean {
   try {
     const base = process.env.NEXT_PUBLIC_BASE_URL || "";
     if (base) {
@@ -16,6 +16,10 @@ function shouldUseSecureCookie(): boolean {
   // Fallback: disable Secure on localhost/dev
   if (process.env.NODE_ENV !== "production") return false;
   return true;
+}
+
+export function shouldUseSecureCookies(): boolean {
+  return resolveSecureCookie();
 }
 
 function getSecret(): Uint8Array {
@@ -52,12 +56,12 @@ export function attachSessionCookie(res: NextResponse, token: string, days = 30)
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: shouldUseSecureCookie(),
+    secure: resolveSecureCookie(),
     path: "/",
     maxAge,
   });
 }
 
 export function clearSessionCookie(res: NextResponse) {
-  res.cookies.set(SESSION_COOKIE, "", { httpOnly: true, sameSite: "lax", secure: shouldUseSecureCookie(), path: "/", maxAge: 0 });
+  res.cookies.set(SESSION_COOKIE, "", { httpOnly: true, sameSite: "lax", secure: resolveSecureCookie(), path: "/", maxAge: 0 });
 }
