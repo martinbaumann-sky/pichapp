@@ -29,6 +29,9 @@ type NavItem =
 
 export default function Header() {
   const pathname = usePathname();
+  // Avoid SSR/CSR hydration mismatches by deferring pathname-based UI until mount
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const { user, loading, signOut } = useAuth();
   const userRole =
     (user?.role as "player" | "venue_admin" | "superadmin" | undefined) ??
@@ -72,7 +75,8 @@ export default function Header() {
 
   const navLink = (item: Extract<NavItem, { type: "link" }>) => {
     const { href, label, variant } = item;
-    const active = pathname === href || pathname.startsWith(`${href}/`);
+    // Only compute active state after mount to keep SSR and CSR output identical
+    const active = mounted && (pathname === href || pathname.startsWith(`${href}/`));
     const isPrimary = variant === "primary";
     return (
       <Link

@@ -1,11 +1,12 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
-import { getPasswordHash } from "@/lib/auth-password";
+import { getPasswordHash, setPasswordHash } from "@/lib/auth-password";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 import { createVerificationCode, sendVerificationEmail } from "@/lib/email-verification";
 import { toAuthUser } from "@/lib/auth-user";
+import { verifySupabasePassword } from "@/lib/supabase-admin";
 
 const rl = createRateLimiter({ name: "auth_login", limit: 10, windowSec: 60 });
 
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
+
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
     const password = String(body?.password || "");
@@ -29,42 +31,82 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        isAdmin: true,
-        role: true,
-        emailVerifiedAt: true,
-        disabledAt: true,
-        passwordHash: true,
-        profile: { select: { name: true, comuna: true, position: true } },
-      },
-    });
-    if (!user) {
+    const userSelect = {
+      id: true,
+      email: true,
+      isAdmin: true,
+      role: true,
+      emailVerifiedAt: true,
+      disabledAt: true,
+      passwordHash: true,
+      profile: { select: { name: true, comuna: true, position: true } },
+    } as const;
+
+    const foundUser = await prisma.user.findUnique({ where: { email }, select: userSelect });
+    if (!foundUser) {
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
     }
+
+    let user = foundUser;
+
     if (user.disabledAt) {
-      return NextResponse.json({ ok: false, error: "Tu cuenta está bloqueada." }, { status: 403 });
+      return NextResponse.json({ ok: false, error: "Tu cuenta esta bloqueada." }, { status: 403 });
     }
+
     const normalizedRole = String(user.role ?? (user.isAdmin ? "SUPERADMIN" : "PLAYER")).toUpperCase();
     if (normalizedRole === "VENUE_ADMIN") {
       return NextResponse.json(
         {
           ok: false,
-          error: "Inicia sesión como cancha desde /cancha/ingresar.",
+          error: "Inicia sesion como cancha desde /cancha/ingresar.",
         },
         { status: 403 }
       );
     }
+
     let hash: string | null = null;
     try {
       hash = await getPasswordHash(user.id);
-    } catch {}
+    } catch {
+      // ignore
+    }
     if (!hash && user.passwordHash) {
       hash = user.passwordHash;
     }
+
+    if (!hash) {
+      const supabaseResult = await verifySupabasePassword(email, password);
+      if (supabaseResult.ok) {
+        const newHash = await bcrypt.hash(password, 10);
+        hash = newHash;
+
+        try {
+          const data: { passwordHash: string; emailVerifiedAt?: Date } = { passwordHash: newHash };
+          if (!user.emailVerifiedAt && supabaseResult.emailVerifiedAt) {
+            data.emailVerifiedAt = supabaseResult.emailVerifiedAt;
+          }
+          await prisma.user.update({ where: { id: user.id }, data });
+        } catch (error) {
+          console.error("[auth/login] Failed to persist Supabase password to user", error);
+        }
+
+        try {
+          await setPasswordHash(user.id, newHash);
+        } catch (error) {
+          console.warn("[auth/login] Failed to persist Supabase password to LocalPassword", error);
+        }
+
+        const refreshed = await prisma.user.findUnique({ where: { id: user.id }, select: userSelect });
+        if (refreshed) {
+          user = refreshed;
+        } else if (!user.emailVerifiedAt && supabaseResult.emailVerifiedAt) {
+          user = { ...user, emailVerifiedAt: supabaseResult.emailVerifiedAt };
+        }
+      } else if (supabaseResult.reason === "invalid_credentials") {
+        return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+      }
+    }
+
     if (!hash) {
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
     }

@@ -1,9 +1,13 @@
+import { loadEnvConfig } from "@next/env";
+import path from "path";
 import type { NextConfig } from "next";
+
+loadEnvConfig(path.resolve(__dirname, ".."), process.env.NODE_ENV !== "production");
 
 const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
   typescript: {
-    // En producción se recomienda activar compilación estricta.
+    // En producci??n se recomienda activar compilaci??n estricta.
     // Puedes forzarlo con STRICT_BUILD=1 en el entorno de deploy.
     ignoreBuildErrors: process.env.STRICT_BUILD === '1' ? false : true,
   },
@@ -15,7 +19,7 @@ const nextConfig: NextConfig = {
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       { key: 'Permissions-Policy', value: 'geolocation=(), microphone=(), camera=()' },
     ];
-    // CSP básica (ajusta si agregas más orígenes)
+    // CSP bosica (ajusta si agregas mos or??genes)
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com",
@@ -30,9 +34,18 @@ const nextConfig: NextConfig = {
       { key: 'Content-Security-Policy', value: csp },
       ...(isProd ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' } as const] : []),
     ];
-    return [
-      { source: '/:path*', headers },
-    ];
+    const allRoutes = { source: '/:path*', headers } as const;
+    const extra: any[] = [];
+    // In development, aggressively disable caching of Next.js chunks to avoid ChunkLoadError from stale caches
+    if (!isProd) {
+      extra.push({
+        source: '/_next/static/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+        ],
+      });
+    }
+    return [allRoutes, ...extra];
   },
 };
 
