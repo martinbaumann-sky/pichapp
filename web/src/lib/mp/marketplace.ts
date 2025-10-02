@@ -124,7 +124,7 @@ export async function ensureVenueAccessToken(venueId: string): Promise<VenueCred
 }
 
 type PreferenceArgs = {
-  venueId: string;
+  venueId?: string | null;
   title: string;
   priceCLP: number;
   externalReference: string;
@@ -142,15 +142,51 @@ export async function createMarketplacePreference({
   baseUrl,
   payer,
 }: PreferenceArgs) {
-  const { accessToken } = await ensureVenueAccessToken(venueId);
+  // Prefer venue-scoped credentials (OAuth marketplace). Fall back to global MP_ACCESS_TOKEN when unavailable.
+  const envToken = process.env.MP_ACCESS_TOKEN || null;
+  let accessToken: string | null = null;
+
+  if (venueId) {
+    try {
+      const creds = await ensureVenueAccessToken(venueId);
+      accessToken = creds.accessToken;
+    } catch (e) {
+      if (!envToken) {
+        throw e;
+      }
+    }
+  }
+
+  if (!accessToken) {
+    if (!envToken) {
+      throw new Error("Mercado Pago no está configurado para esta cancha");
+    }
+    accessToken = envToken;
+  }
+
   const client = new MercadoPagoConfig({ accessToken });
   const preference = new Preference(client);
   const feeBps = Number(process.env.MP_FEE_BPS ?? "0");
   const marketplaceFee = Math.round((priceCLP * Math.max(feeBps, 0)) / 10000);
-  const notificationUrl = process.env.MP_WEBHOOK_URL || `${baseUrl.replace(/\/$/, "")}/api/mp/webhook`;
+  const trimmedBase = (baseUrl || "").trim();
+  const fallbackBase = process.env.NEXT_PUBLIC_BASE_URL?.trim();
+  let resolvedBase = trimmedBase || fallbackBase || "";
+  if (!resolvedBase) {
+    throw new Error("Mercado Pago requiere NEXT_PUBLIC_BASE_URL configurado");
+  }
+  try {
+    const parsed = new URL(resolvedBase);
+    resolvedBase = parsed.origin;
+  } catch (e) {
+    throw new Error(`Base URL inválida para Mercado Pago: ${resolvedBase}`);
+  }
+
+  const notificationUrl = process.env.MP_WEBHOOK_URL || `${resolvedBase.replace(/\/$/, "")}/api/mp/webhook`;
   const useSandbox = String(process.env.MP_USE_SANDBOX ?? "false").toLowerCase() === "true";
   const matchId = externalReference.split(":")[0];
-  const base = baseUrl.replace(/\/$/, "");
+  const base = resolvedBase.replace(/\/$/, "");
+  const successUrl = `${base}/partidos/${matchId}/chat?paid=1`;
+  const failureUrl = `${base}/partidos/${matchId}?paid=0`;
   const result = await preference.create({
     body: {
       items: [
@@ -173,11 +209,10 @@ export async function createMarketplacePreference({
           }
         : undefined,
       back_urls: {
-        success: `${base}/partidos/${matchId}/chat?paid=1`,
-        pending: `${base}/partidos/${matchId}?paid=0`,
-        failure: `${base}/partidos/${matchId}?paid=0`,
+        success: successUrl,
+        pending: failureUrl,
+        failure: failureUrl,
       },
-      auto_return: "approved",
       binary_mode: true,
     },
     requestOptions: {

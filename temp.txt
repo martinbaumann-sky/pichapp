@@ -22,9 +22,7 @@ export type InitPaymentArgs = {
 };
 
 export function getEnabledProviders() {
-  const mpOauthReady = !!process.env.MP_CLIENT_ID && !!process.env.MP_CLIENT_SECRET && !!process.env.MP_REDIRECT_URI;
-  const mpTokenReady = !!process.env.MP_ACCESS_TOKEN;
-  const mpConnected = mpOauthReady || mpTokenReady;
+  const mpConnected = !!process.env.MP_CLIENT_ID && !!process.env.MP_CLIENT_SECRET && !!process.env.MP_REDIRECT_URI;
   const tbEnabled = true;
   const khipuReady = !!process.env.KHIPU_RECEIVER_ID && !!process.env.KHIPU_SECRET_KEY;
   const flowReady = !!process.env.FLOW_API_KEY && !!process.env.FLOW_SECRET_KEY;
@@ -207,3 +205,4 @@ async function initFintoc({ payment, match, baseUrl, user }: { payment: { id: st
   const data = await res.json();
   return { type: "redirect", providerRef: String(data.id || payment.id), url: data.link || data.url };
 }
+

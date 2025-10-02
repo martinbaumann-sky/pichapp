@@ -201,12 +201,6 @@ export function JoinFormationDialogSteps({
           </div>
         ))}
       </div>
-
-      {errorMessage ? (
-        <div className="rounded-full bg-red-100 px-4 py-2 text-center text-xs font-semibold text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
     </div>
   );
 
@@ -497,6 +491,12 @@ export function JoinFormationDialogSteps({
                   </div>
 
                   {renderCurrentStep()}
+
+                  {errorMessage ? (
+                    <div className="mt-6 rounded-full bg-red-100 px-4 py-2 text-center text-xs font-semibold text-red-700">
+                      {errorMessage}
+                    </div>
+                  ) : null}
 
                   <div className="mt-8 flex items-center justify-between">
                     <button
