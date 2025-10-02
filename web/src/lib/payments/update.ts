@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 
-export async function approvePayment(paymentId: string, providerRef?: string) {
+export async function approvePayment(paymentId: string, providerRef?: string, raw?: unknown) {
   await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findUnique({ where: { id: paymentId } });
     if (!payment) {
@@ -19,7 +19,7 @@ export async function approvePayment(paymentId: string, providerRef?: string) {
 
     await tx.payment.update({
       where: { id: paymentId },
-      data: { status: "APPROVED", providerRef: providerRef ?? payment.providerRef, spotId },
+      data: { status: "APPROVED", providerRef: providerRef ?? payment.providerRef, spotId, raw: raw ?? undefined },
     });
 
     await tx.spot.update({
@@ -39,10 +39,32 @@ export async function rejectPayment(paymentId: string, providerRef?: string) {
     const payment = await tx.payment.findUnique({ where: { id: paymentId } });
     if (!payment) return;
 
-    await tx.payment.update({ where: { id: paymentId }, data: { status: "REJECTED", providerRef: providerRef ?? payment.providerRef } });
+    await tx.payment.update({
+      where: { id: paymentId },
+      data: { status: "REJECTED", providerRef: providerRef ?? payment.providerRef, raw: undefined },
+    });
 
     if (payment.spotId) {
       await tx.spot.update({ where: { id: payment.spotId }, data: { status: "AVAILABLE", userId: null, holdUntil: null } });
+    }
+  });
+}
+
+export async function refundPayment(paymentId: string, providerRef?: string, raw?: unknown) {
+  await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findUnique({ where: { id: paymentId } });
+    if (!payment) return;
+
+    await tx.payment.update({
+      where: { id: paymentId },
+      data: { status: "REFUNDED", providerRef: providerRef ?? payment.providerRef, raw: raw ?? undefined },
+    });
+
+    if (payment.spotId) {
+      await tx.spot.update({
+        where: { id: payment.spotId },
+        data: { status: "REFUNDED", holdUntil: null },
+      });
     }
   });
 }

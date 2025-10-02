@@ -33,6 +33,7 @@ export async function GET(
         totalSpots: true,
         minSpotsToConfirm: true,
         level: true,
+        status: true,
         venueName: true,
         venueAddress: true,
         lat: true,
@@ -179,6 +180,7 @@ export async function GET(
       totalSpots: match.totalSpots,
       minSpotsToConfirm: minRequired,
       level: match.level,
+      status: match.status,
       venueName: match.venueName,
       venueAddress: match.venueAddress,
       lat: match.lat,
@@ -186,7 +188,7 @@ export async function GET(
       coverImageUrl: cover ?? null,
       paid,
       available,
-      isConfirmed: paid >= minRequired,
+      isConfirmed: match.status === "CONFIRMED" || paid >= minRequired,
       organizer:
         organizerUser?.profile?.name && organizerUser.profile.name.trim().length > 0
           ? { id: match.organizerId, name: organizerUser.profile.name.trim() }

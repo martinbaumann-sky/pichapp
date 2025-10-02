@@ -41,6 +41,8 @@ enum MatchStatus {
   FULL
   CANCELED
   FINISHED
+  CONFIRMED
+  CANCELED_MINIMUM
 }
 
 enum SpotStatus {
@@ -49,6 +51,7 @@ enum SpotStatus {
   PAID
   CANCELED
   NO_SHOW
+  REFUNDED
 }
 
 enum WaitlistStatus {
@@ -144,6 +147,10 @@ model Venue {
   verified  Boolean  @default(false)
   mpAccountId String?
   placeId    String?
+  mpAccessToken String?
+  mpRefreshToken String?
+  mpTokenExpiresAt DateTime?
+  mpUserId  String?
   createdAt DateTime @default(now())
 
   owner     User     @relation("VenueOwner", fields: [ownerId], references: [id])
@@ -341,6 +348,7 @@ model Payment {
   position     Position?
   spotId       String?         @unique
   createdAt    DateTime        @default(now())
+  raw          Json?
 
   user         User            @relation(fields: [userId], references: [id])
   match        Match           @relation(fields: [matchId], references: [id])

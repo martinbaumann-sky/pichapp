@@ -58,6 +58,7 @@ export async function POST(
           title: true,
           comuna: true,
           pricePerSpot: true,
+          venueId: true,
         },
       });
       if (!match) {
@@ -185,8 +186,13 @@ export async function POST(
     try {
       const initResult = await initPaymentSession({
         provider: "MP",
-        payment: { id: txResult.payment.id, amountCLP: txResult.payment.amountCLP },
-        match: { id: txResult.match.id, title: txResult.match.title, comuna: txResult.match.comuna },
+        payment: { id: txResult.payment.id, amountCLP: txResult.payment.amountCLP, spotId: txResult.payment.spotId },
+        match: {
+          id: txResult.match.id,
+          title: txResult.match.title,
+          comuna: txResult.match.comuna,
+          venueId: txResult.match.venueId ?? null,
+        },
         baseUrl,
         user: { email: txResult.user.email, name: txResult.user.name ?? undefined },
       });
@@ -194,6 +200,11 @@ export async function POST(
       if (!initResult.url) {
         throw new Error("Mercado Pago no entregó una URL de pago");
       }
+
+      await prisma.payment.update({
+        where: { id: txResult.payment.id },
+        data: { providerRef: initResult.providerRef },
+      }).catch(() => null);
 
       return NextResponse.json({
         ok: true,

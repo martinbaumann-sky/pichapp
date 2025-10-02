@@ -740,8 +740,34 @@ export default function MatchDetailPage() {
     : spotsLeft <= 3
       ? `${spotsLeft} ${spotsLeft === 1 ? "cupo disponible" : "cupos disponibles"}`
       : `${spotsLeft} cupos disponibles`;
-  const matchStatusLabel = isFull ? "Partido completo" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "Partido confirmado" : "En confirmación";
   const chipPercent = isFull ? 100 : paidCount >= minSpotsToConfirm || match.isConfirmed ? Math.max(minMarkerPercent, progressPercent) : progressPercent;
+  const normalizedMatchStatus = (match.status ?? "").toString().toLowerCase();
+  const isCanceledMinimum = normalizedMatchStatus === "canceled_minimum";
+  const isConfirmedStatus = normalizedMatchStatus === "confirmed" || !!match.isConfirmed;
+  const statusDisplayLabel = isCanceledMinimum
+    ? "Cancelado y en reembolso"
+    : isConfirmedStatus
+      ? "Confirmado"
+      : `Faltan ${spotsMissingForConfirmation} para confirmar`;
+  const statusDisplayClass = isCanceledMinimum
+    ? "text-red-600"
+    : isConfirmedStatus
+      ? "text-emerald-700"
+      : "text-slate-500";
+  const matchStatusLabel = isCanceledMinimum
+    ? "Cancelado y en reembolso"
+    : isFull
+      ? "Partido completo"
+      : isConfirmedStatus
+        ? "Partido confirmado"
+        : "Pendiente de confirmar";
+  const matchStatusPillClass = isCanceledMinimum
+    ? "bg-red-50 text-red-700 border border-red-200"
+    : isFull
+      ? "bg-slate-100 text-slate-700 border border-slate-200"
+      : isConfirmedStatus
+        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+        : "bg-amber-50 text-amber-700 border border-amber-200";
   const description = (match.description ?? match.details ?? match.notes ?? "") as string;
   const addressLabel = match.venueAddress || match.venueName || match.comuna || "Ubicación por confirmar";
   const hasCoords = match.lat != null && match.lng != null && !isNaN(Number(match.lat)) && !isNaN(Number(match.lng));
@@ -933,7 +959,7 @@ export default function MatchDetailPage() {
                       Cómo llegar
                     </a>
                   ) : null}
-                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${isFull ? "bg-slate-100 text-slate-700 border border-slate-200" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
+                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${matchStatusPillClass}`}>
                     {matchStatusLabel}
                   </div>
                 </div>
@@ -980,9 +1006,7 @@ export default function MatchDetailPage() {
               <div className="mt-6">
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className={`font-medium ${isFull ? "text-slate-700" : isAlmostFull ? "text-amber-700" : "text-emerald-700"}`}>{spotsHeadline}</span>
-                  {spotsMissingForConfirmation > 0 && !match.isConfirmed ? (
-                    <span className="text-xs text-slate-500">Faltan {spotsMissingForConfirmation} para confirmar</span>
-                  ) : null}
+                  <span className={`text-xs font-medium ${statusDisplayClass}`}>{statusDisplayLabel}</span>
                 </div>
                 <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-100">
                   <div className="absolute left-0 top-0 h-full bg-emerald-500 transition-all" style={{ width: `${chipPercent}%` }} />
@@ -996,6 +1020,11 @@ export default function MatchDetailPage() {
                   <span>Confirmado</span>
                   <span>Completo</span>
                 </div>
+                {isPaidMatch ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                    Si no se cumple el mínimo hasta 1 h antes, se cancela y se reembolsa.
+                  </div>
+                ) : null}
               </div>
             </div>
 
