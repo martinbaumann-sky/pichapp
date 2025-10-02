@@ -174,6 +174,16 @@ export default function FrostedAuthCard({
     }
   }, [next, onClose]);
 
+  const googleUrl = React.useMemo(() => {
+    const params = new URLSearchParams();
+    if (next) params.set("next", next);
+    return `/api/auth/oauth/google/start${params.toString() ? `?${params.toString()}` : ""}`;
+  }, [next]);
+
+  const handleGoogleAuth = React.useCallback(() => {
+    window.location.href = googleUrl;
+  }, [googleUrl]);
+
   const doSignup = async () => {
     try {
       setLocalLoading(true);
@@ -436,6 +446,19 @@ export default function FrostedAuthCard({
           ) : null}
 
           <div className="space-y-4">
+            <button
+              type="button"
+              onClick={handleGoogleAuth}
+              className="w-full inline-flex items-center justify-center gap-3 rounded-xl bg-white text-slate-900 px-4 py-3 font-medium shadow-lg shadow-emerald-900/20 hover:bg-white/90 transition"
+            >
+              <GoogleIcon className="h-5 w-5" />
+              Continuar con Google
+            </button>
+            <div className="flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-white/50">
+              <span className="flex-1 h-px bg-white/10" />
+              <span>o usa tu correo</span>
+              <span className="flex-1 h-px bg-white/10" />
+            </div>
             {tab === "login" && (
               <div className="space-y-3">
                 <label className="text-sm text-white/80">Correo</label>
@@ -594,5 +617,26 @@ export default function FrostedAuthCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <path
+        fill="#EA4335"
+        d="M12 11.988v3.912h5.458c-.24 1.248-.96 2.304-2.048 3.024l3.296 2.544C20.587 19.535 22 16.94 22 13.5c0-.744-.067-1.458-.192-2.144H12z"
+      />
+      <path fill="#34A853" d="M5.304 14.296a6.01 6.01 0 0 1 0-4.608L1.848 6.976C.984 8.66.5 10.524.5 12.5s.484 3.84 1.348 5.524z" />
+      <path
+        fill="#4285F4"
+        d="M12 4.708c1.62 0 3.066.56 4.212 1.656l3.154-3.154C17.652 1.62 15.26.5 12 .5 7.848.5 4.256 2.832 2.148 6.976l3.156 2.712C5.968 6.256 8.732 4.708 12 4.708z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M12 20.292c-3.268 0-6.032-1.548-6.696-4.98L2.148 18.024C4.256 22.168 7.848 24.5 12 24.5c3.168 0 5.828-1.048 7.68-2.832l-3.27-2.544C15.053 19.512 13.62 20.292 12 20.292z"
+      />
+      <path fill="none" d="M.5.5h23v23H.5z" />
+    </svg>
   );
 }

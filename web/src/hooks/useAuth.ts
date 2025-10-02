@@ -14,6 +14,7 @@ export interface User {
   phone?: string | null;
   phoneDisplay?: string | null;
   role?: UserRole | null;
+  emailVerified?: boolean;
 }
 
 export function resolveUserRole(user: User | null | undefined): UserRole | null {
