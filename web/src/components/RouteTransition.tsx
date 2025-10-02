@@ -20,12 +20,25 @@ export default function RouteTransition({ children }: Props) {
 
   const pageVariants = {
     initial: (d: number) => ({
-      x: d === 1 ? 120 : d === -1 ? -120 : 0,
-      opacity: d === 0 ? 0.98 : 0,
-      scale: 1,
+      x: d === 0 ? 0 : d > 0 ? 36 : -36,
+      y: 18,
+      opacity: 0,
+      scale: 0.985,
+      filter: "blur(12px)",
     }),
-    animate: { x: 0, opacity: 1, scale: 1 },
-    exit: (d: number) => ({ x: d === 1 ? -80 : d === -1 ? 80 : 0, opacity: 0, scale: 0.999 }),
+    animate: { x: 0, y: 0, opacity: 1, scale: 1, filter: "blur(0px)" },
+    exit: (d: number) => ({
+      x: d === 0 ? 0 : d > 0 ? -24 : 24,
+      y: -12,
+      opacity: 0,
+      scale: 0.985,
+      filter: "blur(8px)",
+    }),
+  };
+
+  const pageTransition = {
+    duration: 0.48,
+    ease: [0.18, 0.84, 0.42, 1],
   };
 
   return (
@@ -33,29 +46,19 @@ export default function RouteTransition({ children }: Props) {
       <AnimatePresence mode="wait" initial={false} custom={direction}>
         {/* subtle crossfade layer to smooth repaints */}
         <motion.div
-          key={`${pathname}-fade`}
-          className="pointer-events-none absolute inset-0 z-0"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.28, ease: [0.2, 0.8, 0.36, 0.99] }}
-        />
-
-        <motion.main
           key={pathname}
-          className="flex-1 relative z-10"
+          className="relative z-10 flex-1"
           initial="initial"
           animate="animate"
           exit="exit"
           variants={pageVariants}
           custom={direction}
-          transition={{ duration: 0.36, ease: [0.22, 0.8, 0.36, 0.99] }}
-          style={{ willChange: "transform, opacity" }}
+          transition={pageTransition}
+          style={{ willChange: "transform, opacity, filter" }}
         >
-          {children}
-        </motion.main>
-
-        {/* no extra overlay to avoid leaving painted remnants */}
+          <div className="pointer-events-none absolute inset-0 z-0 bg-slate-950/40" aria-hidden />
+          <main className="relative z-10 flex-1">{children}</main>
+        </motion.div>
       </AnimatePresence>
     </div>
   );

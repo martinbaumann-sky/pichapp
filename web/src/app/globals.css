@@ -228,5 +228,23 @@
 
 @layer utilities {
   .animate-float { animation: float 3s ease-in-out infinite; }
+  .animate-spin-slow { animation: spin-slow 1.8s cubic-bezier(.22, .8, .56, .99) infinite; }
+  .animate-breathe { animation: breathe 3.4s ease-in-out infinite; }
   .container-px { @apply px-6; }
+
+  @keyframes spin-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes breathe {
+    0%, 100% {
+      opacity: 0.45;
+      transform: scale(0.92);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
 }
