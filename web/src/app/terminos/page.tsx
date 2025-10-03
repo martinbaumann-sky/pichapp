@@ -34,6 +34,11 @@ export default function TerminosPage() {
         <ul className="list-disc pl-5 text-gray-700 space-y-1">
           <li>Los pagos de cupos se procesan en línea y se confirman al instante.</li>
           <li>Las comisiones aplicables se informan antes de confirmar el pago.</li>
+          <li>
+            Planes para canchas: Gratis (14% comisión por cupo), Avanzado ($39.990 + 7% comisión) y Pro ($99.990 + 2% comisión).
+          </li>
+          <li>Los planes Avanzado y Pro se cobran como suscripción mensual recurrente a través de Mercado Pago.</li>
+          <li>Puedes cancelar o cambiar tu plan en cualquier momento desde el panel de cancha; el cambio se aplica al siguiente ciclo.</li>
           <li>Los organizadores reciben los fondos netos según lo informado en la app.</li>
         </ul>
       </section>

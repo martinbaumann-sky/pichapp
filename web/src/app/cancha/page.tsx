@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CalendarCheck, CheckCircle2, MessageCircle, PieChart, ShieldCheck, Users2 } from "lucide-react";
+import { VENUE_PLANS } from "@/lib/venuePlans";
 
 const benefits = [
   {
@@ -19,32 +20,7 @@ const benefits = [
   },
 ];
 
-const plans = [
-  {
-    name: "Gratis",
-    price: "$0 / mes",
-    description: "Comisión base por transacción. Ideal para partir con tu cancha.",
-    features: [
-      "Publica partidos ilimitados",
-      "Pagos con Mercado Pago",
-      "Chat y recordatorios automáticos",
-      "Reportes esenciales",
-    ],
-    highlight: false,
-  },
-  {
-    name: "Pro",
-    price: "$49.990 / mes",
-    description: "Comisión reducida, programación avanzada y soporte prioritario.",
-    features: [
-      "Slots recurrentes y generación masiva",
-      "Reportes avanzados y conciliación",
-      "Branding de la cancha en las fichas",
-      "Soporte prioritario y onboarding dedicado",
-    ],
-    highlight: true,
-  },
-];
+const plans = Object.values(VENUE_PLANS);
 
 const onboardingSteps = [
   {
@@ -137,19 +113,20 @@ export default function CanchaLandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
           <div className="text-center max-w-3xl mx-auto mb-12">
             <h2 className="text-3xl font-bold text-gray-900">Planes flexibles según tu volumen</h2>
-            <p className="mt-3 text-gray-600">Solo pagas comisión cuando cobras. Elige un plan con la comisión y herramientas que necesitas.</p>
+            <p className="mt-3 text-gray-600">Solo pagas comisión cuando cobras. Elige el plan que mejor se adapta al volumen de tu cancha.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {plans.map((plan) => (
               <div
-                key={plan.name}
+                key={plan.slug}
                 className={`rounded-3xl border ${plan.highlight ? "border-gray-900 bg-white shadow-xl" : "border-gray-200 bg-white shadow-sm"} p-8 flex flex-col gap-6`}
               >
                 <div className="space-y-2">
                   <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${plan.highlight ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}>
                     {plan.name}
                   </span>
-                  <div className="text-3xl font-bold text-gray-900">{plan.price}</div>
+                  <div className="text-3xl font-bold text-gray-900">{plan.priceLabel}</div>
+                  <div className="text-sm font-semibold text-emerald-600">{plan.commissionLabel}</div>
                   <p className="text-sm text-gray-600">{plan.description}</p>
                 </div>
                 <ul className="space-y-3 text-sm text-gray-600">
@@ -161,7 +138,10 @@ export default function CanchaLandingPage() {
                   ))}
                 </ul>
                 <div>
-                  <Link href="/cancha/registro" className={`btn-mobile w-full text-center ${plan.highlight ? "btn-primary" : "btn-secondary"}`}>
+                  <Link
+                    href={`/cancha/planes?plan=${plan.slug}`}
+                    className={`btn-mobile w-full text-center ${plan.highlight ? "btn-primary" : "btn-secondary"}`}
+                  >
                     Elegir plan
                   </Link>
                 </div>

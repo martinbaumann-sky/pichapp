@@ -8,6 +8,9 @@ import {
   parseExternalReference,
   verifyMpSignature,
 } from "@/lib/mp/marketplace";
+import { getPreapproval } from "@/lib/mp/subscription";
+import { getVenuePlan } from "@/lib/venuePlans";
+import { sendVenuePlanActivatedEmail, sendVenuePlanCancelledEmail } from "@/lib/venue-subscription-email";
 
 async function resolveVenueIdFromPayment(paymentId: string, mpUserId: string | null) {
   if (mpUserId) {
@@ -24,6 +27,127 @@ async function resolveVenueIdFromPayment(paymentId: string, mpUserId: string | n
     }
   }
   return null;
+}
+
+async function handlePreapprovalUpdate(preapprovalId: string) {
+  const subscription = await prisma.venueSubscription.findFirst({
+    where: { mpPreapprovalId: preapprovalId },
+    include: {
+      venue: {
+        select: {
+          id: true,
+          name: true,
+          plan: true,
+          payoutEmail: true,
+          owner: { select: { email: true } },
+        },
+      },
+    },
+  });
+
+  if (!subscription || !subscription.venue) {
+    console.warn("[mp/webhook] preapproval subscription not found", preapprovalId);
+    return;
+  }
+
+  const mpPreapproval = await getPreapproval(preapprovalId).catch((err) => {
+    console.error("[mp/webhook] preapproval lookup failed", err);
+    return null;
+  });
+  if (!mpPreapproval) return;
+
+  const statusRaw = String(mpPreapproval?.status ?? "").toLowerCase();
+  let nextStatus = subscription.status;
+  if (statusRaw === "authorized" || statusRaw === "active") {
+    nextStatus = "ACTIVE";
+  } else if (statusRaw === "paused") {
+    nextStatus = "PAUSED";
+  } else if (statusRaw === "cancelled" || statusRaw === "canceled") {
+    nextStatus = "CANCELED";
+  } else if (statusRaw === "expired") {
+    nextStatus = "EXPIRED";
+  } else if (statusRaw === "pending" || statusRaw === "pending_waiting_payment") {
+    nextStatus = "PENDING";
+  }
+
+  const nextChargeAt = mpPreapproval?.next_payment_date ? new Date(mpPreapproval.next_payment_date) : null;
+  const lastChargeAt = mpPreapproval?.last_charged_date ? new Date(mpPreapproval.last_charged_date) : null;
+
+  const updates: any = {
+    status: nextStatus,
+    nextChargeAt,
+    lastChargeAt,
+  };
+  if (nextStatus === "ACTIVE" && !subscription.activatedAt) {
+    updates.activatedAt = new Date();
+  }
+  if ((nextStatus === "CANCELED" || nextStatus === "EXPIRED") && !subscription.canceledAt) {
+    updates.canceledAt = new Date();
+  }
+
+  let activated = false;
+  let cancelled = false;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.venueSubscription.update({ where: { id: subscription.id }, data: updates });
+
+    if (nextStatus === "ACTIVE") {
+      activated = subscription.status !== "ACTIVE";
+      await tx.venue.update({ where: { id: subscription.venueId }, data: { plan: subscription.plan } });
+      await tx.venueSubscription.updateMany({
+        where: {
+          venueId: subscription.venueId,
+          id: { not: subscription.id },
+          status: { in: ["ACTIVE", "PAUSED", "PENDING"] },
+        },
+        data: { status: "CANCELED", canceledAt: new Date(), cancellationReason: "Reemplazado por nueva suscripción" },
+      });
+    } else if (nextStatus === "CANCELED" || nextStatus === "EXPIRED") {
+      cancelled = subscription.status !== nextStatus;
+      const otherActive = await tx.venueSubscription.findFirst({
+        where: {
+          venueId: subscription.venueId,
+          id: { not: subscription.id },
+          status: { in: ["ACTIVE", "PAUSED"] },
+        },
+      });
+      if (!otherActive) {
+        await tx.venue.update({ where: { id: subscription.venueId }, data: { plan: "gratis" } });
+      }
+    }
+  });
+
+  const dashboardUrl = (() => {
+    const base = process.env.NEXT_PUBLIC_BASE_URL?.trim();
+    if (base) {
+      try {
+        const url = new URL(base);
+        return `${url.origin}/panel/cancha?tab=billing`;
+      } catch {}
+    }
+    return "http://localhost:3000/panel/cancha?tab=billing";
+  })();
+
+  const planInfo = getVenuePlan(subscription.plan);
+  const toEmail = subscription.venue.owner?.email || subscription.venue.payoutEmail || null;
+
+  if (activated && planInfo && toEmail) {
+    await sendVenuePlanActivatedEmail({
+      to: toEmail,
+      venueName: subscription.venue.name,
+      plan: planInfo.slug,
+      dashboardUrl,
+    }).catch((err) => console.warn("[mp/webhook] email activated", err));
+  }
+
+  if (cancelled && planInfo && planInfo.slug !== "gratis" && toEmail) {
+    await sendVenuePlanCancelledEmail({
+      to: toEmail,
+      venueName: subscription.venue.name,
+      plan: planInfo.slug,
+      dashboardUrl,
+    }).catch((err) => console.warn("[mp/webhook] email cancelled", err));
+  }
 }
 
 async function handlePaymentUpdate({
@@ -90,6 +214,7 @@ export async function POST(req: NextRequest) {
     const mpUserId = body?.user_id ?? body?.data?.user_id ?? query?.user_id ?? null;
 
     const paymentIds = new Set<string>();
+    const preapprovalIds = new Set<string>();
 
     if (eventType === "payment") {
       const pid = body?.data?.id ?? body?.id ?? query["data.id"] ?? query["id"];
@@ -124,23 +249,43 @@ export async function POST(req: NextRequest) {
     } else if (eventType === "refund") {
       const pid = body?.data?.payment_id ?? body?.payment_id ?? body?.data?.id ?? query["data.id"] ?? null;
       if (pid) paymentIds.add(String(pid));
+    } else if (eventType.includes("preapproval")) {
+      const preapprovalId =
+        body?.data?.id ??
+        body?.data?.preapproval_id ??
+        body?.preapproval_id ??
+        body?.id ??
+        query["data.id"] ??
+        query["preapproval_id"] ??
+        null;
+      if (preapprovalId) {
+        preapprovalIds.add(String(preapprovalId));
+      }
     }
 
     const ids = Array.from(paymentIds);
-    if (ids.length === 0) {
-      return NextResponse.json({ ok: true });
+    if (ids.length > 0) {
+      for (const pid of ids) {
+        try {
+          const venueId = await resolveVenueIdFromPayment(pid, mpUserId ? String(mpUserId) : null);
+          if (!venueId) {
+            console.warn("[mp/webhook] could not resolve venue for payment", pid);
+            continue;
+          }
+          await handlePaymentUpdate({ paymentId: pid, venueId });
+        } catch (err) {
+          console.error("[mp/webhook] payment processing error", pid, err);
+        }
+      }
     }
 
-    for (const pid of ids) {
-      try {
-        const venueId = await resolveVenueIdFromPayment(pid, mpUserId ? String(mpUserId) : null);
-        if (!venueId) {
-          console.warn("[mp/webhook] could not resolve venue for payment", pid);
-          continue;
+    if (preapprovalIds.size > 0) {
+      for (const preId of Array.from(preapprovalIds)) {
+        try {
+          await handlePreapprovalUpdate(preId);
+        } catch (err) {
+          console.error("[mp/webhook] preapproval error", preId, err);
         }
-        await handlePaymentUpdate({ paymentId: pid, venueId });
-      } catch (err) {
-        console.error("[mp/webhook] payment processing error", pid, err);
       }
     }
 

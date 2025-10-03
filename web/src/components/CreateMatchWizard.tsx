@@ -341,7 +341,7 @@ export default function CreateMatchWizard() {
                 />
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                Define el valor que cobran por cada cupo. Recuerda que PichangApp retiene el 10% como comisión.
+                Define el valor que cobran por cada cupo. En el plan Gratis retenemos el 14% como comisión; los planes Avanzado y Pro reducen ese porcentaje.
               </p>
             </div>
           </div>
@@ -383,7 +383,7 @@ export default function CreateMatchWizard() {
               <span className="font-medium">Cupos:</span> {form.totalSpots} jugadores (mínimo {form.minSpotsToConfirm} para confirmar)
             </p>
             <p>
-              <span className="font-medium">Precio por cupo:</span> {form.pricePerSpot > 0 ? currencyFormatter.format(form.pricePerSpot) : "Gratis"} (PichangApp retiene 10%)
+              <span className="font-medium">Precio por cupo:</span> {form.pricePerSpot > 0 ? currencyFormatter.format(form.pricePerSpot) : "Gratis"} (Plan Gratis retiene 14%)
             </p>
           </div>
           <PreviewCard lat={form.lat} lng={form.lng} photoUrl={form.photoUrl} />

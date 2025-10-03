@@ -17,7 +17,13 @@ export async function GET() {
 
     const venue = await prisma.venue.findFirst({
       where: { ownerId: userId },
-      include: { fields: { select: { id: true, name: true } } },
+      include: {
+        fields: { select: { id: true, name: true } },
+        subscriptions: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+        },
+      },
     });
 
     if (!venue) {
@@ -167,6 +173,17 @@ export async function GET() {
         phone: venue.phone,
         accountHolder: venue.accountHolder,
         fields: venue.fields,
+        subscriptions: venue.subscriptions.map((sub) => ({
+          id: sub.id,
+          plan: sub.plan,
+          status: sub.status,
+          createdAt: toISO(sub.createdAt),
+          activatedAt: sub.activatedAt ? toISO(sub.activatedAt) : null,
+          canceledAt: sub.canceledAt ? toISO(sub.canceledAt) : null,
+          nextChargeAt: sub.nextChargeAt ? toISO(sub.nextChargeAt) : null,
+          lastChargeAt: sub.lastChargeAt ? toISO(sub.lastChargeAt) : null,
+          mpPreapprovalId: sub.mpPreapprovalId,
+        })),
       },
       matches: formattedMatches,
       bookings: formattedBookings,

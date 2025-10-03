@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/utils/cn";
+import { VENUE_PLANS, getVenuePlan, isPaidVenuePlan } from "@/lib/venuePlans";
 
 type PanelMatch = {
   id: string;
@@ -62,6 +63,18 @@ type PanelPayment = {
   playerEmail?: string | null;
 };
 
+type VenueSubscriptionSummary = {
+  id: string;
+  plan: string;
+  status: string;
+  createdAt: string;
+  activatedAt: string | null;
+  canceledAt: string | null;
+  nextChargeAt: string | null;
+  lastChargeAt: string | null;
+  mpPreapprovalId: string | null;
+};
+
 type PanelData = {
   venue: {
     id: string;
@@ -77,6 +90,7 @@ type PanelData = {
     phone: string | null;
     accountHolder: string;
     fields: Array<{ id: string; name: string }>;
+    subscriptions: VenueSubscriptionSummary[];
   };
   matches: PanelMatch[];
   bookings: PanelBooking[];
@@ -95,6 +109,7 @@ const tabs = [
   { id: "calendar", label: "Calendario", icon: CalendarDays },
   { id: "bookings", label: "Reservas", icon: ClipboardList },
   { id: "payments", label: "Pagos", icon: CreditCard },
+  { id: "billing", label: "Planes", icon: CreditCard },
   { id: "reports", label: "Reportes", icon: BarChart3 },
   { id: "settings", label: "Ajustes", icon: Settings },
 ] as const;
@@ -277,6 +292,8 @@ export default function VenueDashboardPage() {
             <BookingsTab loading={loading} bookings={data?.bookings ?? []} />
           ) : activeTab === "payments" ? (
             <PaymentsTab loading={loading} payments={data?.payments ?? []} />
+          ) : activeTab === "billing" ? (
+            <BillingTab loading={loading} venue={data?.venue ?? null} onRefresh={fetchData} />
           ) : activeTab === "reports" ? (
             <ReportsTab loading={loading} data={data} />
           ) : activeTab === "settings" ? (
@@ -634,6 +651,283 @@ function PaymentsTab({ loading, payments }: { loading: boolean; payments: PanelP
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function BillingTab({
+  loading,
+  venue,
+  onRefresh,
+}: {
+  loading: boolean;
+  venue: PanelData["venue"] | null;
+  onRefresh: () => void;
+}) {
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const currentPlan = useMemo(() => getVenuePlan(venue?.plan ?? "gratis"), [venue?.plan]);
+  const subscriptions = venue?.subscriptions ?? [];
+  const activeSubscription = useMemo(
+    () => subscriptions.find((sub) => sub.status === "ACTIVE" || sub.status === "PAUSED") ?? null,
+    [subscriptions],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("planStatus");
+    const success = params.get("planSuccess");
+    if (status && success === "1") {
+      const info = getVenuePlan(status);
+      if (info) {
+        setMessage(`Plan ${info.name} activado correctamente.`);
+        params.delete("planStatus");
+        params.delete("planSuccess");
+        window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+      }
+    }
+  }, [venue?.plan]);
+
+  const handleCheckout = async (planSlug: string) => {
+    try {
+      setError(null);
+      setMessage(null);
+      setProcessing(planSlug);
+      const payload = {
+        plan: planSlug,
+        returnUrl:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/panel/cancha?tab=billing&planStatus=${planSlug}&planSuccess=1`
+            : undefined,
+      };
+      const response = await fetch("/api/venue/plans/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "No pudimos iniciar el checkout");
+      }
+      const data = (await response.json()) as {
+        checkoutUrl?: string | null;
+        redirectUrl?: string | null;
+        plan?: { slug: string };
+      };
+      if (data.checkoutUrl) {
+        if (typeof window !== "undefined") {
+          window.location.href = data.checkoutUrl;
+        }
+      } else {
+        await onRefresh();
+        setMessage("Tu plan gratis quedó activo.");
+        if (data.redirectUrl && typeof window !== "undefined") {
+          window.history.replaceState({}, "", data.redirectUrl);
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error inesperado";
+      setError(message);
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    try {
+      setError(null);
+      setMessage(null);
+      setProcessing("cancel");
+      const response = await fetch("/api/venue/plans/cancel", { method: "POST" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "No pudimos cancelar tu suscripción");
+      }
+      await onRefresh();
+      setMessage("Tu suscripción fue cancelada. Volviste al plan Gratis.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error inesperado";
+      setError(message);
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  if (!venue && loading) {
+    return <div className="h-40 rounded-3xl border border-white/60 bg-white/70 animate-pulse" />;
+  }
+
+  if (!venue) {
+    return (
+      <div className="rounded-3xl border border-amber-200 bg-amber-50 px-6 py-8 text-sm text-amber-800">
+        Registra tu cancha para contratar un plan.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Tu plan actual</h2>
+            <p className="text-sm text-gray-600">
+              {currentPlan
+                ? `Plan ${currentPlan.name} · ${currentPlan.commissionLabel}`
+                : `Plan ${venue.plan.toUpperCase()}`}
+            </p>
+            {activeSubscription?.nextChargeAt ? (
+              <p className="text-xs text-gray-500">
+                Próxima renovación: {formatDateTime(activeSubscription.nextChargeAt)}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1">
+              {activeSubscription ? "Suscripción activa" : "Sin suscripción"}
+            </span>
+            {currentPlan?.slug !== "gratis" ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-3 py-1 text-white">
+                Comisión {Math.round((currentPlan?.commissionRate ?? 0) * 100)}%
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        {message ? (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {message}
+          </div>
+        ) : null}
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        ) : null}
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900">Planes disponibles</h3>
+        <p className="mt-1 text-sm text-gray-600">
+          Elige el plan que mejor se ajusta al volumen de tu cancha. Las suscripciones se renuevan automáticamente cada mes.
+        </p>
+        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+          {Object.values(VENUE_PLANS).map((plan) => {
+            const isCurrent = currentPlan?.slug === plan.slug;
+            const isProcessing = processing === plan.slug;
+            const canDowngrade = plan.slug === "gratis" && currentPlan?.slug !== "gratis";
+            const label = isCurrent
+              ? "Plan actual"
+              : canDowngrade
+              ? "Volver a Gratis"
+              : "Contratar plan";
+            const disabled = isCurrent && plan.slug !== "gratis";
+            return (
+              <div
+                key={plan.slug}
+                className={cn(
+                  "rounded-3xl border p-6 shadow-sm transition",
+                  plan.highlight ? "border-gray-900 bg-white shadow-xl" : "border-gray-200 bg-white/90",
+                )}
+              >
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-500">
+                      {plan.name}
+                    </span>
+                    {isCurrent ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-700">
+                        Actual
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-3xl font-bold text-gray-900">{plan.priceLabel}</div>
+                  <div className="text-sm font-semibold text-emerald-600">{plan.commissionLabel}</div>
+                  <p className="text-sm text-gray-600">{plan.description}</p>
+                </div>
+                <ul className="mt-4 space-y-2 text-sm text-gray-600">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {feature}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => handleCheckout(plan.slug)}
+                  disabled={disabled || processing !== null}
+                  className={cn(
+                    "mt-6 w-full rounded-full px-4 py-2 text-sm font-semibold transition",
+                    disabled
+                      ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                      : plan.highlight
+                        ? "bg-gray-900 text-white hover:bg-gray-800"
+                        : "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20",
+                  )}
+                >
+                  {isProcessing ? "Redirigiendo…" : label}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {activeSubscription && isPaidVenuePlan(currentPlan?.slug ?? "gratis") ? (
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold text-red-800">¿Deseas cancelar tu suscripción?</p>
+              <p className="text-sm text-red-600">
+                Al cancelar volverás al plan Gratis al finalizar el ciclo vigente. Los cobros recurrentes se detendrán.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={processing !== null}
+              className="inline-flex items-center justify-center rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-100 disabled:cursor-not-allowed"
+            >
+              {processing === "cancel" ? "Cancelando…" : "Cancelar suscripción"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
+        <h3 className="text-lg font-semibold text-gray-900">Historial de suscripciones</h3>
+        {subscriptions.length === 0 ? (
+          <p className="mt-3 text-sm text-gray-500">Aún no hay suscripciones registradas.</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {subscriptions.map((sub) => {
+              const plan = getVenuePlan(sub.plan);
+              return (
+                <div
+                  key={sub.id}
+                  className="flex flex-col gap-2 rounded-2xl border border-gray-200/70 bg-white/80 px-4 py-3 text-sm text-gray-700 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-gray-900">{plan ? `Plan ${plan.name}` : sub.plan}</p>
+                    <p className="text-xs text-gray-500">Creado el {formatDateTime(sub.createdAt)}</p>
+                  </div>
+                  <div className="flex flex-col items-start gap-1 text-xs text-gray-600 sm:items-end">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 font-semibold uppercase tracking-widest text-gray-600">
+                      {sub.status}
+                    </span>
+                    {sub.nextChargeAt ? <span>Próximo cobro: {formatDateTime(sub.nextChargeAt)}</span> : null}
+                    {sub.lastChargeAt ? <span>Último cobro: {formatDateTime(sub.lastChargeAt)}</span> : null}
+                    {sub.mpPreapprovalId ? (
+                      <span className="font-mono text-[11px] text-gray-400">ID: {sub.mpPreapprovalId}</span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

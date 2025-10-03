@@ -351,7 +351,7 @@ export default function CreateMatchPage() {
                     />
                   </div>
                   <p className="text-xs text-gray-500">
-                    Puedes cobrar en pesos chilenos. PichangApp retiene el 10% de cada cupo vendido.
+                    Puedes cobrar en pesos chilenos. En el plan Gratis retenemos el 14% por cupo; si tu cancha está en planes Avanzado o Pro, la comisión baja al 7% o 2% respectivamente.
                   </p>
                 </div>
 
