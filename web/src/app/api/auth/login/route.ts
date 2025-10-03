@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import { getPasswordHash, setPasswordHash } from "@/lib/auth-password";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
-import { createVerificationCode, sendVerificationEmail } from "@/lib/email-verification";
+import { createVerificationCode, sendVerificationEmail, isEmailVerificationEnabled } from "@/lib/email-verification";
 import { toAuthUser } from "@/lib/auth-user";
 import { verifySupabasePassword } from "@/lib/supabase-admin";
 
@@ -117,33 +117,59 @@ export async function POST(req: NextRequest) {
     }
 
     if (!user.emailVerifiedAt) {
-      try {
-        if (!user.email) {
-          throw new Error("Falta correo electronico asociado a la cuenta");
+      const verificationEnabled = isEmailVerificationEnabled();
+      if (!verificationEnabled) {
+        const verifiedAt = new Date();
+        try {
+          const refreshed = await prisma.user.update({
+            where: { id: user.id },
+            data: { emailVerifiedAt: verifiedAt },
+            select: userSelect,
+          });
+          if (refreshed) {
+            user = refreshed;
+          } else {
+            user = { ...user, emailVerifiedAt: verifiedAt };
+          }
+        } catch (err) {
+          console.error("[auth/login] Failed to auto-verify email during login", err);
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "No se pudo verificar tu cuenta automaticamente. Intenta mas tarde.",
+            },
+            { status: 500 }
+          );
         }
-        const verification = await createVerificationCode(user.id);
-        await sendVerificationEmail(user.email, verification.code, { name: user.profile?.name ?? null });
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "Debes verificar tu correo para continuar.",
-            requiresVerification: true,
-            email: user.email,
-            expiresAt: verification.expiresAt.toISOString(),
-          },
-          { status: 403 }
-        );
-      } catch (err: any) {
-        const message = err instanceof Error ? err.message : err?.message;
-        return NextResponse.json(
-          {
-            ok: false,
-            error: message || "No se pudo reenviar el codigo de verificacion",
-            requiresVerification: true,
-            email: user.email,
-          },
-          { status: 500 }
-        );
+      } else {
+        try {
+          if (!user.email) {
+            throw new Error("Falta correo electronico asociado a la cuenta");
+          }
+          const verification = await createVerificationCode(user.id);
+          await sendVerificationEmail(user.email, verification.code, { name: user.profile?.name ?? null });
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "Debes verificar tu correo para continuar.",
+              requiresVerification: true,
+              email: user.email,
+              expiresAt: verification.expiresAt.toISOString(),
+            },
+            { status: 403 }
+          );
+        } catch (err: any) {
+          const message = err instanceof Error ? err.message : err?.message;
+          return NextResponse.json(
+            {
+              ok: false,
+              error: message || "No se pudo reenviar el codigo de verificacion",
+              requiresVerification: true,
+              email: user.email,
+            },
+            { status: 500 }
+          );
+        }
       }
     }
 

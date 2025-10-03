@@ -1,10 +1,10 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { setPasswordHash } from "@/lib/auth-password";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 import { normalizeForStorage } from "@/lib/phone";
-import { createVerificationCode, sendVerificationEmail } from "@/lib/email-verification";
+import { createVerificationCode, sendVerificationEmail, isEmailVerificationEnabled } from "@/lib/email-verification";
 
 const rl = createRateLimiter({ name: "auth_signup", limit: 5, windowSec: 300 });
 
@@ -72,6 +72,20 @@ export async function POST(req: NextRequest) {
       await setPasswordHash(user.id, passwordHash);
     } catch {}
 
+    const verificationEnabled = isEmailVerificationEnabled();
+    if (!verificationEnabled) {
+      try {
+        const verifiedAt = new Date();
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerifiedAt: verifiedAt },
+        });
+      } catch (err) {
+        console.warn("[auth/signup] Failed to auto-verify user during signup", err);
+      }
+      return NextResponse.json({ ok: true, requiresVerification: false, email });
+    }
+
     let verification;
     try {
       verification = await createVerificationCode(user.id);
@@ -101,3 +115,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

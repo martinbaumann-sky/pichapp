@@ -1,8 +1,10 @@
-﻿import { prisma } from "@/lib/db";
-import { assertResend } from "@/lib/email";
+import { prisma } from "@/lib/db";
+import { assertResend, resend } from "@/lib/email";
 
 const CODE_TTL_MINUTES = Number(process.env.EMAIL_VERIFICATION_TTL_MINUTES ?? "15");
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "PichangApp <no-reply@pichangapp.cl>";
+const DISABLE_EMAIL_VERIFICATION = process.env.DISABLE_EMAIL_VERIFICATION === "1";
+const FORCE_EMAIL_VERIFICATION = process.env.ENABLE_EMAIL_VERIFICATION === "1";
 
 function now() {
   return new Date();
@@ -12,6 +14,16 @@ function generateCode(): string {
   const min = 100000;
   const max = 999999;
   return String(Math.floor(Math.random() * (max - min + 1)) + min);
+}
+
+export function isEmailVerificationEnabled() {
+  if (DISABLE_EMAIL_VERIFICATION) {
+    return false;
+  }
+  if (FORCE_EMAIL_VERIFICATION) {
+    return true;
+  }
+  return Boolean(resend);
 }
 
 export async function createVerificationCode(userId: string) {
@@ -25,10 +37,14 @@ export async function createVerificationCode(userId: string) {
 }
 
 export async function sendVerificationEmail(to: string, code: string, opts?: { name?: string | null }) {
-  const resend = assertResend();
+  if (!isEmailVerificationEnabled()) {
+    console.warn("[email-verification] Email verification disabled; skipping send for %s", to);
+    return;
+  }
+  const resendClient = assertResend();
   const previewCode = code.split("").join(" ");
   const greeting = opts?.name ? `Hola ${opts.name}` : "Hola";
-  await resend.emails.send({
+  await resendClient.emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Confirma tu correo en PichangApp",
@@ -41,7 +57,9 @@ export async function sendVerificationEmail(to: string, code: string, opts?: { n
         <p style="font-size: 13px; color: #64748b;">Si no fuiste tu, ignora este mensaje.</p>
       </div>
     `,
-    text: `${greeting}` + "\n\n" +
+    text:
+      `${greeting}` +
+      "\n\n" +
       `Tu codigo de verificacion es ${code}. Ingresa este codigo en PichangApp durante los proximos ${CODE_TTL_MINUTES} minutos.` +
       "\n\nSi no fuiste tu, puedes ignorar este mensaje.",
   });
@@ -62,3 +80,5 @@ export async function validateVerificationCode(userId: string, code: string) {
 export async function markVerificationAsConsumed(id: string) {
   await prisma.emailVerification.update({ where: { id }, data: { consumedAt: now() } });
 }
+
+

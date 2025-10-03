@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
-import { createVerificationCode, sendVerificationEmail } from "@/lib/email-verification";
+import { createVerificationCode, sendVerificationEmail, isEmailVerificationEnabled } from "@/lib/email-verification";
 
 const rl = createRateLimiter({ name: "auth_verification_resend", limit: 5, windowSec: 300 });
 
@@ -54,6 +54,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const verificationEnabled = isEmailVerificationEnabled();
+    if (!verificationEnabled) {
+      try {
+        const verifiedAt = new Date();
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerifiedAt: verifiedAt },
+        });
+      } catch (err) {
+        console.warn("[auth/verification/resend] Failed to auto-verify user", err);
+      }
+      return NextResponse.json({ ok: true, requiresVerification: false });
+    }
+
     const verification = await createVerificationCode(user.id);
     await sendVerificationEmail(user.email, verification.code, { name: user.profile?.name ?? null });
 
@@ -65,3 +79,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
