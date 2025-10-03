@@ -172,6 +172,8 @@ export async function GET() {
         taxId: venue.taxId,
         phone: venue.phone,
         accountHolder: venue.accountHolder,
+        mpCollectorId: venue.mpCollectorId,
+        mpAccountType: venue.mpAccountType,
         fields: venue.fields,
         subscriptions: venue.subscriptions.map((sub) => ({
           id: sub.id,

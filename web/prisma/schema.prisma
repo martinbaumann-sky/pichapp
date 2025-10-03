@@ -156,6 +156,8 @@ model Venue {
   plan             String    @default("gratis")
   verified         Boolean   @default(false)
   mpAccountId      String?
+  mpAccountType    String?
+  mpCollectorId    String?
   placeId          String?
   mpAccessToken    String?
   mpRefreshToken   String?

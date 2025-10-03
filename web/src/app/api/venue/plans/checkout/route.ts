@@ -35,7 +35,14 @@ export async function POST(req: Request) {
 
     const venue = await prisma.venue.findFirst({
       where: { ownerId: userId },
-      select: { id: true, name: true, plan: true, payoutEmail: true },
+      select: {
+        id: true,
+        name: true,
+        plan: true,
+        payoutEmail: true,
+        mpCollectorId: true,
+        mpAccountType: true,
+      },
     });
 
     if (!venue) {
@@ -63,6 +70,15 @@ export async function POST(req: Request) {
 
       await prisma.venue.update({ where: { id: venue.id }, data: { plan: "gratis" } });
       return NextResponse.json({ ok: true, checkoutUrl: null, plan: VENUE_PLANS.gratis, redirectUrl: dashboardUrl });
+    }
+
+    if (!venue.mpCollectorId || !venue.mpAccountType) {
+      return NextResponse.json(
+        {
+          error: "Completa el Collector ID y tipo de cuenta de Mercado Pago en tu perfil antes de contratar un plan pagado.",
+        },
+        { status: 400 },
+      );
     }
 
     if (!venue.payoutEmail) {

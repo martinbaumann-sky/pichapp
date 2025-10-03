@@ -42,6 +42,8 @@ export async function GET() {
         phone: venue.phone,
         payoutEmail: venue.payoutEmail,
         accountHolder: venue.accountHolder,
+        mpCollectorId: venue.mpCollectorId,
+        mpAccountType: venue.mpAccountType,
         plan: venue.plan,
         verified: venue.verified,
         fields: venue.fields,
@@ -70,9 +72,11 @@ export async function PATCH(req: NextRequest) {
     const accountHolder = typeof payload?.accountHolder === "string" ? payload.accountHolder.trim() : venue.accountHolder;
     const taxId = typeof payload?.taxId === "string" ? payload.taxId.trim() : venue.taxId;
     const phoneRaw = typeof payload?.phone === "string" ? payload.phone.trim() : venue.phone ?? "";
+    const mpCollectorId = typeof payload?.mpCollectorId === "string" ? payload.mpCollectorId.trim() : venue.mpCollectorId ?? "";
+    const mpAccountType = typeof payload?.mpAccountType === "string" ? payload.mpAccountType.trim() : venue.mpAccountType ?? "";
     const fieldNames = parseFields(payload?.fields);
 
-    if (!name || !address || !comuna || !payoutEmail || !accountHolder || !taxId) {
+    if (!name || !address || !comuna || !payoutEmail || !accountHolder || !taxId || !mpCollectorId || !mpAccountType) {
       return NextResponse.json({ error: "Completa todos los campos obligatorios." }, { status: 400 });
     }
 
@@ -89,6 +93,8 @@ export async function PATCH(req: NextRequest) {
           accountHolder,
           taxId,
           phone: normalizedPhone,
+          mpCollectorId,
+          mpAccountType,
         },
       });
 
@@ -124,6 +130,8 @@ export async function PATCH(req: NextRequest) {
             plan: fresh.plan,
             verified: fresh.verified,
             fields: fresh.fields,
+            mpCollectorId: fresh.mpCollectorId,
+            mpAccountType: fresh.mpAccountType,
           }
         : null,
     });

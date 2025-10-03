@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, MapPin } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { staticMapUrl } from "@/lib/maps";
+import { VENUE_PLANS, getVenuePlan, isPaidVenuePlan, type VenuePlanSlug } from "@/lib/venuePlans";
+import { cn } from "@/utils/cn";
 
 const MiniMap = dynamic(() => import("@/components/MatchMiniMap"), {
   ssr: false,
@@ -37,8 +40,12 @@ const steps = [
     description: "Selecciona tu dirección y validamos automáticamente la ubicación en el mapa.",
   },
   {
+    title: "Plan de suscripción",
+    description: "Elige el plan que mejor se ajusta al volumen de tu complejo deportivo.",
+  },
+  {
     title: "Cuenta de pago",
-    description: "Conecta tu cuenta de Mercado Pago para recibir depósitos.",
+    description: "Conecta tu cuenta de Mercado Pago para recibir depósitos y reembolsos automáticos.",
   },
 ];
 
@@ -57,6 +64,9 @@ interface FormValues {
   placeId?: string;
   accountHolder: string;
   payoutEmail: string;
+  mpCollectorId: string;
+  mpAccountType: string;
+  plan: VenuePlanSlug;
   acceptTerms: boolean;
 }
 
@@ -74,15 +84,41 @@ const initialValues: FormValues = {
   lng: null,
   accountHolder: "",
   payoutEmail: "",
+  mpCollectorId: "",
+  mpAccountType: "",
+  plan: "gratis",
   acceptTerms: false,
 };
 
 export default function CanchaRegisterPage() {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [planRedirecting, setPlanRedirecting] = useState(false);
+  const [mpConnectLoading, setMpConnectLoading] = useState(false);
+  const [mpConnectError, setMpConnectError] = useState<string | null>(null);
+  const [completedPlan, setCompletedPlan] = useState<VenuePlanSlug | null>(null);
   const [formValues, setFormValues] = useState<FormValues>(initialValues);
+
+  const planOptions = useMemo(() => Object.values(VENUE_PLANS), []);
+  const selectedPlanInfo = useMemo(
+    () => getVenuePlan(formValues.plan) ?? VENUE_PLANS.gratis,
+    [formValues.plan],
+  );
+  const successPlanInfo = useMemo(
+    () => getVenuePlan(completedPlan ?? formValues.plan) ?? VENUE_PLANS.gratis,
+    [completedPlan, formValues.plan],
+  );
+
+  useEffect(() => {
+    const planParam = searchParams.get("plan");
+    const info = getVenuePlan(planParam);
+    if (info) {
+      setFormValues((prev) => (prev.plan === info.slug ? prev : { ...prev, plan: info.slug }));
+    }
+  }, [searchParams]);
 
   const handleAddressChange = (value: AddressSelection) => {
     setFormValues((prev) => {
@@ -136,6 +172,7 @@ export default function CanchaRegisterPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    setMpConnectError(null);
 
     const formData = new FormData(event.currentTarget);
     const stepValues: Partial<FormValues> = {};
@@ -179,8 +216,20 @@ export default function CanchaRegisterPage() {
       }
     }
 
+    if (step === 2) {
+      if (!nextValues.plan || !getVenuePlan(nextValues.plan)) {
+        setError("Selecciona un plan para continuar.");
+        return;
+      }
+    }
+
     if (!isLastStep) {
       setStep((value) => Math.min(steps.length - 1, value + 1));
+      return;
+    }
+
+    if (!nextValues.accountHolder || !nextValues.payoutEmail || !nextValues.mpCollectorId || !nextValues.mpAccountType) {
+      setError("Completa los datos de Mercado Pago para continuar.");
       return;
     }
 
@@ -202,12 +251,44 @@ export default function CanchaRegisterPage() {
         throw new Error(data?.error ?? "No pudimos completar el registro. Intenta nuevamente.");
       }
 
+      setCompletedPlan(nextValues.plan);
+
+      if (isPaidVenuePlan(nextValues.plan)) {
+        setPlanRedirecting(true);
+        const returnUrl =
+          typeof window !== "undefined"
+            ? `${window.location.origin}/panel/cancha?tab=billing&planStatus=${nextValues.plan}&planSuccess=1`
+            : undefined;
+        const checkoutRes = await fetch("/api/venue/plans/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: nextValues.plan, returnUrl }),
+        });
+        if (!checkoutRes.ok) {
+          const data = await checkoutRes.json().catch(() => ({}));
+          throw new Error(data?.error ?? "No pudimos iniciar el pago del plan.");
+        }
+        const checkoutData = (await checkoutRes.json()) as {
+          checkoutUrl?: string | null;
+          redirectUrl?: string | null;
+        };
+        if (checkoutData.checkoutUrl && typeof window !== "undefined") {
+          window.location.href = checkoutData.checkoutUrl;
+          return;
+        }
+        if (checkoutData.redirectUrl && typeof window !== "undefined") {
+          window.location.href = checkoutData.redirectUrl;
+          return;
+        }
+      }
+
       setSuccess(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error inesperado";
       setError(message);
     } finally {
       setLoading(false);
+      setPlanRedirecting(false);
     }
   };
 
@@ -215,6 +296,30 @@ export default function CanchaRegisterPage() {
     if (step === 0 || loading) return;
     setError(null);
     setStep((value) => Math.max(0, value - 1));
+  };
+
+  const handleConnectMp = async () => {
+    try {
+      setMpConnectError(null);
+      setMpConnectLoading(true);
+      const response = await fetch("/api/mp/oauth/init", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No pudimos iniciar la conexión con Mercado Pago.");
+      }
+      const url = typeof data?.url === "string" ? data.url : null;
+      if (!url) {
+        throw new Error("No recibimos el enlace de Mercado Pago. Intenta nuevamente.");
+      }
+      if (typeof window !== "undefined") {
+        window.location.href = url;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No pudimos iniciar la conexión con Mercado Pago.";
+      setMpConnectError(message);
+    } finally {
+      setMpConnectLoading(false);
+    }
   };
 
   const currentStep = steps[step];
@@ -293,14 +398,42 @@ export default function CanchaRegisterPage() {
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                     <CheckCircle2 className="h-7 w-7" aria-hidden />
                   </div>
-                  <h2 className="text-2xl font-semibold text-gray-900">¡Todo listo!</h2>
+                  <h2 className="text-2xl font-semibold text-gray-900">¡Registro enviado!</h2>
                   <p className="text-sm text-gray-600">
-                    Revisaremos tu información y te avisaremos por correo cuando tu cancha esté verificada. Luego podrás crear
-                    partidos desde el panel.
+                    Revisaremos tu información y te avisaremos por correo cuando tu cancha esté verificada. Mientras tanto,
+                    conecta Mercado Pago y activa tu plan desde el panel.
                   </p>
-                  <Link href="/panel/cancha" className="btn-primary btn-mobile sm:px-10 sm:py-4">
-                    Ir al panel de cancha
-                  </Link>
+                  <div className="mx-auto max-w-sm rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-sm text-gray-600">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Plan seleccionado</p>
+                    <p className="mt-1 text-lg font-semibold text-gray-900">{successPlanInfo.name}</p>
+                    <p className="text-sm text-gray-600">
+                      {successPlanInfo.priceLabel} · {successPlanInfo.commissionLabel}
+                    </p>
+                  </div>
+                  {mpConnectError ? (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                      {mpConnectError}
+                    </div>
+                  ) : null}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                    <button
+                      type="button"
+                      onClick={handleConnectMp}
+                      disabled={mpConnectLoading}
+                      className="rounded-xl border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {mpConnectLoading ? "Conectando…" : "Conectar Mercado Pago"}
+                    </button>
+                    <Link
+                      href="/panel/cancha?tab=billing"
+                      className="rounded-xl bg-black px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-gray-800"
+                    >
+                      Ir al panel y gestionar plan
+                    </Link>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Desde el panel podrás publicar partidos oficiales, conectar staff y cambiar de plan cuando quieras.
+                  </p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -444,10 +577,69 @@ export default function CanchaRegisterPage() {
                   )}
 
                   {step === 2 && (
+                    <div className="space-y-6">
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                        Selecciona el plan que activa mejor tus cobros. Los planes pagados generan una suscripción mensual con
+                        renovación automática.
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        {planOptions.map((plan) => {
+                          const isSelected = formValues.plan === plan.slug;
+                          return (
+                            <button
+                              key={plan.slug}
+                              type="button"
+                              onClick={() => setFormValues((prev) => ({ ...prev, plan: plan.slug }))}
+                              className={cn(
+                                "rounded-2xl border px-5 py-4 text-left transition focus:outline-none focus:ring-2 focus:ring-emerald-400",
+                                plan.highlight
+                                  ? isSelected
+                                    ? "border-gray-900 bg-gray-900 text-white shadow-xl"
+                                    : "border-gray-900/60 bg-white"
+                                  : isSelected
+                                    ? "border-gray-900 bg-gray-900/90 text-white shadow-lg"
+                                    : "border-gray-200 bg-white hover:border-gray-400",
+                              )}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500/90">
+                                  {plan.name}
+                                </span>
+                                {isSelected ? (
+                                  <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-semibold text-white">
+                                    Seleccionado
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="mt-3 text-2xl font-bold">
+                                <span>{plan.priceLabel}</span>
+                              </div>
+                              <p className="mt-1 text-sm font-semibold text-emerald-500">
+                                {plan.commissionLabel}
+                              </p>
+                              <p className="mt-3 text-xs text-gray-500">{plan.description}</p>
+                              <ul className="mt-4 space-y-1 text-xs text-gray-500">
+                                {plan.features.slice(0, 3).map((feature) => (
+                                  <li key={feature} className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> {feature}
+                                  </li>
+                                ))}
+                              </ul>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Podrás cambiar o cancelar tu plan cuando quieras desde el panel de canchas.
+                      </p>
+                    </div>
+                  )}
+
+                  {step === 3 && (
                     <div className="space-y-5">
                       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                        Por ahora conectamos depósitos a través de Mercado Pago. Utiliza el correo del titular de la cuenta para
-                        recibir las liquidaciones.
+                        Conectamos depósitos y devoluciones automáticas a través de Mercado Pago. Completa estos datos del
+                        titular para activar tus liquidaciones.
                       </div>
                       <Field
                         label="Nombre titular de cuenta"
@@ -465,6 +657,44 @@ export default function CanchaRegisterPage() {
                         value={formValues.payoutEmail}
                         onChange={(value) => setFormValues((prev) => ({ ...prev, payoutEmail: value }))}
                       />
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-2 text-sm text-gray-700">
+                          <span className="font-medium">Tipo de cuenta en Mercado Pago</span>
+                          <select
+                            name="mpAccountType"
+                            value={formValues.mpAccountType}
+                            onChange={(event) =>
+                              setFormValues((prev) => ({ ...prev, mpAccountType: event.target.value }))
+                            }
+                            required
+                            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                          >
+                            <option value="">Selecciona una opción</option>
+                            <option value="Persona">Persona natural</option>
+                            <option value="Empresa">Empresa / Sociedad</option>
+                            <option value="Fundación">Fundación u ONG</option>
+                          </select>
+                          <span className="block text-xs text-gray-500">
+                            Debe coincidir con el perfil habilitado en Mercado Pago.
+                          </span>
+                        </div>
+                        <div className="space-y-2 text-sm text-gray-700">
+                          <span className="font-medium">Collector ID de Mercado Pago</span>
+                          <input
+                            name="mpCollectorId"
+                            value={formValues.mpCollectorId}
+                            onChange={(event) =>
+                              setFormValues((prev) => ({ ...prev, mpCollectorId: event.target.value }))
+                            }
+                            placeholder="123456789"
+                            required
+                            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                          />
+                          <span className="block text-xs text-gray-500">
+                            Lo encuentras en Mercado Pago &gt; Configuración &gt; Credenciales.
+                          </span>
+                        </div>
+                      </div>
                       <div>
                         <label className="flex items-start gap-3 text-sm text-gray-600">
                           <input
@@ -504,10 +734,16 @@ export default function CanchaRegisterPage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={loading}
+                      disabled={loading || planRedirecting}
                       className="rounded-xl bg-black px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {loading ? "Enviando…" : isLastStep ? "Enviar registro" : "Continuar"}
+                      {planRedirecting
+                        ? "Redirigiendo a pago…"
+                        : loading
+                          ? "Enviando…"
+                          : isLastStep
+                            ? "Enviar registro"
+                            : "Continuar"}
                     </button>
                   </div>
                 </form>

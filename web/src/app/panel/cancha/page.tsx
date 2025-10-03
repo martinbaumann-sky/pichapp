@@ -85,13 +85,15 @@ type PanelData = {
     lng: number | null;
     plan: string;
     verified: boolean;
-    payoutEmail: string;
-    taxId: string;
-    phone: string | null;
-    accountHolder: string;
-    fields: Array<{ id: string; name: string }>;
-    subscriptions: VenueSubscriptionSummary[];
-  };
+  payoutEmail: string;
+  taxId: string;
+  phone: string | null;
+  accountHolder: string;
+  mpCollectorId: string | null;
+  mpAccountType: string | null;
+  fields: Array<{ id: string; name: string }>;
+  subscriptions: VenueSubscriptionSummary[];
+};
   matches: PanelMatch[];
   bookings: PanelBooking[];
   payments: PanelPayment[];
@@ -109,7 +111,7 @@ const tabs = [
   { id: "calendar", label: "Calendario", icon: CalendarDays },
   { id: "bookings", label: "Reservas", icon: ClipboardList },
   { id: "payments", label: "Pagos", icon: CreditCard },
-  { id: "billing", label: "Planes", icon: CreditCard },
+  { id: "billing", label: "Planes y upgrade", icon: CreditCard },
   { id: "reports", label: "Reportes", icon: BarChart3 },
   { id: "settings", label: "Ajustes", icon: Settings },
 ] as const;
@@ -979,6 +981,8 @@ function SettingsTab({
     accountHolder: "",
     phone: "",
     fields: "",
+    mpCollectorId: "",
+    mpAccountType: "",
   });
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -995,6 +999,8 @@ function SettingsTab({
       accountHolder: data.venue.accountHolder ?? "",
       phone: data.venue.phone ?? "",
       fields: data.venue.fields.map((field) => field.name).join("\n"),
+      mpCollectorId: data.venue.mpCollectorId ?? "",
+      mpAccountType: data.venue.mpAccountType ?? "",
     });
   }, [data]);
 
@@ -1014,6 +1020,8 @@ function SettingsTab({
         payoutEmail: form.payoutEmail.trim(),
         accountHolder: form.accountHolder.trim(),
         phone: form.phone.trim(),
+        mpCollectorId: form.mpCollectorId.trim(),
+        mpAccountType: form.mpAccountType.trim(),
         fields: form.fields.split(/\n+/).map((value) => value.trim()).filter(Boolean),
       };
       const res = await fetch("/api/venue/profile", {
@@ -1113,6 +1121,28 @@ function SettingsTab({
               className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
               required
             />
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
+            Tipo de cuenta en Mercado Pago
+            <input
+              value={form.mpAccountType}
+              onChange={(event) => setForm((prev) => ({ ...prev, mpAccountType: event.target.value }))}
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+              placeholder="Empresa / Persona"
+              required
+            />
+            <span className="mt-1 text-xs text-gray-400">Debe coincidir con el tipo de titular configurado en Mercado Pago.</span>
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
+            Collector ID de Mercado Pago
+            <input
+              value={form.mpCollectorId}
+              onChange={(event) => setForm((prev) => ({ ...prev, mpCollectorId: event.target.value }))}
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+              placeholder="123456789"
+              required
+            />
+            <span className="mt-1 text-xs text-gray-400">Lo encuentras en Configuración &gt; Credenciales de Mercado Pago.</span>
           </label>
           <label className="flex flex-col text-sm text-gray-600">
             Teléfono de contacto
