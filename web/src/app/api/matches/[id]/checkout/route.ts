@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { normalizeTeam } from "@/lib/teams";
 import { sanitizePosition } from "@/lib/teamAssignment";
 import { getEnabledProviders, initPaymentSession } from "@/lib/payments/providers";
+import { isProfileIncomplete, PROFILE_COMPLETION_REQUIRED_MESSAGE } from "@/lib/profileCompletion";
 
 const DEFAULT_HOLD_MINUTES = 15;
 
@@ -32,6 +33,20 @@ export async function POST(
     const { id: matchId } = (p && typeof p.then === "function") ? await p : p;
     if (!matchId) {
       return NextResponse.json({ error: "id requerido" }, { status: 400 });
+    }
+
+    const viewerProfile = await prisma.profile.findUnique({
+      where: { userId },
+      select: { phone: true, comuna: true },
+    });
+    if (isProfileIncomplete(viewerProfile)) {
+      return NextResponse.json(
+        {
+          error: PROFILE_COMPLETION_REQUIRED_MESSAGE,
+          requiresProfile: true,
+        },
+        { status: 409 },
+      );
     }
 
     const providers = getEnabledProviders();

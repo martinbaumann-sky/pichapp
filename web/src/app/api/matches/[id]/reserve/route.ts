@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUserId } from "@/lib/auth";
 import { confirmFreeSpot } from "@/lib/freeReservations";
+import { prisma } from "@/lib/db";
+import { isProfileIncomplete, PROFILE_COMPLETION_REQUIRED_MESSAGE } from "@/lib/profileCompletion";
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +15,20 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
     const body = await req.json().catch(() => ({}));
     const team = body?.team ?? null;
     const position = body?.position ?? null;
+
+    const viewerProfile = await prisma.profile.findUnique({
+      where: { userId },
+      select: { phone: true, comuna: true },
+    });
+    if (isProfileIncomplete(viewerProfile)) {
+      return NextResponse.json(
+        {
+          error: PROFILE_COMPLETION_REQUIRED_MESSAGE,
+          requiresProfile: true,
+        },
+        { status: 409 },
+      );
+    }
 
     const result = await confirmFreeSpot({ matchId, userId, team, position });
 
