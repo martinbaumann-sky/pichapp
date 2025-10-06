@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
 import { prisma } from "@/lib/db";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
-import { normalizeForStorage } from "@/lib/phone";
+import {
+  PROFILE_PLACEHOLDER_COMUNA,
+  PROFILE_PLACEHOLDER_PHONE,
+  isProfileIncomplete,
+} from "@/lib/profileCompletion";
 
 const GOOGLE_AUTH_COOKIE = "google_oauth_state";
-const DEFAULT_COMUNA = "Por definir";
 
 function buildErrorRedirect(origin: string, code: string, message?: string) {
   const url = new URL("/auth/error", origin);
@@ -103,7 +106,7 @@ export async function GET(req: NextRequest) {
   const givenName = payload.given_name || null;
   const familyName = payload.family_name || null;
   const now = new Date();
-  const defaultPhone = normalizeForStorage("+56 9 1234 5678") ?? "56900000000";
+  const defaultPhone = PROFILE_PLACEHOLDER_PHONE;
 
   const userSelect = {
     id: true,
@@ -112,7 +115,7 @@ export async function GET(req: NextRequest) {
     role: true,
     emailVerifiedAt: true,
     disabledAt: true,
-    profile: { select: { name: true, comuna: true, position: true } },
+    profile: { select: { name: true, comuna: true, position: true, phone: true } },
   } as const;
 
   try {
@@ -147,7 +150,7 @@ export async function GET(req: NextRequest) {
               userId,
               name: composedName,
               phone: defaultPhone,
-              comuna: DEFAULT_COMUNA,
+              comuna: PROFILE_PLACEHOLDER_COMUNA,
             },
           });
         } else if (!profile.name && composedName) {
@@ -217,7 +220,7 @@ export async function GET(req: NextRequest) {
               name:
                 displayName || (givenName ? `${givenName}${familyName ? ` ${familyName}` : ""}` : email.split("@")[0]),
               phone: defaultPhone,
-              comuna: DEFAULT_COMUNA,
+              comuna: PROFILE_PLACEHOLDER_COMUNA,
             },
           },
         },
@@ -248,7 +251,8 @@ export async function GET(req: NextRequest) {
     }
 
     const sessionToken = await createSession(result.user.id);
-    const redirectTo = result.next || "/";
+    const profileIncomplete = isProfileIncomplete(result.user.profile);
+    const redirectTo = result.next ?? (profileIncomplete ? "/perfil" : "/");
     const response = NextResponse.redirect(new URL(redirectTo, origin).toString());
     attachSessionCookie(response, sessionToken);
     clearCookie(response);

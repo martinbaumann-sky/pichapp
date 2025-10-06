@@ -4,6 +4,7 @@ import { confirmFreeSpot } from "@/lib/freeReservations";
 import { prisma } from "@/lib/db";
 import { normalizeTeam } from "@/lib/teams";
 import { sanitizePosition } from "@/lib/teamAssignment";
+import { isProfileIncomplete, PROFILE_COMPLETION_REQUIRED_MESSAGE } from "@/lib/profileCompletion";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -53,6 +54,20 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
         team: normalizedTeam,
         position: normalizedPosition,
       });
+    }
+
+    const viewerProfile = await prisma.profile.findUnique({
+      where: { userId },
+      select: { phone: true, comuna: true },
+    });
+    if (isProfileIncomplete(viewerProfile)) {
+      return NextResponse.json(
+        {
+          error: PROFILE_COMPLETION_REQUIRED_MESSAGE,
+          requiresProfile: true,
+        },
+        { status: 409 },
+      );
     }
 
     const result = await confirmFreeSpot({ matchId, userId, team, position });

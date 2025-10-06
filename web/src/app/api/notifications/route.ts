@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
+import { isProfileIncomplete } from "@/lib/profileCompletion";
 
 interface NotificationItem {
   id: string;
@@ -11,7 +12,8 @@ interface NotificationItem {
     | "match_starting_organizer"
     | "match_full_player"
     | "match_full_organizer"
-    | "waitlist_invite";
+    | "waitlist_invite"
+    | "profile_incomplete";
   title: string;
   description: string;
   href: string;
@@ -32,8 +34,16 @@ export async function GET() {
     const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const [pendingRequests, acceptedRequests, organizerSoonMatches, playerSoonSpots, organizerFullMatches, playerFullMatches, waitlistInvites] =
-      await Promise.all([
+    const [
+      pendingRequests,
+      acceptedRequests,
+      organizerSoonMatches,
+      playerSoonSpots,
+      organizerFullMatches,
+      playerFullMatches,
+      waitlistInvites,
+      viewer,
+    ] = await Promise.all([
         prisma.friend.findMany({
           where: { addresseeId: userId, status: "PENDING" },
           orderBy: { createdAt: "desc" },
@@ -166,9 +176,34 @@ export async function GET() {
             },
           },
         }),
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            createdAt: true,
+            profile: {
+              select: {
+                phone: true,
+                comuna: true,
+                createdAt: true,
+              },
+            },
+          },
+        }),
       ]);
 
     const items: NotificationItem[] = [];
+
+    if (isProfileIncomplete(viewer?.profile)) {
+      const createdAt = viewer?.profile?.createdAt ?? viewer?.createdAt ?? new Date();
+      items.push({
+        id: `profile-incomplete-${userId}`,
+        type: "profile_incomplete",
+        title: "Completa tu perfil",
+        description: "Actualiza tu comuna y celular para poder reservar partidos.",
+        href: "/perfil",
+        createdAt: createdAt.toISOString(),
+      });
+    }
 
     for (const req of pendingRequests) {
       const name = toName(req.requester?.profile?.name, req.requester?.email);

@@ -14,6 +14,7 @@ import { sampleMatches } from "@/lib/samples";
 import { FormationBoard, type FormationPlayer, type FormationSlotView } from "@/components/match/FormationBoard";
 import { JoinFormationDialogSteps, type JoinFormationTeam, type InviteFriendDraft } from "@/components/match/JoinFormationDialogSteps";
 import { assignPlayersToFormation, getFormationPreset } from "@/lib/formations";
+import { isProfileIncomplete, PROFILE_COMPLETION_REQUIRED_MESSAGE } from "@/lib/profileCompletion";
 import {
   computeTeamCapacities,
   normalizeTeam,
@@ -49,6 +50,11 @@ export default function MatchDetailPage() {
   const showAbout = activeTab === "about";
   const showRoster = activeTab === "roster";
   const { user } = useAuth();
+  const requiresProfileCompletion = useMemo(
+    () => (user ? isProfileIncomplete({ phone: user.phone ?? null, comuna: user.comuna ?? null }) : false),
+    [user],
+  );
+  const profileCompletionMessage = PROFILE_COMPLETION_REQUIRED_MESSAGE;
   const router = useRouter();
   const { status } = useRoleGate({
     allow: ["player", "superadmin", "venue_admin"],
@@ -256,6 +262,9 @@ export default function MatchDetailPage() {
       setAuthOpen(true);
       return;
     }
+    if (requiresProfileCompletion) {
+      return;
+    }
     setInviteTempCount(0);
     if (isPaidMatch) {
       initializeJoinSelection();
@@ -265,7 +274,7 @@ export default function MatchDetailPage() {
       return;
     }
     setInviteDialogOpen(true);
-  }, [user, isPaidMatch, initializeJoinSelection]);
+  }, [user, isPaidMatch, initializeJoinSelection, requiresProfileCompletion]);
 
   const proceedFromInvite = useCallback(() => {
     initializeJoinSelection();
@@ -335,6 +344,10 @@ export default function MatchDetailPage() {
       setJoinError("Selecciona una posición disponible.");
       return;
     }
+    if (requiresProfileCompletion) {
+      setJoinError(profileCompletionMessage);
+      return;
+    }
     if (isPaidMatch && joinFriendCount > 0) {
       setJoinError("Cada jugador debe pagar su propio cupo en este partido.");
       return;
@@ -365,7 +378,12 @@ export default function MatchDetailPage() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data?.error || data?.message || "No se pudo iniciar el pago");
+          const message = data?.error || data?.message || "No se pudo iniciar el pago";
+          if (data?.requiresProfile) {
+            setJoinError(message);
+            return;
+          }
+          throw new Error(message);
         }
         if (data?.alreadyJoined) {
           const successMessage = data?.message || "Tu cupo ya estaba confirmado.";
@@ -440,7 +458,12 @@ export default function MatchDetailPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || data?.message || "No se pudo confirmar el cupo");
+        const message = data?.error || data?.message || "No se pudo confirmar el cupo";
+        if (data?.requiresProfile) {
+          setJoinError(message);
+          return;
+        }
+        throw new Error(message);
       }
       const successMessage =
         data?.message ||
@@ -468,6 +491,8 @@ export default function MatchDetailPage() {
     joinFriendCount,
     formationData,
     isPaidMatch,
+    requiresProfileCompletion,
+    profileCompletionMessage,
   ]);
 
   useEffect(() => {
@@ -923,14 +948,30 @@ export default function MatchDetailPage() {
                       </div>
                     );
                   }
+                  const disabled = joining || requiresProfileCompletion;
                   return (
-                    <button
-                      onClick={startJoinFlow}
-                      disabled={joining}
-                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      Tomar cupo
-                    </button>
+                    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                      <button
+                        onClick={startJoinFlow}
+                        disabled={disabled}
+                        className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        Tomar cupo
+                      </button>
+                      {requiresProfileCompletion ? (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="hidden sm:inline">Completa tu perfil antes de reservar.</span>
+                          <span className="sm:hidden">Completa tu perfil.</span>
+                          <Link
+                            href="/perfil"
+                            className="underline underline-offset-2 decoration-amber-500 hover:text-amber-800"
+                          >
+                            Ir a mi perfil
+                          </Link>
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })()}
               </div>
@@ -1081,15 +1122,31 @@ export default function MatchDetailPage() {
                       </span>
                     );
                   }
+                  const disabled = joining || requiresProfileCompletion;
                   return (
-                  <button
-                    onClick={startJoinFlow}
-                    disabled={joining}
-                    className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    <Pencil className="h-4 w-4" />
-                    {isPaidMatch ? "Reservar y pagar" : "Elegir mi posición"}
-                  </button>
+                    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                      <button
+                        onClick={startJoinFlow}
+                        disabled={disabled}
+                        className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        {isPaidMatch ? "Reservar y pagar" : "Elegir mi posición"}
+                      </button>
+                      {requiresProfileCompletion ? (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="hidden sm:inline">Completa tu perfil antes de reservar.</span>
+                          <span className="sm:hidden">Completa tu perfil.</span>
+                          <Link
+                            href="/perfil"
+                            className="underline underline-offset-2 decoration-amber-500 hover:text-amber-800"
+                          >
+                            Ir a mi perfil
+                          </Link>
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })()}
               </div>
@@ -1191,9 +1248,9 @@ export default function MatchDetailPage() {
         }
         onSelectSlot={handleSelectSlot}
         onConfirm={handleConfirmJoin}
-        confirmDisabled={!joinSelectedSlot || joining || !friendsValid}
+        confirmDisabled={!joinSelectedSlot || joining || !friendsValid || requiresProfileCompletion}
         loading={joining}
-        errorMessage={joinError}
+        errorMessage={requiresProfileCompletion ? profileCompletionMessage : joinError}
         maxFriends={isPaidMatch ? 0 : maxInvitableFriends}
         friendCount={joinFriendCount}
         onFriendCountChange={handleFriendCountChange}
