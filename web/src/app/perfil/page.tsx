@@ -1,7 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import imageCompression from "browser-image-compression";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { comunasRM } from "@/lib/comunas-rm";
@@ -9,6 +8,7 @@ import { normalizeForDisplay } from "@/lib/phone";
 import ProfileCard from "@/components/profile/ProfileCard";
 import { POSITION_KEYS } from "@/lib/teams";
 import { nivelES, posicionES } from "@/lib/i18n";
+import { ShinyHoverCard } from "@/components/ui/shiny-hover-card";
 
 const skillLevels = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
 
@@ -35,9 +35,6 @@ export default function PerfilPage() {
   });
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -87,14 +84,6 @@ export default function PerfilPage() {
     load();
   }, [user]);
 
-  useEffect(() => {
-    return () => {
-      if (avatarPreview) {
-        URL.revokeObjectURL(avatarPreview);
-      }
-    };
-  }, [avatarPreview]);
-
   const digitsPreview = form.phone.replace(/\D/g, "");
   const phonePreview = digitsPreview.length === 8
     ? normalizeForDisplay(`+569${digitsPreview}`)
@@ -106,7 +95,13 @@ export default function PerfilPage() {
     return user?.name ?? "Jugador PichangApp";
   }, [form.firstName, form.lastName, user?.name]);
 
-  const previewAvatar = avatarPreview || avatarUrl || null;
+  const fallbackInitials = useMemo(() => {
+    const parts = displayName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "JP";
+    if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase().padEnd(2, "P");
+    return `${parts[0]![0] ?? "J"}${parts[1]![0] ?? "P"}`.toUpperCase();
+  }, [displayName]);
+
   const previewActions = user
     ? [
         <Link
@@ -120,57 +115,6 @@ export default function PerfilPage() {
         </Link>,
       ]
     : undefined;
-
-  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setAvatarError(null);
-    try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 0.45,
-        maxWidthOrHeight: 720,
-        useWebWorker: true,
-        fileType: "image/webp",
-        initialQuality: 0.7,
-      });
-      if (avatarPreview) {
-        URL.revokeObjectURL(avatarPreview);
-      }
-      const previewUrl = URL.createObjectURL(compressed as File);
-      setAvatarPreview(previewUrl);
-      setAvatarFile(compressed as File);
-    } catch (err: any) {
-      console.error("[profile] avatar compression error", err);
-      setAvatarError("No pudimos procesar la imagen. Intenta con otra foto (JPG o PNG).");
-    }
-  };
-
-  const uploadAvatar = async () => {
-    if (!avatarFile) return true;
-    try {
-      const data = new FormData();
-      data.append("file", avatarFile, avatarFile.name || "avatar.webp");
-      const res = await fetch("/api/profile/avatar", { method: "POST", body: data });
-      if (!res.ok) {
-        const payload = await res.json().catch(() => null);
-        setAvatarError(payload?.error || "No se pudo actualizar la foto.");
-        return false;
-      }
-      const payload = await res.json().catch(() => ({}));
-      const nextUrl = typeof payload?.avatarUrl === "string" ? payload.avatarUrl : null;
-      setAvatarUrl(nextUrl);
-      if (avatarPreview) {
-        URL.revokeObjectURL(avatarPreview);
-      }
-      setAvatarPreview(null);
-      setAvatarFile(null);
-      return true;
-    } catch (err) {
-      console.error("[profile] avatar upload error", err);
-      setAvatarError("No se pudo actualizar la foto.");
-      return false;
-    }
-  };
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -212,9 +156,8 @@ export default function PerfilPage() {
         setSaving(false);
         return;
       }
-      const avatarOk = await uploadAvatar();
       checkSession();
-      alert(avatarOk ? "Perfil actualizado" : "Perfil guardado, pero no se pudo actualizar la foto.");
+      alert("Perfil actualizado");
     } catch (err) {
       console.error("[profile] save error", err);
       alert("No se pudo guardar");
@@ -238,92 +181,82 @@ export default function PerfilPage() {
             <h1 className="text-sm font-semibold uppercase tracking-[0.4em] text-emerald-400">Mi perfil</h1>
             <p className="mt-2 text-3xl font-semibold text-white">Así te ven otros jugadores en Pichangapp.</p>
           </div>
-          <ProfileCard
-            name={displayName}
-            comuna={form.comuna}
-            phoneDisplay={phonePreview}
-            position={form.position || null}
-            skillLevel={form.skillLevel || null}
-            bio={form.bio}
-            avatarUrl={previewAvatar}
-            actions={previewActions}
-            isOwnProfile
-            highlight="Vista previa"
-          />
-          <div className="rounded-3xl border border-white/10 bg-white/10 p-5 text-sm text-white/70 backdrop-blur">
-            <p>
-              Consejos: agrega una bio entretenida, cuenta tu puesto preferido y mantén tu celular actualizado para que tus amigos
-              puedan invitarte rápido.
+          <ShinyHoverCard className="rounded-[36px]">
+            <ProfileCard
+              name={displayName}
+              comuna={form.comuna}
+              phoneDisplay={phonePreview}
+              position={form.position || null}
+              skillLevel={form.skillLevel || null}
+              bio={form.bio}
+              avatarUrl={avatarUrl}
+              actions={previewActions}
+              isOwnProfile
+              highlight="Vista previa"
+            />
+          </ShinyHoverCard>
+          <ShinyHoverCard className="rounded-3xl border border-white/10 bg-white/10 p-5 text-sm text-white/80">
+            <p className="leading-relaxed">
+              Mantén tu perfil fresco: comparte cómo juegas, qué posición disfrutas y qué te hace único en la cancha. Así tus amigos
+              pueden invitarte más rápido.
             </p>
-          </div>
+            <p className="mt-3 text-xs uppercase tracking-[0.3em] text-emerald-300/80">
+              La foto de perfil se administra directamente con el equipo de Pichangapp.
+            </p>
+          </ShinyHoverCard>
         </div>
 
-        <form onSubmit={submit} className="flex-1 rounded-3xl bg-white p-8 shadow-2xl space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-slate-900">Editar información</h2>
-            <button type="button" onClick={signOut} className="text-sm font-medium text-emerald-600 hover:text-emerald-700">
-              Cerrar sesión
-            </button>
-          </div>
+        <ShinyHoverCard className="flex-1 rounded-3xl">
+          <form onSubmit={submit} className="rounded-3xl bg-white/95 p-8 shadow-2xl space-y-6 backdrop-blur">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-slate-900">Editar información</h2>
+              <button type="button" onClick={signOut} className="text-sm font-medium text-emerald-600 hover:text-emerald-700">
+                Cerrar sesión
+              </button>
+            </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Foto de perfil</label>
-              <div className="mt-3 flex items-center gap-4">
-                <div className="h-20 w-20 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                  {previewAvatar ? (
-                    <img src={previewAvatar} alt="Vista previa foto" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-slate-500">
-                      JP
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-emerald-50 via-white to-slate-50/60 p-4 shadow-inner">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-emerald-200/60 bg-white shadow">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt={`Foto de ${displayName}`} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-lg font-semibold text-emerald-600">{fallbackInitials}</span>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="space-y-2 text-sm text-slate-600">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label
-                      htmlFor="avatar"
-                      className="cursor-pointer rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-600"
-                    >
-                      Elegir foto
-                    </label>
-                    <input
-                      id="avatar"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="hidden"
-                      onChange={handleAvatarChange}
-                    />
-                    {avatarFile ? (
-                      <span className="text-xs text-emerald-600">Se subirá al guardar cambios.</span>
-                    ) : null}
+                    <div className="text-sm text-slate-600">
+                      <p className="font-medium text-slate-700">Tu foto se mantiene impecable.</p>
+                      <p className="text-xs text-slate-500">Nuestro equipo actualiza las fotos verificadas para que siempre se vean profesionales.</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-500">Recomendado: JPG o PNG cuadrado, máximo 2MB.</p>
-                  {avatarError ? <p className="text-xs text-red-500">{avatarError}</p> : null}
+                  <div className="rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-600">
+                    Gestión asistida
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Nombre</label>
-                <input
-                  value={form.firstName}
-                  onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none"
-                  required
-                />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Nombre</label>
+                  <input
+                    value={form.firstName}
+                    onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Apellido</label>
+                  <input
+                    value={form.lastName}
+                    onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none"
+                    required
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Apellido</label>
-                <input
-                  value={form.lastName}
-                  onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none"
-                  required
-                />
-              </div>
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700">Celular</label>
@@ -411,22 +344,23 @@ export default function PerfilPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {saving ? "Guardando..." : "Guardar cambios"}
-            </button>
-            <Link
-              href="/"
-              className="text-sm font-medium text-slate-500 underline-offset-4 hover:text-slate-700 hover:underline"
-            >
-              Volver al inicio
-            </Link>
-          </div>
-        </form>
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {saving ? "Guardando..." : "Guardar cambios"}
+              </button>
+              <Link
+                href="/"
+                className="text-sm font-medium text-slate-500 underline-offset-4 hover:text-slate-700 hover:underline"
+              >
+                Volver al inicio
+              </Link>
+            </div>
+          </form>
+        </ShinyHoverCard>
       </div>
     </div>
   );

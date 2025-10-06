@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   User as UserIcon,
   Users,
@@ -11,9 +11,13 @@ import {
   Bell,
   RefreshCw,
   CalendarDays,
+  CalendarCheck,
+  Compass,
+  LayoutDashboard,
   MessageSquare,
   MapPin,
   MoreVertical,
+  PlusCircle,
   Settings,
 } from "lucide-react";
 import { cn } from "../utils/cn";
@@ -22,6 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNotifications } from "@/hooks/useNotifications";
+import { AnimatedDockMenu } from "./ui/animated-dock";
 
 type NavItem =
   | { type: "link"; href: string; label: string; variant?: "primary" }
@@ -55,12 +60,12 @@ export default function Header() {
   } = useNotifications(Boolean(user) && !isVenueAdmin);
   const showNotifications = Boolean(user) && !isVenueAdmin;
 
-  const openLoginDialog = () => {
+  const openLoginDialog = useCallback(() => {
     if (loading) return;
     setAuthNext(undefined);
     setAuthInitialTab("login");
     setAuthOpen(true);
-  };
+  }, [loading]);
 
   const formatNotificationDate = (value: string) => {
     const date = new Date(value);
@@ -73,66 +78,62 @@ export default function Header() {
     }).format(date);
   };
 
-  const navLink = (item: Extract<NavItem, { type: "link" }>) => {
-    const { href, label, variant } = item;
-    // Only compute active state after mount to keep SSR and CSR output identical
-    const active = mounted && (pathname === href || pathname.startsWith(`${href}/`));
-    const isPrimary = variant === "primary";
-    return (
-      <Link
-        href={href}
-        className={cn(
-          "relative rounded-full text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30",
-          isPrimary ? "px-4 py-2.5 bg-gradient-to-r from-brand to-accent text-white shadow-lg hover:from-brand-600 hover:to-accent-600 hover:shadow-xl"
-          : [
-              "px-3 py-2",
-              active
-                ? "text-black"
-                : "text-gray-700 hover:bg-gray-100 hover:-translate-y-0.5",
-            ],
-        )}
-      >
-        {!isPrimary && active && (
-          <motion.span
-            layoutId="navActiveBg"
-            className="absolute inset-0 rounded-full bg-gray-100 shadow-sm"
-            transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.2 }}
-          />
-        )}
-        <span className="relative z-10">{label}</span>
-      </Link>
-    );
-  };
+  const mainNavItems: NavItem[] = useMemo(() => {
+    if (isVenueMarketingView) return [];
+    if (canAccessVenuePanel) {
+      return [
+        { type: "link", href: "/panel/cancha", label: "Mi Panel" },
+        { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido", variant: "primary" },
+        { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
+      ];
+    }
 
-  const navButton = (label: string, onClick: () => void) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className="relative px-3 py-2 rounded-full text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-100 hover:-translate-y-0.5"
-    >
-      <span className="relative z-10">{label}</span>
-    </button>
-  );
+    if (user) {
+      return [
+        { type: "link", href: "/explorar", label: "Explorar" },
+        { type: "link", href: "/reservas", label: "Reservas" },
+        { type: "link", href: "/amigos", label: "Amigos" },
+        { type: "link", href: "/mensajes", label: "Mensajes" },
+      ];
+    }
 
-  const mainNavItems: NavItem[] = isVenueMarketingView
-    ? []
-    : canAccessVenuePanel
-      ? [
-          { type: "link", href: "/panel/cancha", label: "Mi Panel" },
-          { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido", variant: "primary" },
-          { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
-        ]
-      : user
-        ? [
-            { type: "link", href: "/explorar", label: "Explorar" },
-            { type: "link", href: "/reservas", label: "Reservas" },
-            { type: "link", href: "/amigos", label: "Amigos" },
-            { type: "link", href: "/mensajes", label: "Mensajes" },
-          ]
-        : [
-            { type: "link", href: "/explorar", label: "Explorar" },
-            { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
-          ];
+    return [
+      { type: "link", href: "/explorar", label: "Explorar" },
+      { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
+    ];
+  }, [canAccessVenuePanel, isVenueMarketingView, openLoginDialog, user]);
+
+  const dockItems = useMemo(() => {
+    return mainNavItems.map((item) => {
+      if (item.type === "link") {
+        const active = mounted && (pathname === item.href || pathname.startsWith(`${item.href}/`));
+        let icon = <Compass className="h-5 w-5" />;
+        if (item.href.startsWith("/reservas")) icon = <CalendarDays className="h-5 w-5" />;
+        if (item.href.startsWith("/amigos")) icon = <Users className="h-5 w-5" />;
+        if (item.href.startsWith("/mensajes")) icon = <MessageSquare className="h-5 w-5" />;
+        if (item.href.startsWith("/panel/cancha/partidos/nuevo")) icon = <PlusCircle className="h-5 w-5" />;
+        if (item.href.startsWith("/panel/cancha/partidos")) icon = <CalendarCheck className="h-5 w-5" />;
+        if (item.href === "/panel/cancha") icon = <LayoutDashboard className="h-5 w-5" />;
+
+        return {
+          id: item.href,
+          label: item.label,
+          icon,
+          href: item.href,
+          active,
+          variant: item.variant === "primary" ? "primary" : "default",
+        };
+      }
+
+      return {
+        id: `action-${item.label}`,
+        label: item.label,
+        icon: <UserIcon className="h-5 w-5" />,
+        onClick: item.onClick,
+        variant: "primary" as const,
+      };
+    });
+  }, [mainNavItems, mounted, pathname]);
 
   const renderMenuContent = () => (
     <DropdownMenu.Portal>
@@ -276,12 +277,8 @@ export default function Header() {
           </Link>
         </div>
 
-        <nav className="hidden md:flex items-center gap-2 lg:gap-4">
-          {mainNavItems.map((item) => (
-            <div key={item.type === "link" ? item.href : `action-${item.label}`}>
-              {item.type === "link" ? navLink(item) : navButton(item.label, item.onClick)}
-            </div>
-          ))}
+        <nav className="hidden md:flex items-center">
+          {dockItems.length > 0 ? <AnimatedDockMenu items={dockItems} /> : null}
         </nav>
 
         {/* Perfil / Auth */}
