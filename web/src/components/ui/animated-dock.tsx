@@ -67,58 +67,84 @@ function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProp
   const heightTransform = useTransform(distance, [0, 140, 280], [60, 56, 52]);
   const scaleTransform = useTransform(distance, [0, 120, 240], [1.1, 1.05, 1]);
   const labelOpacity = useTransform(distance, [0, 120, 240], [1, 0, 0]);
-  const glowOpacity = useTransform(distance, [0, 120, 240], [0.55, 0.25, 0]);
-
   const width = useSpring(widthTransform, { stiffness: 300, damping: 35, mass: 0.6 });
   const height = useSpring(heightTransform, { stiffness: 300, damping: 35, mass: 0.6 });
   const scale = useSpring(scaleTransform, { stiffness: 260, damping: 30, mass: 0.5 });
   const label = useSpring(labelOpacity, { stiffness: 260, damping: 30 });
-  const glow = useSpring(glowOpacity, { stiffness: 240, damping: 30 });
 
   const isPrimary = item.variant === "primary";
   const isActive = Boolean(item.active);
 
+  const background = isActive
+    ? "linear-gradient(135deg, rgba(11,143,61,0.16), rgba(11,143,61,0.07))"
+    : isPrimary
+      ? "linear-gradient(135deg, rgba(255,255,255,0.97), rgba(241,245,249,0.88))"
+      : "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.86))";
+
+  const borderColor = isActive
+    ? "rgba(11, 143, 61, 0.6)"
+    : isPrimary
+      ? "rgba(203, 213, 225, 0.85)"
+      : "rgba(226, 232, 240, 0.78)";
+
+  const shadow = isActive
+    ? "0 18px 36px -24px rgba(15, 23, 42, 0.45)"
+    : isPrimary
+      ? "0 12px 30px -26px rgba(15, 23, 42, 0.32)"
+      : "0 10px 26px -28px rgba(15, 23, 42, 0.24)";
+
+  const iconColor = isActive
+    ? "text-[var(--brand-2)]"
+    : isPrimary
+      ? "text-slate-600 group-hover:text-[var(--brand-2)]"
+      : "text-gray-500 group-hover:text-gray-700";
+
+  const labelColor = isActive
+    ? "text-[var(--brand-2)]"
+    : isPrimary
+      ? "text-slate-600 group-hover:text-[var(--brand-2)]"
+      : "text-gray-600 group-hover:text-gray-800";
+
   const contents = (
     <motion.div
       className={cn(
-        "group relative flex h-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl px-3.5 py-2 transition-colors",
-        isPrimary
-          ? "text-[var(--brand-2)]"
-          : isActive
-            ? "text-[var(--brand-2)]"
-            : "text-gray-500 hover:text-gray-800",
+        "group relative flex h-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border px-3.5 py-2 transition-colors",
+        "backdrop-blur-sm",
+        isActive ? "bg-white" : "bg-white/90",
       )}
-      style={{ width, height }}
+      style={{
+        width,
+        height,
+        borderColor,
+        background,
+        boxShadow: shadow,
+      }}
     >
-      <motion.div
-        className={cn(
-          "absolute inset-0 bg-gradient-to-br from-[rgba(11,143,61,0.24)] via-[rgba(11,143,61,0.18)] to-[rgba(11,143,61,0.12)]",
-          isPrimary ? "opacity-90" : "opacity-0",
-        )}
-        style={{ opacity: isPrimary ? 0.85 : isActive ? 0.45 : glow }}
-        aria-hidden
-      />
       {isActive && (
         <motion.div
           layoutId="dock-active"
           className="absolute inset-[1px] rounded-2xl"
           style={{
             border: "1.5px solid rgba(11, 143, 61, 0.6)",
-            boxShadow: "0 8px 24px -12px rgba(11, 143, 61, 0.45)",
+            boxShadow: "0 12px 32px -24px rgba(15, 23, 42, 0.4)",
           }}
           transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.4 }}
           aria-hidden
         />
       )}
-      <motion.span className="relative z-10 flex items-center justify-center" style={{ scale }}>
+      <motion.span
+        className={cn(
+          "relative z-10 flex items-center justify-center transition-colors duration-300",
+          iconColor,
+        )}
+        style={{ scale }}
+      >
         {item.icon}
       </motion.span>
       <motion.span
         className={cn(
-          "relative z-10 text-[11px] font-semibold uppercase tracking-[0.18em] whitespace-nowrap",
-          isPrimary || isActive
-            ? "text-[var(--brand-2)]"
-            : "text-gray-600 group-hover:text-gray-800",
+          "relative z-10 text-[11px] font-semibold uppercase tracking-[0.18em] whitespace-nowrap transition-colors duration-300",
+          labelColor,
         )}
         style={{ opacity: label }}
       >
