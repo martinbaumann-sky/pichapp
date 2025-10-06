@@ -13,7 +13,13 @@ type SupabaseVerificationFailure = {
 
 export type SupabaseVerificationResult = SupabaseVerificationSuccess | SupabaseVerificationFailure;
 
-function resolveSupabaseCredentials() {
+type SupabaseCredentials = {
+  url: string;
+  key: string;
+  isService: boolean;
+};
+
+function resolveSupabaseCredentials(): SupabaseCredentials | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -27,7 +33,21 @@ function resolveSupabaseCredentials() {
   if (!url || !key) {
     return null;
   }
-  return { url, key };
+  return { url, key, isService: Boolean(serviceKey) };
+}
+
+export function createSupabaseServiceClient() {
+  const creds = resolveSupabaseCredentials();
+  if (!creds || !creds.isService) {
+    return null;
+  }
+  return createClient(creds.url, creds.key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
 }
 
 export async function verifySupabasePassword(

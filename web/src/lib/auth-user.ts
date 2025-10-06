@@ -25,5 +25,8 @@ export function toAuthUser(u: AuthUserSource) {
     name: u.profile?.name ?? null,
     comuna: u.profile?.comuna ?? null,
     position: u.profile?.position ?? null,
+    skillLevel: (u.profile?.skillLevel ?? null) as string | null,
+    bio: u.profile?.bio ?? null,
+    avatarUrl: u.profile?.avatarUrl ?? null,
   };
 }

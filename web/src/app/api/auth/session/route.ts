@@ -17,7 +17,17 @@ export async function GET() {
         isAdmin: true,
         role: true,
         emailVerifiedAt: true,
-        profile: { select: { name: true, comuna: true, position: true, phone: true } },
+        profile: {
+          select: {
+            name: true,
+            comuna: true,
+            position: true,
+            phone: true,
+            skillLevel: true,
+            bio: true,
+            avatarUrl: true,
+          },
+        },
         disabledAt: true,
       },
     });
@@ -33,6 +43,9 @@ export async function GET() {
         ...base,
         phone: user.profile?.phone || null,
         phoneDisplay: user.profile?.phone ? normalizeForDisplay(user.profile.phone) : null,
+        avatarUrl: user.profile?.avatarUrl || null,
+        skillLevel: user.profile?.skillLevel || null,
+        bio: user.profile?.bio || null,
       },
     });
   } catch {

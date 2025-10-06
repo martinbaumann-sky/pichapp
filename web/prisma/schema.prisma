@@ -134,6 +134,9 @@ model Profile {
   phone     String
   comuna    String
   position  Position?
+  skillLevel SkillLevel?
+  bio       String?
+  avatarUrl String?
   // Legacy single rating kept for compatibility; new detailed ratings below
   rating    Float     @default(5.0)
   createdAt DateTime  @default(now())

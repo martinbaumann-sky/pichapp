@@ -1,18 +1,29 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoleGate } from "@/hooks/useRoleGate";
 import AuthDialog from "@/components/AuthDialog";
-import Link from "next/link";
 import { digitsOnly } from "@/lib/phone";
+import { nivelES, posicionES } from "@/lib/i18n";
+import ProfilePreviewDialog from "@/components/profile/ProfilePreviewDialog";
 
 type FriendItem = {
   id: string;
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'BLOCKED';
   isRequester: boolean;
-  user: { id: string; name: string; comuna: string; position?: string | null; phone?: string | null; phoneDisplay?: string | null };
+  user: {
+    id: string;
+    name: string;
+    comuna: string;
+    position?: string | null;
+    phone?: string | null;
+    phoneDisplay?: string | null;
+    skillLevel?: string | null;
+    bio?: string | null;
+    avatarUrl?: string | null;
+  };
   createdAt: string;
 };
 
@@ -162,11 +173,32 @@ export default function AmigosPage() {
 
 function FriendCard({ item, mode, onChanged }: { item: FriendItem; mode?: 'incoming' | 'outgoing'; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
+  const openProfileRef = useRef<(() => void) | null>(null);
   const isPending = item.status === 'PENDING';
-  const profileUrl = item.user?.id ? `/usuarios/${item.user.id}` : null;
-  const profileLinkButton = profileUrl ? (
-    <Link href={profileUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 text-sm rounded-lg border">Ver perfil</Link>
-  ) : null;
+  const hasProfile = Boolean(item.user?.id);
+  const fallbackProfile = hasProfile
+    ? {
+        name: item.user.name,
+        comuna: item.user.comuna,
+        position: item.user.position ?? undefined,
+        skillLevel: item.user.skillLevel ?? undefined,
+        bio: item.user.bio ?? undefined,
+        avatarUrl: item.user.avatarUrl ?? undefined,
+        phoneDisplay: item.user.phoneDisplay ?? undefined,
+      }
+    : null;
+
+  const initials = item.user.name
+    .split(' ')
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'JP';
+
+  const handleOpenProfile = () => {
+    if (openProfileRef.current) {
+      openProfileRef.current();
+    }
+  };
 
   const accept = async () => { setBusy(true); try { await fetch(`/api/friends/${item.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'accept' }) }); await onChanged(); } finally { setBusy(false); } };
   const reject = async () => { setBusy(true); try { await fetch(`/api/friends/${item.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reject' }) }); await onChanged(); } finally { setBusy(false); } };
@@ -174,38 +206,80 @@ function FriendCard({ item, mode, onChanged }: { item: FriendItem; mode?: 'incom
   const remove = async () => { if (!confirm('Eliminar de tus amigos?')) return; setBusy(true); try { await fetch(`/api/friends/${item.id}`, { method: 'DELETE' }); await onChanged(); } finally { setBusy(false); } };
 
   return (
-    <div className="rounded-2xl border p-4 bg-white">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-lg">*</div>
-        <div>
-          {profileUrl ? (
-            <Link href={profileUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-black underline-offset-4 hover:underline">
-              {item.user.name}
-            </Link>
+    <div className="rounded-2xl border p-5 bg-white shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="h-12 w-12 overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-emerald-50 to-slate-100 text-sm font-semibold text-gray-600 flex items-center justify-center">
+          {item.user.avatarUrl ? (
+            <img src={item.user.avatarUrl} alt={item.user.name} className="h-full w-full object-cover" />
           ) : (
-            <div className="font-semibold">{item.user.name}</div>
+            <span>{initials}</span>
           )}
-          <div className="text-xs text-gray-500">{item.user.comuna || '-'} {item.user.position ? `- ${item.user.position}`: ''}</div>
-          {item.user.phoneDisplay && <div className="text-xs text-gray-400">{item.user.phoneDisplay}</div>}
+        </div>
+        <div className="flex-1">
+          {hasProfile && fallbackProfile ? (
+            <ProfilePreviewDialog
+              userId={item.user.id}
+              fallback={fallbackProfile}
+              trigger={({ open }) => {
+                openProfileRef.current = open;
+                return (
+                  <button
+                    type="button"
+                    onClick={open}
+                    className="font-semibold text-slate-900 underline-offset-4 hover:underline"
+                  >
+                    {item.user.name}
+                  </button>
+                );
+              }}
+            />
+          ) : (
+            <div className="font-semibold text-slate-900">{item.user.name}</div>
+          )}
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+            <span>{item.user.comuna || '-'}</span>
+            {item.user.position ? (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+                {posicionES[item.user.position as keyof typeof posicionES] ?? item.user.position}
+              </span>
+            ) : null}
+            {item.user.skillLevel ? (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+                {nivelES[item.user.skillLevel as keyof typeof nivelES] ?? item.user.skillLevel}
+              </span>
+            ) : null}
+          </div>
+          {item.user.bio ? (
+            <p className="mt-2 text-xs text-gray-500">{item.user.bio}</p>
+          ) : null}
+          {item.user.phoneDisplay ? (
+            <p className="mt-1 text-xs text-gray-400">Celular: {item.user.phoneDisplay}</p>
+          ) : null}
         </div>
       </div>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
+        {hasProfile ? (
+          <button
+            type="button"
+            onClick={handleOpenProfile}
+            className="px-3 py-1.5 text-sm rounded-lg border"
+          >
+            Ver carta
+          </button>
+        ) : null}
         {isPending ? (
           mode === 'incoming' ? (
             <>
-              {profileLinkButton}
               <button disabled={busy} onClick={accept} className="px-3 py-1.5 text-sm rounded-lg bg-black text-white">Aceptar</button>
               <button disabled={busy} onClick={reject} className="px-3 py-1.5 text-sm rounded-lg border">Rechazar</button>
             </>
           ) : (
             <>
-              {profileLinkButton}
               <button disabled={busy} onClick={cancel} className="px-3 py-1.5 text-sm rounded-lg border">Cancelar solicitud</button>
             </>
           )
         ) : (
           <>
-            {profileLinkButton}
             <a href={`/organizar`} className="px-3 py-1.5 text-sm rounded-lg bg-gray-900 text-white">Invitar a pichanga</a>
             <button disabled={busy} onClick={remove} className="px-3 py-1.5 text-sm rounded-lg border">Eliminar</button>
           </>

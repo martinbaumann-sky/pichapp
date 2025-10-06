@@ -25,6 +25,7 @@ import {
   type TeamKey,
   type PositionKey,
 } from "@/lib/teams";
+import ProfilePreviewDialog from "@/components/profile/ProfilePreviewDialog";
 
 type NormalizedMatchPlayer = FormationPlayer & {
   team: TeamKey | null;
@@ -1188,19 +1189,57 @@ export default function MatchDetailPage() {
                     const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
                     const isGuest = Boolean(p.isGuest);
                     const isCurrentUser = user && (p.userId === user.id || p.user?.id === user.id);
-                    const nameLabel = (isGuest && !isCurrentUser) ? `${playerName} (invitado)` : playerName;
+                    const nameLabel = isGuest && !isCurrentUser ? `${playerName} (invitado)` : playerName;
                     const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
                     const normalizedTeam = normalizeTeam(p.team ?? p.user?.team ?? null);
+                    const skillLevelKey = p.user?.skillLevel as keyof typeof nivelES | undefined;
+                    let openProfile: (() => void) | null = null;
+                    const fallbackProfile = p.user
+                      ? {
+                          name: p.user.name,
+                          comuna: p.user.comuna ?? null,
+                          position: p.user.position ?? null,
+                          skillLevel: p.user.skillLevel ?? null,
+                          bio: p.user.bio ?? null,
+                          avatarUrl: p.user.avatarUrl ?? null,
+                        }
+                      : null;
+                    const nameNode = p.user && fallbackProfile ? (
+                      <ProfilePreviewDialog
+                        key={`player-${p.user.id}-dialog`}
+                        userId={p.user.id}
+                        fallback={fallbackProfile}
+                        trigger={({ open }) => {
+                          openProfile = open;
+                          return (
+                            <button
+                              type="button"
+                              onClick={open}
+                              className="font-semibold text-slate-900 underline-offset-4 hover:underline"
+                            >
+                              {nameLabel}
+                            </button>
+                          );
+                        }}
+                      />
+                    ) : (
+                      <span className="font-semibold">{nameLabel}</span>
+                    );
                     return (
                       <li
                         key={`${playerName}-${idx}`}
                         className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex flex-wrap items-center gap-3 text-slate-800">
-                          <span className="font-semibold">{nameLabel}</span>
+                          {nameNode}
                           {positionKey ? (
                             <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
                               {posicionES[positionKey]}
+                            </span>
+                          ) : null}
+                          {skillLevelKey ? (
+                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
+                              {nivelES[skillLevelKey]}
                             </span>
                           ) : null}
                           {normalizedTeam ? (
@@ -1213,6 +1252,15 @@ export default function MatchDetailPage() {
                             >
                               {normalizedTeam === "CLARO" ? "Claro" : "Oscuro"}
                             </span>
+                          ) : null}
+                          {openProfile ? (
+                            <button
+                              type="button"
+                              onClick={() => openProfile && openProfile()}
+                              className="text-xs font-medium text-emerald-600 underline-offset-4 hover:underline"
+                            >
+                              Ver carta
+                            </button>
                           ) : null}
                         </div>
                         <span className={`text-sm font-medium ${p.status === "PAID" ? "text-emerald-600" : "text-slate-500"}`}>

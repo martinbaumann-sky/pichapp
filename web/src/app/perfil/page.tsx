@@ -1,20 +1,48 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import imageCompression from "browser-image-compression";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { comunasRM } from "@/lib/comunas-rm";
 import { normalizeForDisplay } from "@/lib/phone";
+import ProfileCard from "@/components/profile/ProfileCard";
+import { POSITION_KEYS } from "@/lib/teams";
+import { nivelES, posicionES } from "@/lib/i18n";
+
+const skillLevels = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
+
+type FormState = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  comuna: string;
+  position: string;
+  skillLevel: string;
+  bio: string;
+};
 
 export default function PerfilPage() {
   const { user, loading, signOut, checkSession } = useAuth();
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", comuna: "" });
+  const [form, setForm] = useState<FormState>({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    comuna: "",
+    position: "",
+    skillLevel: "",
+    bio: "",
+  });
   const [saving, setSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       if (!user) return;
 
-      // Prefill immediately from session user (fast UI feedback)
       try {
         const partsFromUser = (user.name ?? "").split(" ");
         const firstNameUser = partsFromUser.slice(0, -1).join(" ") || partsFromUser[0] || "";
@@ -27,45 +55,129 @@ export default function PerfilPage() {
           lastName: lastNameUser,
           comuna: user.comuna ?? "",
           phone: phoneFromUser || prev.phone,
+          position: user.position ?? prev.position,
+          skillLevel: user.skillLevel ?? prev.skillLevel,
+          bio: user.bio ?? prev.bio,
         }));
+        setAvatarUrl(user.avatarUrl ?? null);
       } catch {}
 
-      // Then load canonical data from the database
       const res = await fetch("/api/profile", { cache: "no-store", credentials: "include" });
       if (res.ok) {
         const { profile } = await res.json();
-        const parts = (profile?.name ?? user.name ?? "").split(" ");
-        const firstName = parts.slice(0, -1).join(" ") || parts[0] || "";
-        const lastName = parts.length > 1 ? parts.slice(-1).join(" ") : "";
-        const digits = String(profile?.phone ?? "").replace(/\D/g, "");
-        const phone8 = digits.slice(-8);
-        setForm({
-          firstName,
-          lastName,
-          phone: phone8,
-          comuna: profile?.comuna ?? user.comuna ?? "",
-        });
+        if (profile) {
+          const parts = (profile?.name ?? user.name ?? "").split(" ");
+          const firstName = parts.slice(0, -1).join(" ") || parts[0] || "";
+          const lastName = parts.length > 1 ? parts.slice(-1).join(" ") : "";
+          const digits = String(profile?.phone ?? "").replace(/\D/g, "");
+          const phone8 = digits.slice(-8);
+          setForm({
+            firstName,
+            lastName,
+            phone: phone8,
+            comuna: profile?.comuna ?? user.comuna ?? "",
+            position: profile?.position ?? "",
+            skillLevel: profile?.skillLevel ?? "",
+            bio: profile?.bio ?? "",
+          });
+          setAvatarUrl(profile?.avatarUrl ?? user.avatarUrl ?? null);
+        }
       }
     }
     load();
   }, [user]);
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Inicia sesión para ver tu perfil.</div>;
-  }
-  if (!user) {
-    return <div className="min-h-screen flex items-center justify-center">Inicia sesión para ver tu perfil.</div>;
-  }
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
 
   const digitsPreview = form.phone.replace(/\D/g, "");
   const phonePreview = digitsPreview.length === 8
     ? normalizeForDisplay(`+569${digitsPreview}`)
-    : (user.phone ? normalizeForDisplay(user.phone) : "");
+    : (user?.phone ? normalizeForDisplay(user.phone) : "");
 
-  const submit = async (e: React.FormEvent) => {
+  const displayName = useMemo(() => {
+    const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
+    if (fullName) return fullName;
+    return user?.name ?? "Jugador PichangApp";
+  }, [form.firstName, form.lastName, user?.name]);
+
+  const previewAvatar = avatarPreview || avatarUrl || null;
+  const previewActions = user
+    ? [
+        <Link
+          key="public"
+          href={`/usuarios/${user.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow hover:bg-emerald-100 transition"
+        >
+          Ver perfil público
+        </Link>,
+      ]
+    : undefined;
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setAvatarError(null);
+    try {
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 0.45,
+        maxWidthOrHeight: 720,
+        useWebWorker: true,
+        fileType: "image/webp",
+        initialQuality: 0.7,
+      });
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+      const previewUrl = URL.createObjectURL(compressed as File);
+      setAvatarPreview(previewUrl);
+      setAvatarFile(compressed as File);
+    } catch (err: any) {
+      console.error("[profile] avatar compression error", err);
+      setAvatarError("No pudimos procesar la imagen. Intenta con otra foto (JPG o PNG).");
+    }
+  };
+
+  const uploadAvatar = async () => {
+    if (!avatarFile) return true;
+    try {
+      const data = new FormData();
+      data.append("file", avatarFile, avatarFile.name || "avatar.webp");
+      const res = await fetch("/api/profile/avatar", { method: "POST", body: data });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        setAvatarError(payload?.error || "No se pudo actualizar la foto.");
+        return false;
+      }
+      const payload = await res.json().catch(() => ({}));
+      const nextUrl = typeof payload?.avatarUrl === "string" ? payload.avatarUrl : null;
+      setAvatarUrl(nextUrl);
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+      setAvatarPreview(null);
+      setAvatarFile(null);
+      return true;
+    } catch (err) {
+      console.error("[profile] avatar upload error", err);
+      setAvatarError("No se pudo actualizar la foto.");
+      return false;
+    }
+  };
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
-    // validate phone: fixed +569 XXXXXXXX (8 digits after 9)
+    setAvatarError(null);
+
     const digits = form.phone.replace(/\D/g, "");
     if (!/^\d{8}$/.test(digits)) {
       alert("Ingresa 8 dígitos para el celular (formato +569 XXXXXXXX)");
@@ -78,60 +190,244 @@ export default function PerfilPage() {
       setSaving(false);
       return;
     }
-    const res = await fetch("/api/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: fullName,
-        phone: `+569 ${digits.replace(/(\d{4})(\d{4})/, "$1 $2")}`,
-        comuna: form.comuna,
-      }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      alert("Perfil actualizado");
+
+    const payload = {
+      name: fullName,
+      phone: `+569 ${digits.replace(/(\d{4})(\d{4})/, "$1 $2")}`,
+      comuna: form.comuna,
+      position: form.position || null,
+      skillLevel: form.skillLevel || null,
+      bio: form.bio,
+    };
+
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        alert(data?.error || "No se pudo guardar");
+        setSaving(false);
+        return;
+      }
+      const avatarOk = await uploadAvatar();
       checkSession();
-    } else {
+      alert(avatarOk ? "Perfil actualizado" : "Perfil guardado, pero no se pudo actualizar la foto.");
+    } catch (err) {
+      console.error("[profile] save error", err);
       alert("No se pudo guardar");
+    } finally {
+      setSaving(false);
     }
   };
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Inicia sesión para ver tu perfil.</div>;
+  }
+  if (!user) {
+    return <div className="min-h-screen flex items-center justify-center">Inicia sesión para ver tu perfil.</div>;
+  }
+
   return (
-    <div className="max-w-xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-6">Mi perfil</h1>
-      <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="min-h-screen bg-slate-950">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-12 lg:flex-row">
+        <div className="flex-1 space-y-6">
           <div>
-            <label className="block text-sm font-medium mb-1">Nombre</label>
-            <input value={form.firstName} onChange={e=>setForm({...form, firstName:e.target.value})} className="w-full border px-3 py-2 rounded" required />
+            <h1 className="text-sm font-semibold uppercase tracking-[0.4em] text-emerald-400">Mi perfil</h1>
+            <p className="mt-2 text-3xl font-semibold text-white">Así te ven otros jugadores en Pichangapp.</p>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Apellido</label>
-            <input value={form.lastName} onChange={e=>setForm({...form, lastName:e.target.value})} className="w-full border px-3 py-2 rounded" required />
+          <ProfileCard
+            name={displayName}
+            comuna={form.comuna}
+            phoneDisplay={phonePreview}
+            position={form.position || null}
+            skillLevel={form.skillLevel || null}
+            bio={form.bio}
+            avatarUrl={previewAvatar}
+            actions={previewActions}
+            isOwnProfile
+            highlight="Vista previa"
+          />
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-5 text-sm text-white/70 backdrop-blur">
+            <p>
+              Consejos: agrega una bio entretenida, cuenta tu puesto preferido y mantén tu celular actualizado para que tus amigos
+              puedan invitarte rápido.
+            </p>
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Celular</label>
-          <div className="flex items-center"><span className="px-3 py-2 border rounded-l bg-gray-50 text-gray-700 border-r-0 whitespace-nowrap w-16 flex items-center justify-center">+569</span><input value={form.phone} onChange={e=>setForm({...form, phone:e.target.value.replace(/\D/g, "").slice(0,8)})} className="w-full border px-3 py-2 rounded" placeholder="XXXXXXXX" inputMode="numeric" maxLength={8} required />
+
+        <form onSubmit={submit} className="flex-1 rounded-3xl bg-white p-8 shadow-2xl space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold text-slate-900">Editar información</h2>
+            <button type="button" onClick={signOut} className="text-sm font-medium text-emerald-600 hover:text-emerald-700">
+              Cerrar sesión
+            </button>
           </div>
-          <p className="text-xs text-gray-500 mt-1">8 dígitos, ej: 87654321</p>
-          {phonePreview && <p className="text-xs text-gray-500 mt-0.5">Se mostrará como {phonePreview}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Comuna</label>
-          <select value={form.comuna} onChange={e=>setForm({...form, comuna:e.target.value})} className="w-full border px-3 py-2 rounded" required>
-            <option value="">Selecciona tu comuna</option>
-            {comunasRM.map(c => (<option key={c} value={c}>{c}</option>))}
-          </select>
-        </div>
-        <div className="flex items-center gap-3">
-          <button type="submit" disabled={saving} className="px-4 py-2 bg-black text-white rounded">{saving?"Guardando...":"Guardar cambios"}</button>
-          <button type="button" onClick={signOut} className="px-4 py-2 bg-gray-200 rounded">Cerrar sesión</button>
-        </div>
-      </form>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Foto de perfil</label>
+              <div className="mt-3 flex items-center gap-4">
+                <div className="h-20 w-20 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                  {previewAvatar ? (
+                    <img src={previewAvatar} alt="Vista previa foto" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-slate-500">
+                      JP
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2 text-sm text-slate-600">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label
+                      htmlFor="avatar"
+                      className="cursor-pointer rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-600"
+                    >
+                      Elegir foto
+                    </label>
+                    <input
+                      id="avatar"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={handleAvatarChange}
+                    />
+                    {avatarFile ? (
+                      <span className="text-xs text-emerald-600">Se subirá al guardar cambios.</span>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-slate-500">Recomendado: JPG o PNG cuadrado, máximo 2MB.</p>
+                  {avatarError ? <p className="text-xs text-red-500">{avatarError}</p> : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Nombre</label>
+                <input
+                  value={form.firstName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Apellido</label>
+                <input
+                  value={form.lastName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Celular</label>
+              <div className="mt-1 flex overflow-hidden rounded-xl border border-slate-200">
+                <span className="flex items-center justify-center bg-slate-100 px-4 text-sm font-medium text-slate-600">
+                  +569
+                </span>
+                <input
+                  value={form.phone}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, "").slice(0, 8) }))
+                  }
+                  className="w-full px-3 py-2 text-slate-900 focus:outline-none"
+                  placeholder="XXXXXXXX"
+                  inputMode="numeric"
+                  maxLength={8}
+                  required
+                />
+              </div>
+              <p className="mt-1 text-xs text-slate-500">8 dígitos, ej: 87654321</p>
+              {phonePreview && <p className="text-xs text-slate-500">Se mostrará como {phonePreview}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Comuna</label>
+              <select
+                value={form.comuna}
+                onChange={(e) => setForm((prev) => ({ ...prev, comuna: e.target.value }))}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none"
+                required
+              >
+                <option value="">Selecciona tu comuna</option>
+                {comunasRM.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Posición preferida</label>
+                <select
+                  value={form.position}
+                  onChange={(e) => setForm((prev) => ({ ...prev, position: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value="">Selecciona posición</option>
+                  {POSITION_KEYS.map((key) => (
+                    <option key={key} value={key}>
+                      {posicionES[key]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Nivel de juego</label>
+                <select
+                  value={form.skillLevel}
+                  onChange={(e) => setForm((prev) => ({ ...prev, skillLevel: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value="">Selecciona nivel</option>
+                  {skillLevels.map((level) => (
+                    <option key={level} value={level}>
+                      {nivelES[level]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Bio</label>
+              <textarea
+                value={form.bio}
+                onChange={(e) => setForm((prev) => ({ ...prev, bio: e.target.value.slice(0, 400) }))}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none"
+                rows={4}
+                maxLength={400}
+                placeholder="Cuéntale al resto cómo juegas, tus logros o qué te gusta de las pichangas."
+              />
+              <p className="mt-1 text-xs text-slate-500">{form.bio.length}/400 caracteres</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </button>
+            <Link
+              href="/"
+              className="text-sm font-medium text-slate-500 underline-offset-4 hover:text-slate-700 hover:underline"
+            >
+              Volver al inicio
+            </Link>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
-
-
-

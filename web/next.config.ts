@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com",
       "style-src 'self' 'unsafe-inline' https://unpkg.com",
-      "img-src 'self' data: blob: https://*.openstreetmap.org https://staticmap.openstreetmap.de https://source.unsplash.com https://maps.googleapis.com",
+      "img-src 'self' data: blob: https://*.openstreetmap.org https://staticmap.openstreetmap.de https://source.unsplash.com https://maps.googleapis.com https://*.supabase.co https://*.supabase.in",
       "font-src 'self' data:",
       "connect-src 'self' https://nominatim.openstreetmap.org https://api.mapbox.com https://*.upstash.io",
       "frame-ancestors 'none'",

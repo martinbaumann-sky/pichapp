@@ -60,7 +60,16 @@ export async function GET(
           select: {
             id: true,
             email: true,
-            profile: { select: { name: true, position: true } },
+            profile: {
+              select: {
+                name: true,
+                position: true,
+                comuna: true,
+                skillLevel: true,
+                bio: true,
+                avatarUrl: true,
+              },
+            },
           },
         },
       },
@@ -112,7 +121,17 @@ export async function GET(
       const inviteName = typeof inviteInfo?.name === "string" ? inviteInfo.name.trim() : "";
       const displayName = hasProfile ? profileName : inviteName || `Jugador ${idx + 1}`;
       const position = s.position ?? (hasProfile ? profile?.position ?? null : null);
-      const user = hasProfile ? { id: userId as string, name: profileName, position: profile?.position ?? null } : null;
+      const user = hasProfile
+        ? {
+            id: userId as string,
+            name: profileName,
+            position: profile?.position ?? null,
+            comuna: profile?.comuna ?? null,
+            skillLevel: profile?.skillLevel ?? null,
+            bio: profile?.bio ?? null,
+            avatarUrl: profile?.avatarUrl ?? null,
+          }
+        : null;
       const isGuest = inviteInfo ? true : hasProfile ? !(s.user?.email ?? null) : true;
       const invitedByUserId = inviteInfo?.inviterId ?? null;
       const invitedByViewer = invitedByUserId ? invitedByUserId === viewerId : false;
