@@ -45,7 +45,7 @@ export function ShinyHoverCard({ children, className, intensity = 0.35 }: ShinyH
       <motion.div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{ background, opacity }}
+        style={{ background, opacity, borderRadius: "inherit" }}
       />
       <div className="relative z-10">{children}</div>
     </motion.div>

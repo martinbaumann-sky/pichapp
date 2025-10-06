@@ -28,6 +28,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useNotifications } from "@/hooks/useNotifications";
 import { AnimatedDockMenu } from "./ui/animated-dock";
 
+const pathMatchScore = (currentPath: string | null | undefined, targetPath: string) => {
+  if (!currentPath || !targetPath) return 0;
+  if (currentPath === targetPath) return targetPath.length + 1;
+  if (!currentPath.startsWith(targetPath)) return 0;
+  const nextChar = currentPath.charAt(targetPath.length);
+  if (nextChar === "/" || nextChar === "?" || nextChar === "#" || nextChar === "") {
+    return targetPath.length;
+  }
+  return 0;
+};
+
 type NavItem =
   | { type: "link"; href: string; label: string; variant?: "primary" }
   | { type: "action"; label: string; onClick: () => void };
@@ -104,9 +115,8 @@ export default function Header() {
   }, [canAccessVenuePanel, isVenueMarketingView, openLoginDialog, user]);
 
   const dockItems = useMemo(() => {
-    return mainNavItems.map((item) => {
+    const computed = mainNavItems.map((item) => {
       if (item.type === "link") {
-        const active = mounted && (pathname === item.href || pathname.startsWith(`${item.href}/`));
         let icon = <Compass className="h-5 w-5" />;
         if (item.href.startsWith("/reservas")) icon = <CalendarDays className="h-5 w-5" />;
         if (item.href.startsWith("/amigos")) icon = <Users className="h-5 w-5" />;
@@ -115,13 +125,15 @@ export default function Header() {
         if (item.href.startsWith("/panel/cancha/partidos")) icon = <CalendarCheck className="h-5 w-5" />;
         if (item.href === "/panel/cancha") icon = <LayoutDashboard className="h-5 w-5" />;
 
+        const score = mounted ? pathMatchScore(pathname, item.href) : 0;
+
         return {
           id: item.href,
           label: item.label,
           icon,
           href: item.href,
-          active,
           variant: item.variant === "primary" ? "primary" : "default",
+          score,
         };
       }
 
@@ -132,6 +144,28 @@ export default function Header() {
         onClick: item.onClick,
         variant: "primary" as const,
       };
+    });
+
+    const activeId = computed
+      .filter((item): item is typeof computed[number] & { href: string; score: number } =>
+        "href" in item,
+      )
+      .reduce<{ id: string | null; score: number }>(
+        (best, item) => {
+          if ((item.score ?? 0) > best.score) {
+            return { id: item.id, score: item.score ?? 0 };
+          }
+          return best;
+        },
+        { id: null, score: 0 },
+      ).id;
+
+    return computed.map((item) => {
+      if ("href" in item) {
+        const { score: _score, ...rest } = item;
+        return { ...rest, active: activeId === item.id };
+      }
+      return item;
     });
   }, [mainNavItems, mounted, pathname]);
 

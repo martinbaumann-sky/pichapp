@@ -24,7 +24,7 @@ type AnimatedDockMenuProps = {
 export function AnimatedDockMenu({ items, className }: AnimatedDockMenuProps) {
   const mouseX = useMotionValue(Number.POSITIVE_INFINITY);
 
-  const baseGap = 80;
+  const baseGap = 112;
 
   const itemConfigs = useMemo(
     () =>
@@ -38,8 +38,8 @@ export function AnimatedDockMenu({ items, className }: AnimatedDockMenuProps) {
   return (
     <motion.div
       className={cn(
-        "flex items-end gap-2 rounded-3xl border border-gray-200/60 bg-white/80 px-3 py-2 shadow-lg backdrop-blur",
-        "supports-[backdrop-filter]:bg-white/60",
+        "flex items-center gap-3 rounded-[28px] border border-gray-200/70 bg-white/90 px-4 py-2.5 shadow-xl backdrop-blur",
+        "supports-[backdrop-filter]:bg-white/70",
         className,
       )}
       onMouseMove={(event) => {
@@ -63,8 +63,8 @@ type AnimatedDockMenuItemProps = {
 
 function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProps) {
   const distance = useTransform(mouseX, (value) => Math.abs(value - center));
-  const widthTransform = useTransform(distance, [0, 120, 240], [92, 76, 64]);
-  const heightTransform = useTransform(distance, [0, 120, 240], [60, 54, 48]);
+  const widthTransform = useTransform(distance, [0, 140, 280], [118, 100, 84]);
+  const heightTransform = useTransform(distance, [0, 140, 280], [60, 56, 52]);
   const scaleTransform = useTransform(distance, [0, 120, 240], [1.1, 1.05, 1]);
   const labelOpacity = useTransform(distance, [0, 120, 240], [1, 0, 0]);
   const glowOpacity = useTransform(distance, [0, 120, 240], [0.55, 0.25, 0]);
@@ -81,7 +81,7 @@ function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProp
   const contents = (
     <motion.div
       className={cn(
-        "group relative flex h-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl px-3 py-2 transition-colors",
+        "group relative flex h-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl px-3.5 py-2 transition-colors",
         isPrimary
           ? "text-[var(--brand-2)]"
           : isActive
@@ -115,7 +115,7 @@ function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProp
       </motion.span>
       <motion.span
         className={cn(
-          "relative z-10 text-[11px] font-semibold uppercase tracking-[0.25em]",
+          "relative z-10 text-[11px] font-semibold uppercase tracking-[0.18em] whitespace-nowrap",
           isPrimary || isActive
             ? "text-[var(--brand-2)]"
             : "text-gray-600 group-hover:text-gray-800",
