@@ -75,30 +75,37 @@ function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProp
   const label = useSpring(labelOpacity, { stiffness: 260, damping: 30 });
   const glow = useSpring(glowOpacity, { stiffness: 240, damping: 30 });
 
+  const isPrimary = item.variant === "primary";
+  const isActive = Boolean(item.active);
+
   const contents = (
     <motion.div
       className={cn(
         "group relative flex h-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl px-3 py-2 transition-colors",
-        item.variant === "primary"
-          ? "text-emerald-700"
-          : item.active
-            ? "text-gray-900"
+        isPrimary
+          ? "text-[var(--brand-2)]"
+          : isActive
+            ? "text-[var(--brand-2)]"
             : "text-gray-500 hover:text-gray-800",
       )}
       style={{ width, height }}
     >
       <motion.div
         className={cn(
-          "absolute inset-0 bg-gradient-to-br from-emerald-200/30 via-emerald-400/20 to-emerald-500/10",
-          item.variant === "primary" ? "opacity-80" : "opacity-0",
+          "absolute inset-0 bg-gradient-to-br from-[rgba(11,143,61,0.24)] via-[rgba(11,143,61,0.18)] to-[rgba(11,143,61,0.12)]",
+          isPrimary ? "opacity-90" : "opacity-0",
         )}
-        style={{ opacity: item.variant === "primary" ? 0.9 : glow }}
+        style={{ opacity: isPrimary ? 0.85 : isActive ? 0.45 : glow }}
         aria-hidden
       />
-      {item.active && (
+      {isActive && (
         <motion.div
           layoutId="dock-active"
-          className="absolute inset-[1px] rounded-2xl border border-emerald-400/60"
+          className="absolute inset-[1px] rounded-2xl"
+          style={{
+            border: "1.5px solid rgba(11, 143, 61, 0.6)",
+            boxShadow: "0 8px 24px -12px rgba(11, 143, 61, 0.45)",
+          }}
           transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.4 }}
           aria-hidden
         />
@@ -107,7 +114,12 @@ function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProp
         {item.icon}
       </motion.span>
       <motion.span
-        className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.25em] text-gray-600"
+        className={cn(
+          "relative z-10 text-[11px] font-semibold uppercase tracking-[0.25em]",
+          isPrimary || isActive
+            ? "text-[var(--brand-2)]"
+            : "text-gray-600 group-hover:text-gray-800",
+        )}
         style={{ opacity: label }}
       >
         {item.label}

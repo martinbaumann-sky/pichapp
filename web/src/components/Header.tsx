@@ -135,114 +135,209 @@ export default function Header() {
     });
   }, [mainNavItems, mounted, pathname]);
 
-  const renderMenuContent = () => (
-    <DropdownMenu.Portal>
-      <DropdownMenu.Content
-        sideOffset={10}
-        align="end"
-        className="dropdown-content z-50 min-w-56 rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
-      >
-        <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
-          <div className="text-xs text-gray-500">Sesión</div>
-          <div className="font-medium text-black truncate">{user.name}</div>
-        </div>
-        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+  const dropdownContentVariants = {
+    hidden: { opacity: 0, y: 14, scale: 0.94 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 380,
+        damping: 32,
+        mass: 0.7,
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: 12,
+      scale: 0.96,
+      transition: { duration: 0.18, ease: [0.4, 0, 0.2, 1] },
+    },
+  };
 
-        {canAccessVenuePanel ? (
-          <>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/panel/cancha?tab=settings"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <Settings className="w-4 h-4 text-gray-600" />
-                <span>Datos de la cancha</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/panel/cancha/partidos"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <CalendarDays className="w-4 h-4 text-gray-600" />
-                <span>Mis partidos</span>
-              </Link>
-            </DropdownMenu.Item>
-          </>
-        ) : (
-          <>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/reservas"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <CalendarDays className="w-4 h-4 text-gray-600" />
-                <span>Reservas</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/amigos"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <Users className="w-4 h-4 text-gray-600" />
-                <span>Amigos</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/mensajes"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <MessageSquare className="w-4 h-4 text-gray-600" />
-                <span>Mensajes</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/perfil"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <UserCircle className="w-4 h-4 text-gray-600" />
-                <span>Perfil</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/cancha"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 focus:bg-gray-100 cursor-pointer text-gray-600"
-              >
-                <MapPin className="w-4 h-4" />
-                <span>¿Tienes una cancha?</span>
-              </Link>
-            </DropdownMenu.Item>
-          </>
-        )}
+  const dropdownListVariants = {
+    hidden: {
+      transition: { staggerChildren: 0.04, staggerDirection: -1 },
+    },
+    visible: {
+      transition: { staggerChildren: 0.05, delayChildren: 0.05 },
+    },
+    exit: {
+      transition: { staggerChildren: 0.035, staggerDirection: -1 },
+    },
+  };
 
-        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-        <DropdownMenu.Item asChild>
-          <button
-            onClick={async () => {
-              await signOut();
-              setMenuOpen(false);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-red-50 focus:bg-red-50 text-red-600 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Cerrar sesión</span>
-          </button>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Portal>
-  );
+  const dropdownItemVariants = {
+    hidden: { opacity: 0, y: 10, scale: 0.97 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 500,
+        damping: 34,
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: 8,
+      scale: 0.95,
+      transition: { duration: 0.12 },
+    },
+  };
+
+  const renderMenuContent = () => {
+    const primaryLinks = canAccessVenuePanel
+      ? [
+          {
+            key: "panel-settings",
+            href: "/panel/cancha?tab=settings",
+            icon: <Settings className="w-4 h-4 text-gray-600" />,
+            label: "Datos de la cancha",
+          },
+          {
+            key: "panel-partidos",
+            href: "/panel/cancha/partidos",
+            icon: <CalendarDays className="w-4 h-4 text-gray-600" />,
+            label: "Mis partidos",
+          },
+        ]
+      : [
+          {
+            key: "reservas",
+            href: "/reservas",
+            icon: <CalendarDays className="w-4 h-4 text-gray-600" />,
+            label: "Reservas",
+          },
+          {
+            key: "amigos",
+            href: "/amigos",
+            icon: <Users className="w-4 h-4 text-gray-600" />,
+            label: "Amigos",
+          },
+          {
+            key: "mensajes",
+            href: "/mensajes",
+            icon: <MessageSquare className="w-4 h-4 text-gray-600" />,
+            label: "Mensajes",
+          },
+          {
+            key: "perfil",
+            href: "/perfil",
+            icon: <UserCircle className="w-4 h-4 text-gray-600" />,
+            label: "Perfil",
+          },
+        ];
+
+    const marketingLink = !canAccessVenuePanel
+      ? {
+          key: "cancha",
+          href: "/cancha",
+          icon: <MapPin className="w-4 h-4" />,
+          label: "¿Tienes una cancha?",
+        }
+      : null;
+
+    return (
+      <DropdownMenu.Portal forceMount>
+        <AnimatePresence>
+          {menuOpen ? (
+            <DropdownMenu.Content
+              forceMount
+              sideOffset={12}
+              align="end"
+              asChild
+            >
+              <motion.div
+                variants={dropdownContentVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="dropdown-content z-50 min-w-56 rounded-2xl border border-gray-100/80 bg-white/95 p-2 shadow-xl backdrop-blur-xl focus:outline-none origin-[var(--radix-dropdown-menu-content-transform-origin)]"
+              >
+                <motion.div
+                  variants={dropdownItemVariants}
+                  className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border"
+                >
+                  <div className="text-xs text-gray-500">Sesión</div>
+                  <div className="font-medium text-black truncate">{user.name}</div>
+                </motion.div>
+
+                <motion.div variants={dropdownItemVariants} className="my-2 h-px bg-gray-200" />
+
+                <motion.div className="flex flex-col gap-1" variants={dropdownListVariants}>
+                  {primaryLinks.map((item) => (
+                    <motion.div
+                      key={item.key}
+                      variants={dropdownItemVariants}
+                      whileHover={{ x: 6, scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          href={item.href}
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-700 transition-colors hover:bg-gray-100 focus:bg-gray-100"
+                        >
+                          {item.icon}
+                          <span>{item.label}</span>
+                        </Link>
+                      </DropdownMenu.Item>
+                    </motion.div>
+                  ))}
+                </motion.div>
+
+                {marketingLink ? (
+                  <>
+                    <motion.div variants={dropdownItemVariants} className="my-2 h-px bg-gray-200" />
+                    <motion.div
+                      variants={dropdownItemVariants}
+                      whileHover={{ x: 6, scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          href={marketingLink.href}
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-600 transition-colors hover:bg-gray-100 focus:bg-gray-100"
+                        >
+                          {marketingLink.icon}
+                          <span>{marketingLink.label}</span>
+                        </Link>
+                      </DropdownMenu.Item>
+                    </motion.div>
+                  </>
+                ) : null}
+
+                <motion.div variants={dropdownItemVariants} className="my-2 h-px bg-gray-200" />
+
+                <motion.div
+                  variants={dropdownItemVariants}
+                  whileHover={{ x: 6, scale: 1.01 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <DropdownMenu.Item asChild>
+                    <button
+                      onClick={async () => {
+                        await signOut();
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-red-600 transition-colors hover:bg-red-50 focus:bg-red-50"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Cerrar sesión</span>
+                    </button>
+                  </DropdownMenu.Item>
+                </motion.div>
+              </motion.div>
+            </DropdownMenu.Content>
+          ) : null}
+        </AnimatePresence>
+      </DropdownMenu.Portal>
+    );
+  };
   // Cerrar menús al cambiar de ruta
   useEffect(() => {
     setMenuOpen(false);
@@ -391,7 +486,12 @@ export default function Header() {
                 <DropdownMenu.Trigger asChild>
                   <button
                     onClick={() => setMenuOpen(true)}
-                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                    className={cn(
+                      "p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black/10 touch-target",
+                      menuOpen
+                        ? "bg-[rgba(11,143,61,0.12)] text-[var(--brand-2)] shadow-[0_8px_24px_-16px_rgba(11,143,61,0.45)]"
+                        : "hover:bg-gray-100",
+                    )}
                     aria-label={isVenueAdmin ? "acciones de la cuenta" : "perfil"}
                   >
                     {isVenueAdmin ? <MoreVertical className="w-5 h-5" /> : <UserIcon className="w-5 h-5" />}
