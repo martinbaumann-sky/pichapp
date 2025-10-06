@@ -120,10 +120,14 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const existingAccount = await tx.oAuthAccount.findUnique({
-        where: { provider_providerAccountId: { provider: "google", providerAccountId: googleId } },
-        select: { id: true, userId: true, refreshToken: true },
-      });
+      const hasOAuthAccount = typeof (tx as any).oAuthAccount !== "undefined";
+
+      const existingAccount = hasOAuthAccount
+        ? await (tx as any).oAuthAccount.findUnique({
+          where: { provider_providerAccountId: { provider: "google", providerAccountId: googleId } },
+          select: { id: true, userId: true, refreshToken: true },
+        })
+        : null;
 
       const updateAccountTokens = async (accountId: string, refreshToken?: string | null) => {
         const data: Record<string, any> = {
@@ -136,7 +140,9 @@ export async function GET(req: NextRequest) {
         } else if (refreshToken) {
           data.refreshToken = refreshToken;
         }
-        await tx.oAuthAccount.update({ where: { id: accountId }, data });
+        if (hasOAuthAccount) {
+          await (tx as any).oAuthAccount.update({ where: { id: accountId }, data });
+        }
       };
 
       const ensureProfile = async (userId: string) => {
@@ -162,7 +168,9 @@ export async function GET(req: NextRequest) {
       if (existingAccount) {
         let user = await tx.user.findUnique({ where: { id: existingAccount.userId }, select: userSelect });
         if (!user) {
-          await tx.oAuthAccount.delete({ where: { id: existingAccount.id } });
+          if (hasOAuthAccount) {
+            await (tx as any).oAuthAccount.delete({ where: { id: existingAccount.id } });
+          }
         } else {
           await updateAccountTokens(existingAccount.id, existingAccount.refreshToken);
           const needsVerification = emailVerified && !user.emailVerifiedAt;
@@ -189,24 +197,26 @@ export async function GET(req: NextRequest) {
           user = await tx.user.update({ where: { id: user.id }, data: updates, select: userSelect });
         }
         user = (await ensureProfile(user.id)) ?? user;
-        await tx.oAuthAccount.upsert({
-          where: { provider_providerAccountId: { provider: "google", providerAccountId: googleId } },
-          create: {
-            provider: "google",
-            providerAccountId: googleId,
-            email,
-            accessToken: tokens.access_token ?? null,
-            refreshToken: tokens.refresh_token ?? null,
-            expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-            userId: user.id,
-          },
-          update: {
-            email,
-            accessToken: tokens.access_token ?? null,
-            expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-            ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
-          },
-        });
+        if (hasOAuthAccount) {
+          await (tx as any).oAuthAccount.upsert({
+            where: { provider_providerAccountId: { provider: "google", providerAccountId: googleId } },
+            create: {
+              provider: "google",
+              providerAccountId: googleId,
+              email,
+              accessToken: tokens.access_token ?? null,
+              refreshToken: tokens.refresh_token ?? null,
+              expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+              userId: user.id,
+            },
+            update: {
+              email,
+              accessToken: tokens.access_token ?? null,
+              expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+              ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
+            },
+          });
+        }
         return { user, next: stored.next ?? null };
       }
 
@@ -227,17 +237,19 @@ export async function GET(req: NextRequest) {
         select: userSelect,
       });
 
-      await tx.oAuthAccount.create({
-        data: {
-          provider: "google",
-          providerAccountId: googleId,
-          email,
-          accessToken: tokens.access_token ?? null,
-          refreshToken: tokens.refresh_token ?? null,
-          expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-          userId: user.id,
-        },
-      });
+      if (hasOAuthAccount) {
+        await (tx as any).oAuthAccount.create({
+          data: {
+            provider: "google",
+            providerAccountId: googleId,
+            email,
+            accessToken: tokens.access_token ?? null,
+            refreshToken: tokens.refresh_token ?? null,
+            expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+            userId: user.id,
+          },
+        });
+      }
 
       return { user, next: stored.next ?? null };
     });
@@ -250,8 +262,10 @@ export async function GET(req: NextRequest) {
       return clearCookie(buildErrorRedirect(origin, "account_disabled"));
     }
 
-    const sessionToken = await createSession(result.user.id);
-    const profileIncomplete = isProfileIncomplete(result.user.profile);
+    const freshUser = await prisma.user.findUnique({ where: { id: result.user.id }, select: userSelect });
+    const effectiveUser = freshUser ?? result.user;
+    const sessionToken = await createSession(effectiveUser.id);
+    const profileIncomplete = isProfileIncomplete(effectiveUser.profile);
     const redirectTo = result.next ?? (profileIncomplete ? "/perfil" : "/");
     const response = NextResponse.redirect(new URL(redirectTo, origin).toString());
     attachSessionCookie(response, sessionToken);
