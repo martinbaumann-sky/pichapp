@@ -104,6 +104,30 @@ export async function GET(
         viewerIsAdmin = !!viewer && (viewer.isAdmin || viewer.role === "SUPERADMIN");
       } catch {}
     }
+    let friendIds = new Set<string>();
+    if (viewerId) {
+      const friendships = await prisma.friend
+        .findMany({
+          where: {
+            status: "ACCEPTED",
+            OR: [
+              { requesterId: viewerId },
+              { addresseeId: viewerId },
+            ],
+          },
+          select: { requesterId: true, addresseeId: true },
+        })
+        .catch(() => []);
+      friendIds = new Set<string>();
+      for (const friend of friendships) {
+        if (friend.requesterId && friend.requesterId !== viewerId) {
+          friendIds.add(friend.requesterId);
+        }
+        if (friend.addresseeId && friend.addresseeId !== viewerId) {
+          friendIds.add(friend.addresseeId);
+        }
+      }
+    }
     const paidSpots = spots.filter((s: any) => s.status === "PAID");
     const availableSpots = spots.filter((s: any) => s.status === "AVAILABLE");
     const paid = paidSpots.length;
@@ -135,6 +159,7 @@ export async function GET(
       const isGuest = inviteInfo ? true : hasProfile ? !(s.user?.email ?? null) : true;
       const invitedByUserId = inviteInfo?.inviterId ?? null;
       const invitedByViewer = invitedByUserId ? invitedByUserId === viewerId : false;
+      const isFriend = userId ? friendIds.has(userId as string) : false;
       return {
         spotId: s.id,
         user,
@@ -146,6 +171,7 @@ export async function GET(
         isGuest,
         invitedByUserId,
         invitedByViewer,
+        isFriend,
       };
     });
 
@@ -189,6 +215,13 @@ export async function GET(
       }
     }
 
+    const friendHighlights = players
+      .filter((player: any) => player.isFriend && player.user && player.user.id)
+      .map((player: any) => ({
+        userId: player.user.id,
+        name: player.user.name,
+      }));
+
     const out = {
       id: match.id,
       title: match.title,
@@ -215,6 +248,8 @@ export async function GET(
       organizerFriendship,
       players,
       viewer,
+      friendCount: friendHighlights.length,
+      friendsPlaying: friendHighlights,
     };
 
     return NextResponse.json(out, {

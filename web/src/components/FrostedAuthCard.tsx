@@ -56,6 +56,7 @@ export default function FrostedAuthCard({
   const [resendLoading, setResendLoading] = React.useState(false);
   const [lastExpiresAt, setLastExpiresAt] = React.useState<string | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
+  const [oauthHints, setOauthHints] = React.useState<string[] | null>(null);
 
   const loginEmailRef = React.useRef<HTMLInputElement>(null);
   const loginPasswordRef = React.useRef<HTMLInputElement>(null);
@@ -138,6 +139,10 @@ export default function FrostedAuthCard({
     setResendLoading(false);
     setLastExpiresAt(null);
   }, []);
+
+  React.useEffect(() => {
+    setOauthHints(null);
+  }, [email, tab, phase]);
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -223,6 +228,7 @@ export default function FrostedAuthCard({
       setVerificationError(null);
       setResendMessage(null);
       setFormError(null);
+      setOauthHints(null);
       const r = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -233,6 +239,13 @@ export default function FrostedAuthCard({
         if (d?.requiresVerification && d?.email) {
           beginVerification(d.email as string, d?.expiresAt);
           setVerificationError(d?.error || "Debes verificar tu correo para continuar.");
+          return;
+        }
+        if (d?.requiresOAuth) {
+          if (Array.isArray(d?.providers)) {
+            setOauthHints(d.providers as string[]);
+          }
+          setFormError(d?.error || "Tu cuenta fue creada con Google. Usa \"Continuar con Google\".");
           return;
         }
         throw new Error(d?.error || "Credenciales inválidas");
@@ -449,11 +462,20 @@ export default function FrostedAuthCard({
             <button
               type="button"
               onClick={handleGoogleAuth}
-              className="w-full inline-flex items-center justify-center gap-3 rounded-xl bg-white text-slate-900 px-4 py-3 font-medium shadow-lg shadow-emerald-900/20 hover:bg-white/90 transition"
+              className={`w-full inline-flex items-center justify-center gap-3 rounded-xl bg-white text-slate-900 px-4 py-3 font-medium shadow-lg shadow-emerald-900/20 hover:bg-white/90 transition ${
+                oauthHints?.includes("google")
+                  ? "ring-2 ring-cyan-300 ring-offset-2 ring-offset-slate-900"
+                  : ""
+              }`}
             >
               <GoogleIcon className="h-5 w-5" />
               Continuar con Google
             </button>
+            {oauthHints?.includes("google") ? (
+              <p className="text-xs text-cyan-100 text-center">
+                Usa el botón “Continuar con Google” para entrar a tu cuenta.
+              </p>
+            ) : null}
             <div className="flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-white/50">
               <span className="flex-1 h-px bg-white/10" />
               <span>o usa tu correo</span>
