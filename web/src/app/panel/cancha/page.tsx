@@ -182,16 +182,8 @@ export default function VenueDashboardPage() {
   const isVenueVerified = Boolean(data?.venue?.verified);
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-sky-50">
-      <div
-        className="pointer-events-none absolute -top-36 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-300/40 blur-3xl"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 translate-x-1/3 translate-y-1/3 rounded-full bg-sky-300/30 blur-3xl"
-        aria-hidden
-      />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+    <div className="relative min-h-[calc(100vh-4rem)] bg-white">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div className="mb-10 overflow-hidden rounded-3xl border border-white/60 bg-white/80 p-6 shadow-xl backdrop-blur">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-4">
