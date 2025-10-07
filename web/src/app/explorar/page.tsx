@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Calendar, CalendarCheck2, Filter, Gauge, MapPin, Search, Users } from "lucide-react";
+import { ArrowLeft, Calendar, CalendarCheck2, Gauge, MapPin, Search, Users } from "lucide-react";
 
 import { FluidFilterDropdown } from "@/components/explore/FluidFilterDropdown";
 import LevelBadge from "@/components/LevelBadge";
@@ -18,6 +18,7 @@ const POPULAR_COMUNAS = ["Santiago", "Providencia", "Las Condes", "Ñuñoa", "La
 type MatchFilters = {
   comuna: string;
   from: string;
+  to: string;
   level: string;
   page: number;
   pageSize: number;
@@ -36,7 +37,7 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<MatchFilters>({ comuna: "", from: "", level: "", page: 1, pageSize: 24 });
+  const [filters, setFilters] = useState<MatchFilters>({ comuna: "", from: "", to: "", level: "", page: 1, pageSize: 24 });
   const [comunaSearch, setComunaSearch] = useState("");
   const [showAllComunas, setShowAllComunas] = useState(false);
   const [pendingCustomDate, setPendingCustomDate] = useState("");
@@ -58,6 +59,13 @@ export default function ExplorePage() {
   const startOfDayIso = useCallback((date: Date) => {
     const normalized = new Date(date);
     normalized.setHours(0, 0, 0, 0);
+    return normalized.toISOString();
+  }, []);
+
+  const endOfDayIso = useCallback((date: Date) => {
+    const normalized = new Date(date);
+    normalized.setHours(0, 0, 0, 0);
+    normalized.setDate(normalized.getDate() + 1);
     return normalized.toISOString();
   }, []);
 
@@ -231,32 +239,36 @@ export default function ExplorePage() {
     (optionValue: string) => {
       if (optionValue === "") {
         setPendingCustomDate("");
-        setFilters((f) => ({ ...f, from: "", page: 1 }));
+        setFilters((f) => ({ ...f, from: "", to: "", page: 1 }));
         return;
       }
 
       if (optionValue === "today") {
-        const iso = startOfDayIso(today);
-        setPendingCustomDate(iso.slice(0, 10));
-        setFilters((f) => ({ ...f, from: iso, page: 1 }));
+        const startIso = startOfDayIso(today);
+        const endIso = endOfDayIso(today);
+        setPendingCustomDate(startIso.slice(0, 10));
+        setFilters((f) => ({ ...f, from: startIso, to: endIso, page: 1 }));
         return;
       }
 
       if (optionValue === "tomorrow") {
-        const iso = startOfDayIso(tomorrow);
-        setPendingCustomDate(iso.slice(0, 10));
-        setFilters((f) => ({ ...f, from: iso, page: 1 }));
+        const startIso = startOfDayIso(tomorrow);
+        const endIso = endOfDayIso(tomorrow);
+        setPendingCustomDate(startIso.slice(0, 10));
+        setFilters((f) => ({ ...f, from: startIso, to: endIso, page: 1 }));
         return;
       }
 
       if (optionValue === "custom") {
         if (pendingCustomDate) {
-          const iso = new Date(`${pendingCustomDate}T00:00:00`).toISOString();
-          setFilters((f) => ({ ...f, from: iso, page: 1 }));
+          const baseDate = new Date(`${pendingCustomDate}T00:00:00`);
+          const startIso = startOfDayIso(baseDate);
+          const endIso = endOfDayIso(baseDate);
+          setFilters((f) => ({ ...f, from: startIso, to: endIso, page: 1 }));
         }
       }
     },
-    [pendingCustomDate, setFilters, setPendingCustomDate, startOfDayIso, today, tomorrow],
+    [pendingCustomDate, setFilters, setPendingCustomDate, startOfDayIso, endOfDayIso, today, tomorrow],
   );
 
   const dateOptions = useMemo(
@@ -303,8 +315,10 @@ export default function ExplorePage() {
                 type="button"
                 onClick={() => {
                   if (pendingCustomDate) {
-                    const iso = new Date(`${pendingCustomDate}T00:00:00`).toISOString();
-                    setFilters((f) => ({ ...f, from: iso, page: 1 }));
+                    const baseDate = new Date(`${pendingCustomDate}T00:00:00`);
+                    const startIso = startOfDayIso(baseDate);
+                    const endIso = endOfDayIso(baseDate);
+                    setFilters((f) => ({ ...f, from: startIso, to: endIso, page: 1 }));
                     close();
                   }
                 }}
@@ -319,7 +333,7 @@ export default function ExplorePage() {
                 className="font-medium text-gray-600 underline-offset-4 hover:underline"
                 onClick={() => {
                   setPendingCustomDate("");
-                  setFilters((f) => ({ ...f, from: "", page: 1 }));
+                  setFilters((f) => ({ ...f, from: "", to: "", page: 1 }));
                   close();
                 }}
               >
@@ -331,7 +345,7 @@ export default function ExplorePage() {
         ),
       },
     ],
-    [pendingCustomDate, today],
+    [pendingCustomDate, today, startOfDayIso, endOfDayIso],
   );
 
   const comunaData = useMemo(() => {
@@ -384,7 +398,7 @@ export default function ExplorePage() {
   }, []);
 
   const handleResetFilters = useCallback(() => {
-    setFilters({ comuna: "", from: "", level: "", page: 1, pageSize });
+    setFilters({ comuna: "", from: "", to: "", level: "", page: 1, pageSize });
     setComunaSearch("");
     setShowAllComunas(false);
     setPendingCustomDate("");
@@ -433,21 +447,6 @@ export default function ExplorePage() {
       {/* Filters */}
       <div className="relative z-20 border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-sm rounded-b-3xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-5 px-4 sm:px-5 lg:px-6 py-4 sm:py-5">
-          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
-                <Filter className="h-3.5 w-3.5" />
-                Filtros inteligentes
-              </div>
-              <p className="max-w-2xl text-sm text-gray-500">
-                Ajusta la ubicación, fecha y nivel para descubrir partidos que se ajusten a tu energía del día.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 shadow-sm">
-              Nos encontramos en beta: todas las reservas están disponibles sin costo durante este lanzamiento.
-            </div>
-          </div>
-
           <div className="grid gap-2 sm:gap-2.5 lg:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <FluidFilterDropdown
               label="Comuna"
@@ -530,8 +529,6 @@ export default function ExplorePage() {
               options={levelOptions}
               listClassName="max-h-[240px]"
             />
-
-            {/** Removed live update info block as requested */}
           </div>
         </div>
       </div>
@@ -554,12 +551,53 @@ export default function ExplorePage() {
 
         {items.length > 0 && (
           <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 xl:gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((match) => (
-              <Link
-                key={match.id}
-                href={`/partidos/${match.id}`}
-                className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-              >
+            {items.map((match) => {
+              const rawFriendCount =
+                typeof match?.friendCount === "number" ? match.friendCount : Number(match?.friendCount ?? 0);
+              const friendCount = Number.isFinite(rawFriendCount) ? rawFriendCount : 0;
+              const friendNames = Array.isArray(match?.friendNames)
+                ? (match.friendNames as string[])
+                    .map((name) => (typeof name === "string" ? name.trim() : ""))
+                    .filter((name) => name.length > 0)
+                : [];
+              let friendHeadline = "";
+              let friendDescription = "";
+              if (friendCount > 0) {
+                friendHeadline =
+                  friendCount === 1 ? "Tu amigo ya confirmó su cupo" : `${friendCount} amigos ya confirmaron`;
+                if (friendCount === 1) {
+                  friendDescription = friendNames[0]
+                    ? `${friendNames[0]} ya está inscrito`
+                    : "Hay un amigo jugando este partido.";
+                } else if (friendNames.length >= 2) {
+                  const extra = friendCount - 2;
+                  friendDescription =
+                    extra > 0
+                      ? `${friendNames[0]}, ${friendNames[1]} y ${extra} amigo${extra === 1 ? "" : "s"} más`
+                      : `${friendNames[0]} y ${friendNames[1]}`;
+                } else if (friendNames.length === 1) {
+                  const remaining = friendCount - 1;
+                  friendDescription =
+                    remaining > 0
+                      ? `${friendNames[0]} y ${remaining} amigo${remaining === 1 ? "" : "s"} más`
+                      : friendNames[0];
+                } else {
+                  friendDescription = `${friendCount} amigo${friendCount === 1 ? "" : "s"} confirmado${friendCount === 1 ? "" : "s"}`;
+                }
+                if (!friendDescription) {
+                  friendDescription = friendHeadline;
+                }
+              }
+
+              const showFriendDetails =
+                friendCount > 0 && friendDescription && friendDescription !== friendHeadline;
+
+              return (
+                <Link
+                  key={match.id}
+                  href={`/partidos/${match.id}`}
+                  className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                >
                 <div className="h-48 w-full">
                   <MiniMap lat={match.lat} lng={match.lng} title={match.title} id={match.id} />
                 </div>
@@ -601,22 +639,36 @@ export default function ExplorePage() {
                       </span>
                     </div>
 
-                    <div className="text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        <span>
-                          {match.paid}/{match.totalSpots} cupos ocupados
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 pl-6">
-                        {match.confirmed ? 'Partido confirmado' : `Se confirma con ${match.minSpotsToConfirm} jugadores`}
-                      </p>
+                  <div className="text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      <span>
+                        {match.paid}/{match.totalSpots} cupos ocupados
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 pl-6">
+                      {match.confirmed ? 'Partido confirmado' : `Se confirma con ${match.minSpotsToConfirm} jugadores`}
+                    </p>
+                  </div>
+                </div>
+
+                {friendCount > 0 ? (
+                  <div className="mt-2 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3">
+                    <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#06b6d4]/10 text-[#06b6d4]">
+                      <Users className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-0.5 text-sm text-[#0f172a]">
+                      <p className="font-semibold text-[#06b6d4]">{friendHeadline}</p>
+                      {showFriendDetails ? (
+                        <p className="text-xs text-[#0f172a]/70">{friendDescription}</p>
+                      ) : null}
                     </div>
                   </div>
+                ) : null}
 
-                  <div className="flex items-center justify-between border-t border-gray-100 pt-2">
-                    <div className="font-semibold text-green-600">
-                      <span>
+                <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+                  <div className="font-semibold text-green-600">
+                    <span>
                         {match.pricePerSpot > 0
                           ? new Intl.NumberFormat("es-CL", {
                               style: "currency",
@@ -630,7 +682,8 @@ export default function ExplorePage() {
                   </div>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
 

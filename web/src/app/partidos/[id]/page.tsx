@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
-import type { FriendStatus } from "@/lib/friendship";
 import { useAuth, resolveUserRole } from "@/hooks/useAuth";
 import { useRoleGate } from "@/hooks/useRoleGate";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, AlertTriangle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Clock, AlertCircle, AlertTriangle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
@@ -32,6 +31,7 @@ type NormalizedMatchPlayer = FormationPlayer & {
   status: string;
   invitedByViewer?: boolean;
   invitedByUserId?: string | null;
+  isFriend?: boolean;
 };
 
 type FormationTeamView = JoinFormationTeam & {
@@ -48,8 +48,6 @@ export default function MatchDetailPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"about" | "roster">("about");
-  const showAbout = activeTab === "about";
-  const showRoster = activeTab === "roster";
   const { user } = useAuth();
   const requiresProfileCompletion = useMemo(
     () => (user ? isProfileIncomplete({ phone: user.phone ?? null, comuna: user.comuna ?? null }) : false),
@@ -106,7 +104,7 @@ export default function MatchDetailPage() {
           });
         }
       }
-    } catch (error) {
+    } catch {
       const fallback: any = sampleMatches().find((m: any) => m.id === id);
       if (fallback) {
         setMatch({
@@ -147,6 +145,7 @@ export default function MatchDetailPage() {
         status: player.status ?? "PAID",
         invitedByViewer: Boolean(player.invitedByViewer),
         invitedByUserId: player.invitedByUserId ?? null,
+        isFriend: Boolean(player.isFriend),
       };
     });
 
@@ -275,7 +274,7 @@ export default function MatchDetailPage() {
       return;
     }
     setInviteDialogOpen(true);
-  }, [user, isPaidMatch, initializeJoinSelection, requiresProfileCompletion]);
+  }, [user, isPaidMatch, initializeJoinSelection, requiresProfileCompletion, isVenueViewer]);
 
   const proceedFromInvite = useCallback(() => {
     initializeJoinSelection();
@@ -681,6 +680,50 @@ export default function MatchDetailPage() {
     }
   }, [joinFriendCount, maxInvitableFriends]);
 
+  const friendsPlaying = useMemo(() => {
+    if (!match || !Array.isArray(match.players)) return [] as any[];
+    return (match.players as any[]).filter((player) => Boolean(player?.isFriend));
+  }, [match]);
+
+  const friendNames = useMemo(
+    () =>
+      friendsPlaying
+        .map((player: any) => {
+          if (player?.user?.name) return String(player.user.name);
+          if (typeof player?.displayName === "string") return player.displayName;
+          return "";
+        })
+        .map((name: string) => name.trim())
+        .filter((name: string) => name.length > 0),
+    [friendsPlaying],
+  );
+
+  const friendCount = friendsPlaying.length;
+
+  const friendHeadline = useMemo(() => {
+    if (friendCount === 0) return null;
+    return friendCount === 1 ? "Tu amigo ya está confirmado" : `${friendCount} amigos ya confirmaron su cupo`;
+  }, [friendCount]);
+
+  const friendDescription = useMemo(() => {
+    if (friendCount === 0) return "";
+    if (friendCount === 1) {
+      return friendNames[0] ? `${friendNames[0]} ya está inscrito en este partido.` : "Un amigo ya confirmó su cupo.";
+    }
+    if (friendNames.length >= 2) {
+      const extra = friendCount - 2;
+      const base = `${friendNames[0]} y ${friendNames[1]}`;
+      return extra > 0 ? `${base}, más ${extra} amigo${extra === 1 ? "" : "s"}.` : `${base}.`;
+    }
+    if (friendNames.length === 1) {
+      const extra = friendCount - 1;
+      return extra > 0 ? `${friendNames[0]} y ${extra} amigo${extra === 1 ? "" : "s"} más.` : `${friendNames[0]}.`;
+    }
+    return `${friendCount} amigos ya confirmaron.`;
+  }, [friendCount, friendNames]);
+
+  const showFriendDescription = Boolean(friendHeadline && friendDescription && friendDescription !== friendHeadline);
+
   if (!gateAllowed) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -720,8 +763,6 @@ export default function MatchDetailPage() {
   const viewer = match.viewer ?? null;
   const isOrganizer = viewer?.isOrganizer || (user && match && (user.id === (match.organizerId ?? match.organizer?.id)));
   const canOpenChat = !!(viewer?.hasJoined || isOrganizer);
-  const organizerFriendship = match.organizerFriendship ?? { status: "NONE", friendId: null };
-  const initialFriendStatus = (organizerFriendship.status ?? "NONE") as FriendStatus;
   const backHref = isVenueViewer ? "/panel/cancha/partidos" : "/explorar";
 
   const mapSectionId = "match-hero-map-section";
@@ -807,11 +848,6 @@ export default function MatchDetailPage() {
     }
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`;
   })();
-  const statusSteps = [
-    { key: "scheduled", label: "Agendado", reached: true },
-    { key: "confirmed", label: "Confirmado", reached: paidCount >= minSpotsToConfirm || !!match.isConfirmed },
-    { key: "full", label: "Completo", reached: isFull },
-  ] as const;
   const overviewItems = [
     { icon: Calendar, label: "Fecha", value: dateLabel },
     { icon: Clock, label: "Horario", value: timeLabel },
@@ -975,7 +1011,20 @@ export default function MatchDetailPage() {
                     </div>
                   );
                 })()}
-              </div>
+              {friendCount > 0 && friendHeadline ? (
+                <div className="mt-4 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3">
+                  <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#06b6d4]/10 text-[#06b6d4]">
+                    <Users className="h-5 w-5" />
+                  </span>
+                  <div className="space-y-1 text-sm text-[#0f172a]">
+                    <p className="font-semibold text-[#06b6d4]">{friendHeadline}</p>
+                    {showFriendDescription ? (
+                      <p className="text-xs text-[#0f172a]/70">{friendDescription}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -1251,6 +1300,12 @@ export default function MatchDetailPage() {
                               }`}
                             >
                               {normalizedTeam === "CLARO" ? "Claro" : "Oscuro"}
+                            </span>
+                          ) : null}
+                          {p.isFriend ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#06b6d4]/10 px-3 py-1 text-xs font-semibold text-[#06b6d4]">
+                              <Users className="h-3 w-3" />
+                              Tu amigo
                             </span>
                           ) : null}
                           {openProfile ? (

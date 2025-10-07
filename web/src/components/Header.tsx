@@ -240,24 +240,6 @@ export default function Header() {
         ]
       : [
           {
-            key: "reservas",
-            href: "/reservas",
-            icon: <CalendarDays className="w-4 h-4 text-gray-600" />,
-            label: "Reservas",
-          },
-          {
-            key: "amigos",
-            href: "/amigos",
-            icon: <Users className="w-4 h-4 text-gray-600" />,
-            label: "Amigos",
-          },
-          {
-            key: "mensajes",
-            href: "/mensajes",
-            icon: <MessageSquare className="w-4 h-4 text-gray-600" />,
-            label: "Mensajes",
-          },
-          {
             key: "perfil",
             href: "/perfil",
             icon: <UserCircle className="w-4 h-4 text-gray-600" />,

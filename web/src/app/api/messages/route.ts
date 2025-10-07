@@ -6,16 +6,11 @@ async function ensureCanAccess(matchId: string, userId: string) {
   const match = await prisma.match.findUnique({ where: { id: matchId }, select: { organizerId: true } });
   if (!match) return false;
   if (match.organizerId === userId) return true;
-  // Permitir acceso si el usuario tiene un spot pagado, o reservado todavía vigente
-  const now = new Date();
   const spot = await prisma.spot.findFirst({
     where: {
       matchId,
       userId,
-      OR: [
-        { status: "PAID" },
-        { status: "RESERVED", holdUntil: { gt: now } },
-      ],
+      status: "PAID",
     },
   });
   return !!spot;
