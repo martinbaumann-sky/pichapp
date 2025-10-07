@@ -408,7 +408,7 @@ export default function Header() {
 
         <nav className="hidden md:flex items-center">
           {dockItems.length > 0 ? (
-            <AnimatedDockMenu items={dockItems} mode={canAccessVenuePanel ? "venue" : "player"} />
+            <AnimatedDockMenu items={dockItems} />
           ) : null}
         </nav>
 
