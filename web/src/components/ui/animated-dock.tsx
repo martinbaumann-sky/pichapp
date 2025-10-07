@@ -16,12 +16,15 @@ type AnimatedDockItem = {
   variant?: "default" | "primary";
 };
 
+type AnimatedDockMode = "player" | "venue";
+
 type AnimatedDockMenuProps = {
   items: AnimatedDockItem[];
   className?: string;
+  mode?: AnimatedDockMode;
 };
 
-export function AnimatedDockMenu({ items, className }: AnimatedDockMenuProps) {
+export function AnimatedDockMenu({ items, className, mode = "player" }: AnimatedDockMenuProps) {
   const mouseX = useMotionValue(Number.POSITIVE_INFINITY);
 
   const baseGap = 112;
@@ -35,13 +38,14 @@ export function AnimatedDockMenu({ items, className }: AnimatedDockMenuProps) {
     [items],
   );
 
+  const containerClassName =
+    mode === "venue"
+      ? "relative flex items-center gap-1 rounded-[26px] border border-emerald-100/70 bg-white/70 px-2.5 py-2 shadow-[0_18px_54px_-44px_rgba(16,185,129,0.65)] backdrop-blur-xl supports-[backdrop-filter]:bg-white/50"
+      : "relative flex items-center gap-1.5 rounded-[30px] border border-white/30 bg-white/60 px-3.5 py-2.5 shadow-[0_20px_55px_-40px_rgba(15,23,42,0.65)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/35";
+
   return (
     <motion.div
-      className={cn(
-        "relative flex items-center gap-1.5 rounded-[30px] border border-white/30 bg-white/60 px-3.5 py-2.5 shadow-[0_20px_55px_-40px_rgba(15,23,42,0.65)] backdrop-blur-2xl",
-        "supports-[backdrop-filter]:bg-white/35",
-        className,
-      )}
+      className={cn(containerClassName, className)}
       onMouseMove={(event) => {
         const bounds = event.currentTarget.getBoundingClientRect();
         mouseX.set(event.clientX - bounds.left);
@@ -49,7 +53,7 @@ export function AnimatedDockMenu({ items, className }: AnimatedDockMenuProps) {
       onMouseLeave={() => mouseX.set(Number.POSITIVE_INFINITY)}
     >
       {itemConfigs.map(({ item, center }) => (
-        <AnimatedDockMenuItem key={item.id} item={item} center={center} mouseX={mouseX} />
+        <AnimatedDockMenuItem key={item.id} item={item} center={center} mouseX={mouseX} mode={mode} />
       ))}
     </motion.div>
   );
@@ -59,9 +63,10 @@ type AnimatedDockMenuItemProps = {
   item: AnimatedDockItem;
   center: number;
   mouseX: MotionValue<number>;
+  mode: AnimatedDockMode;
 };
 
-function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProps) {
+function AnimatedDockMenuItem({ item, center, mouseX, mode }: AnimatedDockMenuItemProps) {
   const distance = useTransform(mouseX, (value) => Math.abs(value - center));
   const widthTransform = useTransform(distance, [0, 140, 280], [118, 100, 84]);
   const heightTransform = useTransform(distance, [0, 140, 280], [60, 56, 52]);
@@ -75,21 +80,55 @@ function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProp
   const isPrimary = item.variant === "primary";
   const isActive = Boolean(item.active);
 
-  const iconColor = isActive
-    ? "text-[var(--brand-2)]"
-    : isPrimary
-      ? "text-slate-600 group-hover:text-[var(--brand-2)]"
-      : "text-slate-500 group-hover:text-slate-700";
+  const isVenueMode = mode === "venue";
 
-  const labelColor = isActive
-    ? "text-gray-900"
-    : isPrimary
-      ? "text-slate-600 group-hover:text-gray-900"
-      : "text-slate-500 group-hover:text-gray-800";
+  const iconColor = isVenueMode
+    ? isActive
+      ? "text-emerald-600"
+      : isPrimary
+        ? "text-emerald-500 group-hover:text-emerald-600"
+        : "text-emerald-400 group-hover:text-emerald-500"
+    : isActive
+      ? "text-[var(--brand-2)]"
+      : isPrimary
+        ? "text-slate-600 group-hover:text-[var(--brand-2)]"
+        : "text-slate-500 group-hover:text-slate-700";
 
-  const baseBackground = isPrimary
-    ? "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(236,244,255,0.58))"
-    : "linear-gradient(135deg, rgba(255,255,255,0.9), rgba(248,250,252,0.52))";
+  const labelColor = isVenueMode
+    ? isActive
+      ? "text-emerald-700"
+      : isPrimary
+        ? "text-emerald-600 group-hover:text-emerald-700"
+        : "text-emerald-500 group-hover:text-emerald-600"
+    : isActive
+      ? "text-gray-900"
+      : isPrimary
+        ? "text-slate-600 group-hover:text-gray-900"
+        : "text-slate-500 group-hover:text-gray-800";
+
+  const baseBackground = isVenueMode
+    ? isPrimary
+      ? "linear-gradient(135deg, rgba(236,253,245,0.82), rgba(255,255,255,0.75))"
+      : "linear-gradient(135deg, rgba(240,253,244,0.72), rgba(255,255,255,0.65))"
+    : isPrimary
+      ? "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(236,244,255,0.58))"
+      : "linear-gradient(135deg, rgba(255,255,255,0.9), rgba(248,250,252,0.52))";
+
+  const baseBorder = isVenueMode
+    ? isActive
+      ? "1px solid rgba(16, 185, 129, 0.55)"
+      : isPrimary
+        ? "1px solid rgba(167, 243, 208, 0.7)"
+        : "1px solid rgba(209, 250, 229, 0.55)"
+    : "1px solid rgba(255, 255, 255, 0.35)";
+
+  const baseShadow = isVenueMode
+    ? isActive
+      ? "0 20px 46px -34px rgba(16, 185, 129, 0.55)"
+      : isPrimary
+        ? "0 16px 40px -34px rgba(16, 185, 129, 0.45)"
+        : "0 14px 38px -36px rgba(15, 118, 110, 0.3)"
+    : "0 18px 46px -36px rgba(15, 23, 42, 0.45)";
 
   const contents = (
     <motion.div
@@ -100,6 +139,7 @@ function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProp
       style={{
         width,
         height,
+        border: baseBorder,
       }}
     >
       <motion.div
@@ -108,8 +148,8 @@ function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProp
         style={{
           pointerEvents: "none",
           background: baseBackground,
-          border: "1px solid rgba(255, 255, 255, 0.35)",
-          boxShadow: "0 18px 46px -36px rgba(15, 23, 42, 0.45)",
+          borderRadius: "16px",
+          boxShadow: baseShadow,
         }}
         transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
       />
@@ -119,8 +159,12 @@ function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProp
           className="absolute inset-0 z-10 rounded-2xl"
           style={{
             pointerEvents: "none",
-            background: "linear-gradient(135deg, rgba(11,143,61,0.24), rgba(11,143,61,0.1))",
-            boxShadow: "0 24px 52px -30px rgba(11, 143, 61, 0.45)",
+            background: isVenueMode
+              ? "linear-gradient(135deg, rgba(16,185,129,0.28), rgba(5,150,105,0.14))"
+              : "linear-gradient(135deg, rgba(11,143,61,0.24), rgba(11,143,61,0.1))",
+            boxShadow: isVenueMode
+              ? "0 24px 54px -32px rgba(16, 185, 129, 0.55)"
+              : "0 24px 52px -30px rgba(11, 143, 61, 0.45)",
           }}
           transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.5 }}
           aria-hidden

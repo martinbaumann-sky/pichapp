@@ -407,7 +407,9 @@ export default function Header() {
         </div>
 
         <nav className="hidden md:flex items-center">
-          {dockItems.length > 0 ? <AnimatedDockMenu items={dockItems} /> : null}
+          {dockItems.length > 0 ? (
+            <AnimatedDockMenu items={dockItems} mode={canAccessVenuePanel ? "venue" : "player"} />
+          ) : null}
         </nav>
 
         {/* Perfil / Auth */}
