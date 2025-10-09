@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Calendar, Filter, MapPin, Users } from "lucide-react";
 
-import LoadingScreen from "@/components/LoadingScreen";
+import FullPageSpinner from "@/components/FullPageSpinner";
 import LevelBadge from "@/components/LevelBadge";
 import { comunasRM } from "@/lib/comunas-rm";
 import { nivelES } from "@/lib/i18n";
@@ -111,12 +111,7 @@ export default function MatchesPageClient({ initialItems, initialFilters }: Matc
   );
 
   if (loading) {
-    return (
-      <LoadingScreen
-        title="Sincronizando tus partidos"
-        subtitle="Cargando datos actualizados para que sigas jugando al instante."
-      />
-    );
+    return <FullPageSpinner className="bg-gray-50 text-gray-700" message="Buscando partidos disponibles" />;
   }
 
   return (
