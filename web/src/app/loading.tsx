@@ -1,5 +1,5 @@
-import FullPageSpinner from "@/components/FullPageSpinner";
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function Loading() {
-  return <FullPageSpinner message="Cargando tu experiencia" />;
+  return <LoadingScreen />;
 }

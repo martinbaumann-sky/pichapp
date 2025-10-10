@@ -1,5 +1,5 @@
-import FullPageSpinner from "@/components/FullPageSpinner";
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function Loading() {
-  return <FullPageSpinner message="Cargando tu panel" />;
+  return <LoadingScreen title="Sincronizando tus partidos" subtitle="Cargando datos actualizados para que sigas jugando al instante." />;
 }
