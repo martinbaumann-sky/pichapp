@@ -1,5 +1,5 @@
-import FullPageSpinner from "@/components/FullPageSpinner";
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function Loading() {
-  return <FullPageSpinner message="Preparando la información" />;
+  return <LoadingScreen title="Estamos afinando la cancha" subtitle="Diseñando la mejor experiencia para conectar a tu próximo equipo." />;
 }
