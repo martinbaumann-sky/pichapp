@@ -19,6 +19,7 @@ import {
   MoreVertical,
   PlusCircle,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "../utils/cn";
 import AuthDialog from "./AuthDialog";
@@ -70,6 +71,8 @@ export default function Header() {
     markAsSeen,
   } = useNotifications(Boolean(user) && !isVenueAdmin);
   const showNotifications = Boolean(user) && !isVenueAdmin;
+  const adminEmail = user?.email?.toLowerCase() === "contacto.pichapp@gmail.com";
+  const isSuperAdmin = adminEmail || userRole === "superadmin";
 
   const openLoginDialog = useCallback(() => {
     if (loading) return;
@@ -92,27 +95,35 @@ export default function Header() {
   const mainNavItems: NavItem[] = useMemo(() => {
     if (isVenueMarketingView) return [];
     if (canAccessVenuePanel) {
-      return [
+      const base: NavItem[] = [
         { type: "link", href: "/panel/cancha", label: "Mi Panel" },
         { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido", variant: "primary" },
         { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
       ];
+      if (isSuperAdmin) {
+        base.unshift({ type: "link", href: "/admin", label: "Admin" });
+      }
+      return base;
     }
 
     if (user) {
-      return [
+      const base: NavItem[] = [
         { type: "link", href: "/explorar", label: "Explorar" },
         { type: "link", href: "/reservas", label: "Reservas" },
         { type: "link", href: "/amigos", label: "Amigos" },
         { type: "link", href: "/mensajes", label: "Mensajes" },
       ];
+      if (isSuperAdmin) {
+        base.unshift({ type: "link", href: "/admin", label: "Admin" });
+      }
+      return base;
     }
 
     return [
       { type: "link", href: "/explorar", label: "Explorar" },
       { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
     ];
-  }, [canAccessVenuePanel, isVenueMarketingView, openLoginDialog, user]);
+  }, [canAccessVenuePanel, isSuperAdmin, isVenueMarketingView, openLoginDialog, user]);
 
   const dockItems = useMemo(() => {
     const computed = mainNavItems.map((item) => {
@@ -123,6 +134,7 @@ export default function Header() {
         if (item.href.startsWith("/mensajes")) icon = <MessageSquare className="h-5 w-5" />;
         if (item.href.startsWith("/panel/cancha/partidos/nuevo")) icon = <PlusCircle className="h-5 w-5" />;
         if (item.href.startsWith("/panel/cancha/partidos")) icon = <CalendarCheck className="h-5 w-5" />;
+        if (item.href === "/admin") icon = <ShieldCheck className="h-5 w-5" />;
         if (item.href === "/panel/cancha") icon = <LayoutDashboard className="h-5 w-5" />;
 
         const score = mounted ? pathMatchScore(pathname, item.href) : 0;
