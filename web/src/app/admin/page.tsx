@@ -28,7 +28,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/utils/cn";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "@/constants/admin";
 import { formatCurrencyCLP, formatPercentage } from "@/utils/formatters";
-
 interface ActivityEntry {
   hour: string;
   total: number;
