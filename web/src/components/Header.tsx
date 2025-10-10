@@ -108,16 +108,18 @@ export default function Header() {
     }
 
     if (user) {
-      const base: NavItem[] = [
+      if (isSuperAdmin) {
+        return [
+          { type: "link", href: "/admin", label: "Admin" },
+          { type: "link", href: "/mensajes", label: "Mensajes" },
+        ];
+      }
+      return [
         { type: "link", href: "/explorar", label: "Explorar" },
         { type: "link", href: "/reservas", label: "Reservas" },
         { type: "link", href: "/amigos", label: "Amigos" },
         { type: "link", href: "/mensajes", label: "Mensajes" },
       ];
-      if (isSuperAdmin) {
-        base.unshift({ type: "link", href: "/admin", label: "Admin" });
-      }
-      return base;
     }
 
     return [
