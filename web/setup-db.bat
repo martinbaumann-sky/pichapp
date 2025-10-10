@@ -69,10 +69,10 @@ if not exist .env (
         echo UPSTASH_REDIS_REST_TOKEN=
         echo.
         echo # Admin
-        echo ADMIN_EMAIL=admin@pichangapp.com
-        echo ADMIN_PASSWORD=admin123
+        echo ADMIN_EMAIL=contacto.pichapp@gmail.com
+        echo ADMIN_PASSWORD=Babolat3008
         echo ADMIN_USER_ID=admin-user-id
-        echo ADMIN_EMAILS=admin@pichangapp.com
+        echo ADMIN_EMAILS=contacto.pichapp@gmail.com
     ) > .env
     echo Archivo .env creado.
     echo.

@@ -49,11 +49,11 @@ UPSTASH_REDIS_REST_URL=""
 UPSTASH_REDIS_REST_TOKEN=""
 
 # Configuracion admin inicial
-ADMIN_EMAIL="admin@pichangapp.com"
-ADMIN_PASSWORD="admin123"
+ADMIN_EMAIL="contacto.pichapp@gmail.com"
+ADMIN_PASSWORD="Babolat3008"
 ADMIN_USER_ID="admin-user-id"
-ADMIN_EMAILS="admin@pichangapp.com"
-NEXT_PUBLIC_ADMIN_EMAIL="admin@pichangapp.com"
+ADMIN_EMAILS="contacto.pichapp@gmail.com"
+NEXT_PUBLIC_ADMIN_EMAIL="contacto.pichapp@gmail.com"
 
 # Supabase (solo si usas scripts opcionales)
 NEXT_PUBLIC_SUPABASE_URL=""

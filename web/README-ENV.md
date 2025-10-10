@@ -11,8 +11,8 @@ DATABASE_URL="file:./dev.db"
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 NEXT_PUBLIC_SUPABASE_URL=https://TU_PROYECTO.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...TU_SERVICE_ROLE_KEY...
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=change_me
+ADMIN_EMAIL=contacto.pichapp@gmail.com
+ADMIN_PASSWORD=Babolat3008
 TEXTBELT_KEY=textbelt
 # Opcionales:
 TWILIO_ACCOUNT_SID=
