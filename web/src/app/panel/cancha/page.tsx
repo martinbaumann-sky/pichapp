@@ -11,12 +11,14 @@ import {
   CreditCard,
   MapPin,
   MessageSquare,
+  PlugZap,
   Loader2,
   RefreshCw,
   Settings,
   ShieldAlert,
   ShieldCheck,
   Ticket,
+  Unplug,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/utils/cn";
@@ -85,15 +87,23 @@ type PanelData = {
     lng: number | null;
     plan: string;
     verified: boolean;
-  payoutEmail: string;
-  taxId: string;
-  phone: string | null;
-  accountHolder: string;
-  mpCollectorId: string | null;
-  mpAccountType: string | null;
-  fields: Array<{ id: string; name: string }>;
-  subscriptions: VenueSubscriptionSummary[];
-};
+    payoutEmail: string;
+    taxId: string;
+    phone: string | null;
+    accountHolder: string;
+    mpCollectorId: string | null;
+    mpAccountType: string | null;
+    paymentProvider: string | null;
+    flowEnv?: string | null;
+    flowConnection: { configured: boolean; env: string };
+    mpConnection: {
+      connected: boolean;
+      mpUserId: string | null;
+      expiresAt: string | null;
+    };
+    fields: Array<{ id: string; name: string }>;
+    subscriptions: VenueSubscriptionSummary[];
+  };
   matches: PanelMatch[];
   bookings: PanelBooking[];
   payments: PanelPayment[];
@@ -117,6 +127,9 @@ const tabs = [
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
+
+type PaymentProviderChoice = "MP" | "FLOW";
+type FlowEnvChoice = "PROD" | "SANDBOX";
 
 export default function VenueDashboardPage() {
   const router = useRouter();
@@ -975,13 +988,48 @@ function SettingsTab({
     fields: "",
     mpCollectorId: "",
     mpAccountType: "",
+    paymentProvider: "MP" as PaymentProviderChoice,
+    flowEnv: "SANDBOX" as FlowEnvChoice,
+    flowApiKey: "",
+    flowSecretKey: "",
   });
+  const [flowConfigured, setFlowConfigured] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mpLoading, setMpLoading] = useState<"connect" | "disconnect" | null>(null);
+  const [mpMessage, setMpMessage] = useState<string | null>(null);
+  const [mpError, setMpError] = useState<string | null>(null);
+
+  const accountTypeOptions = useMemo(
+    () => [
+      { value: "Persona", label: "Persona natural" },
+      { value: "Empresa", label: "Empresa / Sociedad" },
+      { value: "Fundación", label: "Fundación u ONG" },
+    ],
+    [],
+  );
+
+  const paymentProviderOptions = useMemo(
+    () => [
+      { value: "MP" as PaymentProviderChoice, label: "Mercado Pago" },
+      { value: "FLOW" as PaymentProviderChoice, label: "Flow (Chile)" },
+    ],
+    [],
+  );
+
+  const flowEnvOptions = useMemo(
+    () => [
+      { value: "SANDBOX" as FlowEnvChoice, label: "Sandbox (pruebas)" },
+      { value: "PROD" as FlowEnvChoice, label: "Producción" },
+    ],
+    [],
+  );
 
   useEffect(() => {
     if (!data?.venue) return;
+    const provider = data.venue.paymentProvider === "FLOW" ? "FLOW" : "MP";
+    const env = data.venue.flowConnection?.env === "PROD" ? "PROD" : "SANDBOX";
     setForm({
       name: data.venue.name ?? "",
       taxId: data.venue.taxId ?? "",
@@ -993,8 +1041,34 @@ function SettingsTab({
       fields: data.venue.fields.map((field) => field.name).join("\n"),
       mpCollectorId: data.venue.mpCollectorId ?? "",
       mpAccountType: data.venue.mpAccountType ?? "",
+      paymentProvider: provider,
+      flowEnv: env,
+      flowApiKey: "",
+      flowSecretKey: "",
     });
+    setFlowConfigured(Boolean(data.venue.flowConnection?.configured));
   }, [data]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const mpStatus = params.get("mp");
+    if (!mpStatus) return;
+    if (mpStatus === "connected") {
+      setMpError(null);
+      setMpMessage("Tu cuenta de Mercado Pago quedó conectada correctamente.");
+      onSaved();
+    } else if (mpStatus === "error") {
+      const reason = params.get("reason");
+      setMpMessage(null);
+      setMpError(reason ? `No pudimos conectar Mercado Pago: ${reason}` : "No pudimos conectar Mercado Pago.");
+    }
+    params.delete("mp");
+    params.delete("reason");
+    const query = params.toString();
+    const newUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState({}, "", newUrl);
+  }, [onSaved]);
 
   if (loading && !data) {
     return <div className="h-48 rounded-3xl border border-white/60 bg-white/60 animate-pulse" />;
@@ -1002,33 +1076,140 @@ function SettingsTab({
 
   if (!data) return null;
 
+  const mpConnection = data.venue.mpConnection;
+  const mpConnected = Boolean(mpConnection?.connected);
+  const mpUserId = mpConnection?.mpUserId ?? null;
+  const mpExpiresLabel = mpConnection?.expiresAt ? formatDateTime(mpConnection.expiresAt) : null;
+
+  const handleConnectMp = async () => {
+    try {
+      if (!data?.venue?.id) {
+        throw new Error("No encontramos tu cancha. Actualiza la página e intenta nuevamente.");
+      }
+      setMpError(null);
+      setMpMessage(null);
+      setMpLoading("connect");
+      const res = await fetch("/api/mp/oauth/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ venueId: data.venue.id }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "No pudimos iniciar la conexión con Mercado Pago.");
+      }
+      const url = typeof payload?.url === "string" ? payload.url : null;
+      if (!url) {
+        throw new Error("No recibimos el enlace de Mercado Pago. Intenta nuevamente.");
+      }
+      if (typeof window !== "undefined") {
+        window.location.href = url;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No pudimos iniciar la conexión con Mercado Pago.";
+      setMpError(message);
+    } finally {
+      setMpLoading(null);
+    }
+  };
+
+  const handleDisconnectMp = async () => {
+    try {
+      if (!data?.venue?.id) {
+        throw new Error("No encontramos tu cancha. Actualiza la página e intenta nuevamente.");
+      }
+      if (typeof window !== "undefined") {
+        const confirmed = window.confirm(
+          "¿Seguro que quieres desconectar Mercado Pago? Los partidos pagados quedarán bloqueados hasta volver a conectar.",
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+      setMpError(null);
+      setMpMessage(null);
+      setMpLoading("disconnect");
+      const res = await fetch("/api/venue/mp/disconnect", { method: "POST" });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "No pudimos desconectar Mercado Pago.");
+      }
+      setMpMessage("Desconectaste Mercado Pago. Conéctalo nuevamente antes de publicar partidos pagados.");
+      onSaved();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No pudimos desconectar Mercado Pago.";
+      setMpError(message);
+    } finally {
+      setMpLoading(null);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
-    setError(null);
     setSuccess(null);
+    setError(null);
     try {
-      const payload = {
-        payoutEmail: form.payoutEmail.trim(),
-        accountHolder: form.accountHolder.trim(),
-        phone: form.phone.trim(),
-        mpCollectorId: form.mpCollectorId.trim(),
-        mpAccountType: form.mpAccountType.trim(),
-        fields: form.fields.split(/\n+/).map((value) => value.trim()).filter(Boolean),
+      const payload: Record<string, unknown> = {
+        name: form.name,
+        taxId: form.taxId,
+        address: form.address,
+        comuna: form.comuna,
+        payoutEmail: form.payoutEmail,
+        accountHolder: form.accountHolder,
+        phone: form.phone,
+        fields: form.fields,
+        paymentProvider: form.paymentProvider,
+        flowEnv: form.flowEnv,
       };
+
+      if (form.paymentProvider === "MP") {
+        payload.mpCollectorId = form.mpCollectorId;
+        payload.mpAccountType = form.mpAccountType;
+      }
+
+      if (form.paymentProvider === "FLOW") {
+        if (form.flowApiKey.trim().length > 0) {
+          payload.flowApiKey = form.flowApiKey.trim();
+        }
+        if (form.flowSecretKey.trim().length > 0) {
+          payload.flowSecretKey = form.flowSecretKey.trim();
+        }
+      }
+
       const res = await fetch("/api/venue/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || json?.error) {
-        throw new Error(json?.error || "No pudimos guardar los cambios");
+      const responseBody = await res.json().catch(() => ({}));
+      if (!res.ok || !responseBody?.ok) {
+        throw new Error(responseBody?.error || "No pudimos guardar los cambios.");
       }
-      setSuccess("Datos actualizados correctamente.");
+
+      const updatedVenue = responseBody.venue as PanelData["venue"] | undefined;
+      if (updatedVenue) {
+        const provider = updatedVenue.paymentProvider === "FLOW" ? "FLOW" : "MP";
+        const env = updatedVenue.flowEnv === "PROD" ? "PROD" : "SANDBOX";
+        setForm((prev) => ({
+          ...prev,
+          mpCollectorId: updatedVenue.mpCollectorId ?? "",
+          mpAccountType: updatedVenue.mpAccountType ?? "",
+          paymentProvider: provider,
+          flowEnv: env,
+          flowApiKey: "",
+          flowSecretKey: "",
+        }));
+        const configured = "flowConnection" in updatedVenue
+          ? (updatedVenue as any).flowConnection?.configured
+          : responseBody.venue?.flowConfigured;
+        setFlowConfigured(Boolean(configured));
+      }
+
+      setSuccess("Información guardada correctamente.");
       onSaved();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "No pudimos guardar los cambios";
+      const message = err instanceof Error ? err.message : "No pudimos guardar los cambios.";
       setError(message);
     } finally {
       setSaving(false);
@@ -1037,71 +1218,57 @@ function SettingsTab({
 
   return (
     <div className="space-y-5">
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur space-y-6"
-      >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="max-w-2xl space-y-2">
-            <h2 className="text-xl font-semibold text-gray-900">Datos de la cancha</h2>
-            <p className="text-sm text-gray-600">
-              Actualiza la información que verán los jugadores al reservar. Solo puedes modificar los datos de contacto y los tipos de cancha desde este panel.
-            </p>
-          </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Guardar cambios
-          </button>
+      <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Información de la cancha</h2>
+          <p className="mt-1 text-sm text-gray-600">Actualiza tu perfil para que los jugadores confíen y paguen con tranquilidad.</p>
         </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           <label className="flex flex-col text-sm text-gray-600">
-            Nombre de la cancha
+            Nombre comercial de la cancha
             <input
               value={form.name}
-              readOnly
-              aria-readonly="true"
-              className="mt-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-gray-500"
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+              required
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
-            RUT / Tax ID
+            RUT o identificación tributaria
             <input
               value={form.taxId}
-              readOnly
-              aria-readonly="true"
-              className="mt-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-gray-500"
+              onChange={(event) => setForm((prev) => ({ ...prev, taxId: event.target.value }))}
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+              placeholder="12.345.678-9"
+              required
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
             Dirección
             <input
               value={form.address}
-              readOnly
-              aria-readonly="true"
-              className="mt-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-gray-500"
+              onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+              required
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
             Comuna
             <input
               value={form.comuna}
-              readOnly
-              aria-readonly="true"
-              className="mt-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-gray-500"
+              onChange={(event) => setForm((prev) => ({ ...prev, comuna: event.target.value }))}
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+              required
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
-            Correo de pagos
+            Correo para liquidaciones
             <input
-              type="email"
               value={form.payoutEmail}
               onChange={(event) => setForm((prev) => ({ ...prev, payoutEmail: event.target.value }))}
               className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+              type="email"
+              placeholder="pagos@tucancha.cl"
               required
             />
           </label>
@@ -1115,27 +1282,62 @@ function SettingsTab({
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
-            Tipo de cuenta en Mercado Pago
-            <input
-              value={form.mpAccountType}
-              onChange={(event) => setForm((prev) => ({ ...prev, mpAccountType: event.target.value }))}
+            Proveedor de cobros
+            <select
+              value={form.paymentProvider}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  paymentProvider: (event.target.value === "FLOW" ? "FLOW" : "MP") as PaymentProviderChoice,
+                }))
+              }
               className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-              placeholder="Empresa / Persona"
-              required
-            />
-            <span className="mt-1 text-xs text-gray-400">Debe coincidir con el tipo de titular configurado en Mercado Pago.</span>
+            >
+              {paymentProviderOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 text-xs text-gray-400">Define cómo se procesarán los pagos en Chile. Puedes cambiarlo cuando necesites.</span>
           </label>
-          <label className="flex flex-col text-sm text-gray-600">
-            Collector ID de Mercado Pago
-            <input
-              value={form.mpCollectorId}
-              onChange={(event) => setForm((prev) => ({ ...prev, mpCollectorId: event.target.value }))}
-              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-              placeholder="123456789"
-              required
-            />
-            <span className="mt-1 text-xs text-gray-400">Lo encuentras en Configuración &gt; Credenciales de Mercado Pago.</span>
-          </label>
+          {form.paymentProvider === "MP" ? (
+            <>
+              <label className="flex flex-col text-sm text-gray-600">
+                Tipo de cuenta en Mercado Pago
+                <select
+                  value={form.mpAccountType}
+                  onChange={(event) => setForm((prev) => ({ ...prev, mpAccountType: event.target.value }))}
+                  className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  required
+                >
+                  <option value="">Selecciona una opción</option>
+                  {accountTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                  {form.mpAccountType && !accountTypeOptions.some((option) => option.value === form.mpAccountType) ? (
+                    <option value={form.mpAccountType}>{form.mpAccountType}</option>
+                  ) : null}
+                </select>
+                <span className="mt-1 text-xs text-gray-400">Debe coincidir con el tipo de titular configurado en Mercado Pago.</span>
+              </label>
+              <label className="flex flex-col text-sm text-gray-600">
+                Collector ID de Mercado Pago
+                <input
+                  value={form.mpCollectorId}
+                  onChange={(event) => setForm((prev) => ({ ...prev, mpCollectorId: event.target.value }))}
+                  className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  placeholder="123456789"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  required
+                />
+                <span className="mt-1 text-xs text-gray-400">Lo encuentras en Configuración &gt; Credenciales de Mercado Pago.</span>
+              </label>
+            </>
+          ) : null}
           <label className="flex flex-col text-sm text-gray-600">
             Teléfono de contacto
             <input
@@ -1155,6 +1357,61 @@ function SettingsTab({
             />
             <span className="mt-1 text-xs text-gray-400">Una por línea. Máximo 12.</span>
           </label>
+          {form.paymentProvider === "FLOW" ? (
+            <div className="md:col-span-2 space-y-4 rounded-2xl border border-emerald-200/60 bg-emerald-50/60 p-4">
+              <p className="text-sm font-semibold text-emerald-900">Credenciales de Flow</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col text-xs text-emerald-900/80">
+                  Ambiente de Flow
+                  <select
+                    value={form.flowEnv}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        flowEnv: (event.target.value === "PROD" ? "PROD" : "SANDBOX") as FlowEnvChoice,
+                      }))
+                    }
+                    className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  >
+                    {flowEnvOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-900/80">
+                  {flowConfigured ? (
+                    <span>✔️ Flow está configurado. Las credenciales guardadas se mantendrán si dejas los campos vacíos.</span>
+                  ) : (
+                    <span>Ingresa tu API Key y Secret Key de Flow Commerce para que los pagos lleguen directo a tu cuenta.</span>
+                  )}
+                </div>
+              </div>
+              <label className="flex flex-col text-xs text-emerald-900/80">
+                API Key de Flow
+                <input
+                  value={form.flowApiKey}
+                  onChange={(event) => setForm((prev) => ({ ...prev, flowApiKey: event.target.value }))}
+                  className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  placeholder="Ingresa tu API Key de Flow"
+                />
+              </label>
+              <label className="flex flex-col text-xs text-emerald-900/80">
+                Secret Key de Flow
+                <input
+                  value={form.flowSecretKey}
+                  onChange={(event) => setForm((prev) => ({ ...prev, flowSecretKey: event.target.value }))}
+                  className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  type="password"
+                  placeholder="Ingresa tu Secret Key de Flow"
+                />
+              </label>
+              <p className="text-xs text-emerald-900/70">
+                Guardamos tus claves cifradas. Si dejas los campos vacíos mantendremos las credenciales actuales.
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {error ? (
@@ -1163,19 +1420,82 @@ function SettingsTab({
         {success ? (
           <div className="rounded-2xl border border-emerald-200/70 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">{success}</div>
         ) : null}
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Guardando
+              </>
+            ) : (
+              "Guardar cambios"
+            )}
+          </button>
+          <p className="text-xs text-gray-500">
+            Estos datos se usan para mostrar tu perfil a los jugadores y procesar los pagos.
+          </p>
+        </div>
       </form>
 
-      <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
-        <h3 className="text-lg font-semibold text-gray-900">Verificación</h3>
-        <p className="mt-2 text-sm text-gray-600">
-          {data.venue.verified
-            ? "Tu cancha está verificada. Puedes publicar partidos sin restricciones."
-            : "Estamos revisando tu información. Publica con normalidad y te avisaremos cuando el sello de verificación esté activo."}
-        </p>
+      <div className="space-y-4">
+        <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
+          <h3 className="text-lg font-semibold text-gray-900">Conexión con Mercado Pago</h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Usa esta integración cuando Mercado Pago sea tu proveedor activo. Si eliges Flow, mantendremos tus credenciales por si deseas volver a Mercado Pago más adelante.
+          </p>
+          <div className="mt-4 rounded-2xl border border-emerald-200/70 bg-emerald-50/80 p-4 text-sm text-emerald-800">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-semibold">
+                  {mpConnected ? "Mercado Pago conectado" : "Mercado Pago desconectado"}
+                </p>
+                <p className="text-xs text-emerald-800/70">
+                  {mpConnected
+                    ? `Cuenta ${mpUserId ?? "vinculada"}. Token vigente hasta ${mpExpiresLabel ?? "actualizar conexión"}.`
+                    : "Conecta Mercado Pago para recibir los pagos directamente en tu cuenta."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleConnectMp}
+                  disabled={mpLoading === "connect"}
+                  className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-white px-4 py-2 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {mpLoading === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlugZap className="h-4 w-4" />} {mpConnected ? "Volver a conectar Mercado Pago" : "Conectar Mercado Pago"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisconnectMp}
+                  disabled={!mpConnected || mpLoading === "disconnect"}
+                  className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-600 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {mpLoading === "disconnect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />} Desconectar Mercado Pago
+                </button>
+              </div>
+            </div>
+            {mpMessage ? <p className="mt-3 text-xs text-emerald-700">{mpMessage}</p> : null}
+            {mpError ? <p className="mt-3 text-xs text-rose-600">{mpError}</p> : null}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
+          <h3 className="text-lg font-semibold text-gray-900">Verificación</h3>
+          <p className="mt-2 text-sm text-gray-600">
+            {data.venue.verified
+              ? "Tu cancha está verificada. Puedes publicar partidos sin restricciones."
+              : "Estamos revisando tu información. Publica con normalidad y te avisaremos cuando el sello de verificación esté activo."}
+          </p>
+        </div>
       </div>
     </div>
   );
 }
+
 
 function MetricCard({ title, value, subtitle }: { title: string; value: string; subtitle?: string }) {
   return (

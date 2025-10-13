@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PaymentProvider } from "@prisma/client";
 import { requireUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normalizeTeam } from "@/lib/teams";
 import { sanitizePosition } from "@/lib/teamAssignment";
 import { getEnabledProviders, initPaymentSession } from "@/lib/payments/providers";
 import { isProfileIncomplete, PROFILE_COMPLETION_REQUIRED_MESSAGE } from "@/lib/profileCompletion";
+import { decryptSecret } from "@/lib/encryption";
 
 const DEFAULT_HOLD_MINUTES = 15;
+
+type FlowCredentials = { apiKey: string; secret: string; env: "PROD" | "SANDBOX" };
+
+type TxResultPending = {
+  status: "pending_payment";
+  match: { id: string; title: string | null; comuna: string | null; venueId: string | null };
+  payment: { id: string; amountCLP: number; spotId: string };
+  holdUntil: Date | null;
+  user: { email: string | null; name: string | null };
+  provider: PaymentProvider;
+  flowCredentials: FlowCredentials | null;
+};
+
+type TxResult = { status: "free" } | { status: "already_paid" } | TxResultPending;
 
 function resolveBaseUrl(req: NextRequest) {
   if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
@@ -49,14 +65,6 @@ export async function POST(
       );
     }
 
-    const providers = getEnabledProviders();
-    if (!providers.MP) {
-      return NextResponse.json(
-        { error: "Mercado Pago no está configurado." },
-        { status: 503 },
-      );
-    }
-
     const body = await req.json().catch(() => ({}));
     const requestedTeam = normalizeTeam(body?.team ?? null);
     const requestedPosition = sanitizePosition(body?.position ?? null);
@@ -65,7 +73,7 @@ export async function POST(
     const holdMs = Math.max(1, holdMinutes) * 60 * 1000;
     const holdUntilTarget = new Date(Date.now() + holdMs);
 
-    const txResult = await prisma.$transaction(async (tx) => {
+    const txResult = (await prisma.$transaction(async (tx) => {
       const match = await tx.match.findUnique({
         where: { id: matchId },
         select: {
@@ -80,7 +88,62 @@ export async function POST(
         throw new Response("Partido no encontrado", { status: 404 });
       }
       if ((match.pricePerSpot ?? 0) <= 0) {
-        return { status: "free" as const };
+        return { status: "free" as const } satisfies TxResult;
+      }
+
+      if (!match.venueId) {
+        throw new Response("Este partido no tiene una cancha asociada para procesar el pago.", { status: 400 });
+      }
+
+      const venue = await tx.venue.findUnique({
+        where: { id: match.venueId },
+        select: {
+          id: true,
+          payoutEmail: true,
+          accountHolder: true,
+          paymentProvider: true,
+          mpAccessToken: true,
+          mpCollectorId: true,
+          mpAccountType: true,
+          flowApiKey: true,
+          flowSecretKey: true,
+          flowEnv: true,
+        },
+      });
+
+      if (!venue) {
+        throw new Response("No encontramos la cancha asociada al partido.", { status: 404 });
+      }
+
+      if (!venue.payoutEmail || !venue.accountHolder) {
+        throw new Response("La cancha debe completar sus datos de liquidación antes de procesar pagos.", { status: 503 });
+      }
+
+      const provider: PaymentProvider = (venue.paymentProvider as PaymentProvider) ?? "MP";
+      let flowCredentials: FlowCredentials | null = null;
+
+      if (provider === "MP") {
+        const providers = getEnabledProviders();
+        if (!providers.MP) {
+          throw new Response("Mercado Pago no está configurado.", { status: 503 });
+        }
+        if (!venue.mpAccessToken) {
+          throw new Response("La cancha debe conectar Mercado Pago para recibir el pago.", { status: 503 });
+        }
+        if (!venue.mpCollectorId || !venue.mpAccountType) {
+          throw new Response("La cancha debe completar sus datos de Mercado Pago antes de procesar pagos.", { status: 503 });
+        }
+      } else if (provider === "FLOW") {
+        const context = `venue:${venue.id}`;
+        const apiKey = decryptSecret(venue.flowApiKey, { context });
+        const secret = decryptSecret(venue.flowSecretKey, { context });
+        if (!apiKey || !secret) {
+          throw new Response("La cancha debe registrar sus credenciales de Flow para cobrar este partido.", { status: 503 });
+        }
+        const env: "PROD" | "SANDBOX" = (venue.flowEnv ?? "SANDBOX").toUpperCase() === "PROD" ? "PROD" : "SANDBOX";
+        flowCredentials = { apiKey, secret, env };
+      } else {
+        throw new Response("El proveedor de pagos configurado en la cancha no es compatible.", { status: 503 });
       }
 
       const paidSpot = await tx.spot.findFirst({
@@ -88,9 +151,7 @@ export async function POST(
         select: { id: true },
       });
       if (paidSpot) {
-        return {
-          status: "already_paid" as const,
-        };
+        return { status: "already_paid" as const } satisfies TxResult;
       }
 
       let existingSpot = await tx.spot.findFirst({
@@ -145,14 +206,14 @@ export async function POST(
           matchId,
           spotId: reservedSpot.id,
           amountCLP: match.pricePerSpot ?? 0,
-          provider: "MP",
+          provider,
           status: "PENDING",
           team: requestedTeam ?? null,
           position: requestedPosition ?? null,
         },
         update: {
           amountCLP: match.pricePerSpot ?? 0,
-          provider: "MP",
+          provider,
           status: "PENDING",
           providerRef: null,
           team: requestedTeam ?? null,
@@ -175,16 +236,18 @@ export async function POST(
 
       return {
         status: "pending_payment" as const,
-        match,
+        match: { id: match.id, title: match.title, comuna: match.comuna, venueId: match.venueId },
         payment,
         holdUntil: reservedSpot.holdUntil ?? holdUntilTarget,
         user: { email: user?.email ?? null, name: user?.profile?.name ?? null },
-      };
-    });
+        provider,
+        flowCredentials,
+      } satisfies TxResult;
+    })) as TxResult;
 
     if (txResult.status === "free") {
       return NextResponse.json(
-        { error: "Este partido no requiere pago en Mercado Pago." },
+        { error: "Este partido no requiere pago en línea." },
         { status: 400 },
       );
     }
@@ -200,7 +263,7 @@ export async function POST(
     const baseUrl = resolveBaseUrl(req);
     try {
       const initResult = await initPaymentSession({
-        provider: "MP",
+        provider: txResult.provider,
         payment: { id: txResult.payment.id, amountCLP: txResult.payment.amountCLP, spotId: txResult.payment.spotId },
         match: {
           id: txResult.match.id,
@@ -210,10 +273,14 @@ export async function POST(
         },
         baseUrl,
         user: { email: txResult.user.email, name: txResult.user.name ?? undefined },
+        venue: {
+          id: txResult.match.venueId ?? null,
+          flow: txResult.flowCredentials ?? undefined,
+        },
       });
 
       if (!initResult.url) {
-        throw new Error("Mercado Pago no entregó una URL de pago");
+        throw new Error("El proveedor de pago no entregó una URL válida");
       }
 
       await prisma.payment.update({

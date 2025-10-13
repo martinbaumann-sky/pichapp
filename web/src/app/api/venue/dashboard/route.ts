@@ -174,6 +174,17 @@ export async function GET() {
         accountHolder: venue.accountHolder,
         mpCollectorId: venue.mpCollectorId,
         mpAccountType: venue.mpAccountType,
+        paymentProvider: venue.paymentProvider,
+        flowEnv: venue.flowEnv ?? "SANDBOX",
+        flowConnection: {
+          configured: Boolean(venue.flowApiKey && venue.flowSecretKey),
+          env: venue.flowEnv ?? "SANDBOX",
+        },
+        mpConnection: {
+          connected: Boolean(venue.mpAccessToken),
+          mpUserId: venue.mpUserId,
+          expiresAt: venue.mpTokenExpiresAt ? toISO(venue.mpTokenExpiresAt) : null,
+        },
         fields: venue.fields,
         subscriptions: venue.subscriptions.map((sub) => ({
           id: sub.id,

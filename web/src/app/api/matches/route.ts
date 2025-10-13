@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { PaymentProvider } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createMatchSchema, listMatchesSchema } from "@/lib/validator";
 import { requireUserId } from "@/lib/auth";
@@ -23,7 +24,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const venue = await prisma.venue.findFirst({ where: { ownerId: organizerId }, select: { id: true, name: true, address: true, comuna: true } });
+    const venue = await prisma.venue.findFirst({
+      where: { ownerId: organizerId },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        comuna: true,
+        mpAccessToken: true,
+        mpCollectorId: true,
+        mpAccountType: true,
+        payoutEmail: true,
+        accountHolder: true,
+        paymentProvider: true,
+        flowApiKey: true,
+        flowSecretKey: true,
+      },
+    });
 
     // Defaults defensivos para evitar "invalid input"
     const payloadComuna = typeof json?.comuna === "string" ? json.comuna.trim() : "";
@@ -115,6 +132,62 @@ export async function POST(req: NextRequest) {
           .join(",");
         coverImageUrl = `https://source.unsplash.com/800x400/?${parts}`;
       } catch {}
+    }
+
+    if (safePrice > 0) {
+      if (!venue) {
+        return NextResponse.json(
+          {
+            error: "Necesitas registrar tu cancha antes de crear partidos pagados.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!venue.payoutEmail || !venue.accountHolder) {
+        return NextResponse.json(
+          {
+            error: "Completa los datos de contacto y liquidación de tu cancha antes de publicar partidos pagados.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const paymentProvider: PaymentProvider = (venue.paymentProvider as PaymentProvider) ?? "MP";
+      if (paymentProvider === "MP") {
+        if (!venue.mpAccessToken) {
+          return NextResponse.json(
+            {
+              error: "Conecta Mercado Pago desde el panel de tu cancha para recibir los pagos directamente.",
+            },
+            { status: 400 },
+          );
+        }
+        if (!venue.mpCollectorId || !venue.mpAccountType) {
+          return NextResponse.json(
+            {
+              error: "Completa el Collector ID y el tipo de cuenta de Mercado Pago antes de publicar partidos pagados.",
+            },
+            { status: 400 },
+          );
+        }
+      } else if (paymentProvider === "FLOW") {
+        if (!venue.flowApiKey || !venue.flowSecretKey) {
+          return NextResponse.json(
+            {
+              error: "Ingresa las credenciales de Flow en el perfil de la cancha antes de publicar partidos pagados.",
+            },
+            { status: 400 },
+          );
+        }
+      } else {
+        return NextResponse.json(
+          {
+            error: "El proveedor de cobros configurado en tu cancha no es compatible para publicar partidos pagados.",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const match = await prisma.$transaction(async (tx: any) => {

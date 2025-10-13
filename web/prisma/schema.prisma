@@ -156,6 +156,7 @@ model Venue {
   phone            String?
   payoutEmail      String
   accountHolder    String
+  paymentProvider  PaymentProvider @default(MP)
   plan             String    @default("gratis")
   verified         Boolean   @default(false)
   mpAccountId      String?
@@ -166,12 +167,18 @@ model Venue {
   mpRefreshToken   String?
   mpTokenExpiresAt DateTime?
   mpUserId         String?
+  flowApiKey       String?
+  flowApiKeyHash   String?
+  flowSecretKey    String?
+  flowEnv          String?   @default("SANDBOX")
   createdAt        DateTime  @default(now())
 
   owner         User                @relation("VenueOwner", fields: [ownerId], references: [id])
   fields        Field[]
   matches       Match[]
   subscriptions VenueSubscription[]
+
+  @@index([flowApiKeyHash])
 }
 
 model Field {
