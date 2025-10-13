@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 import AuthDialog from "@/components/AuthDialog";
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from "@/constants/admin";
+import { ADMIN_EMAIL } from "@/constants/admin";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/utils/cn";
 import { formatCurrencyCLP } from "@/utils/formatters";
@@ -479,15 +479,15 @@ export default function AdminPage() {
               Esta sección es exclusiva para el equipo administrador de PichangApp. Inicia sesión con
               las credenciales asignadas para continuar.
             </p>
-            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-left text-xs text-gray-600">
-              <p className="font-medium text-gray-700">Credenciales de referencia</p>
-              <p className="mt-1">
-                <span className="font-semibold">Correo:</span> {ADMIN_EMAIL}
+            {ADMIN_EMAIL ? (
+              <p className="text-xs text-gray-500">
+                ¿Necesitas acceso? Contacta a{" "}
+                <a className="font-medium underline" href={`mailto:${ADMIN_EMAIL}`}>
+                  {ADMIN_EMAIL}
+                </a>{" "}
+                para solicitar tus credenciales.
               </p>
-              <p>
-                <span className="font-semibold">Contraseña:</span> {ADMIN_PASSWORD}
-              </p>
-            </div>
+            ) : null}
           </div>
           <div className="flex flex-col gap-3">
             <Link

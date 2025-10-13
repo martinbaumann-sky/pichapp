@@ -43,7 +43,28 @@ export async function POST(req: NextRequest) {
       oauthAccounts: { select: { provider: true } },
     } as const;
 
-    const foundUser = await prisma.user.findUnique({ where: { email }, select: userSelect });
+    const emailWhere = { email: { equals: email, mode: "insensitive" } } as const;
+    const primaryUser = await prisma.user.findFirst({
+      where: {
+        ...emailWhere,
+        OR: [
+          { passwordHash: { not: null } },
+          { localPassword: { isNot: null } },
+        ],
+      },
+      select: userSelect,
+      orderBy: { createdAt: "asc" },
+    });
+
+    const fallbackUser =
+      primaryUser ??
+      (await prisma.user.findFirst({
+        where: emailWhere,
+        select: userSelect,
+        orderBy: { createdAt: "asc" },
+      }));
+
+    const foundUser = fallbackUser;
     if (!foundUser) {
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
     }
@@ -70,6 +91,29 @@ export async function POST(req: NextRequest) {
         .map((account) => (account?.provider || "").toLowerCase())
         .filter(Boolean)
     );
+    const providerLabels = Array.from(oauthProviders).map((provider) => {
+      switch (provider) {
+        case "google":
+          return "Google";
+        default:
+          return provider.charAt(0).toUpperCase() + provider.slice(1);
+      }
+    });
+    const buildOAuthOnlyResponse = () => {
+      if (oauthProviders.size === 0) return null;
+      const formattedProviders = providerLabels.join(" o ");
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Tu cuenta fue creada usando ${formattedProviders}. Inicia sesión con ${
+            providerLabels.length === 1 ? "ese método" : "uno de esos métodos"
+          }.`,
+          requiresOAuth: true,
+          providers: Array.from(oauthProviders),
+        },
+        { status: 409 }
+      );
+    };
 
     let hash: string | null = null;
     try {
@@ -83,26 +127,8 @@ export async function POST(req: NextRequest) {
 
     if (!hash) {
       if (!user.passwordHash && oauthProviders.size > 0) {
-        const providerLabels = Array.from(oauthProviders).map((provider) => {
-          switch (provider) {
-            case "google":
-              return "Google";
-            default:
-              return provider.charAt(0).toUpperCase() + provider.slice(1);
-          }
-        });
-        const formattedProviders = providerLabels.join(" o ");
-        return NextResponse.json(
-          {
-            ok: false,
-            error: `Tu cuenta fue creada usando ${formattedProviders}. Inicia sesión con ${
-              providerLabels.length === 1 ? "ese método" : "uno de esos métodos"
-            }.`,
-            requiresOAuth: true,
-            providers: Array.from(oauthProviders),
-          },
-          { status: 409 }
-        );
+        const response = buildOAuthOnlyResponse();
+        if (response) return response;
       }
 
       const supabaseResult = await verifySupabasePassword(email, password);
@@ -134,21 +160,28 @@ export async function POST(req: NextRequest) {
         }
       } else if (supabaseResult.reason === "invalid_credentials") {
         if (oauthProviders.size > 0) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error: "Tu cuenta fue creada con un acceso social. Inicia sesión con Google.",
-              requiresOAuth: true,
-              providers: Array.from(oauthProviders),
-            },
-            { status: 409 }
-          );
+          const response =
+            buildOAuthOnlyResponse() ??
+            NextResponse.json(
+              {
+                ok: false,
+                error: "Tu cuenta fue creada con un acceso social. Inicia sesión con Google.",
+                requiresOAuth: true,
+                providers: Array.from(oauthProviders),
+              },
+              { status: 409 }
+            );
+          return response;
         }
         return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
       }
     }
 
     if (!hash) {
+      if (oauthProviders.size > 0) {
+        const response = buildOAuthOnlyResponse();
+        if (response) return response;
+      }
       return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
     }
 

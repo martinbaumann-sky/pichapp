@@ -122,6 +122,27 @@ export async function GET(req: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       const hasOAuthAccount = typeof (tx as any).oAuthAccount !== "undefined";
 
+      const emailWhere = { email: { equals: email, mode: "insensitive" } } as const;
+      const resolveCanonicalUser = async () =>
+        (await tx.user.findFirst({
+          where: {
+            ...emailWhere,
+            OR: [
+              { passwordHash: { not: null } },
+              { localPassword: { isNot: null } },
+            ],
+          },
+          select: userSelect,
+          orderBy: { createdAt: "asc" },
+        })) ??
+        (await tx.user.findFirst({
+          where: emailWhere,
+          select: userSelect,
+          orderBy: { createdAt: "asc" },
+        }));
+
+      let canonicalUser = await resolveCanonicalUser();
+
       const existingAccount = hasOAuthAccount
         ? await (tx as any).oAuthAccount.findUnique({
           where: { provider_providerAccountId: { provider: "google", providerAccountId: googleId } },
@@ -172,6 +193,18 @@ export async function GET(req: NextRequest) {
             await (tx as any).oAuthAccount.delete({ where: { id: existingAccount.id } });
           }
         } else {
+          if (canonicalUser && canonicalUser.id !== user.id) {
+            if (hasOAuthAccount) {
+              await (tx as any).oAuthAccount.update({
+                where: { id: existingAccount.id },
+                data: { userId: canonicalUser.id },
+              });
+            }
+            user = canonicalUser;
+          } else if (!canonicalUser) {
+            canonicalUser = user;
+          }
+
           await updateAccountTokens(existingAccount.id, existingAccount.refreshToken);
           const needsVerification = emailVerified && !user.emailVerifiedAt;
           if (needsVerification) {
@@ -180,21 +213,26 @@ export async function GET(req: NextRequest) {
               data: { emailVerifiedAt: now },
               select: userSelect,
             });
+            canonicalUser = user;
           }
           const refreshed = await ensureProfile(user.id);
           return { user: refreshed ?? user, next: stored.next ?? null };
         }
       }
 
-      const existingUser = await tx.user.findUnique({ where: { email }, select: userSelect });
-      if (existingUser) {
-        let user = existingUser;
+      if (!canonicalUser) {
+        canonicalUser = await resolveCanonicalUser();
+      }
+
+      if (canonicalUser) {
+        let user = canonicalUser;
         const updates: Record<string, any> = {};
         if (emailVerified && !user.emailVerifiedAt) {
           updates.emailVerifiedAt = now;
         }
         if (Object.keys(updates).length > 0) {
           user = await tx.user.update({ where: { id: user.id }, data: updates, select: userSelect });
+          canonicalUser = user;
         }
         user = (await ensureProfile(user.id)) ?? user;
         if (hasOAuthAccount) {
@@ -213,6 +251,7 @@ export async function GET(req: NextRequest) {
               email,
               accessToken: tokens.access_token ?? null,
               expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+              userId: user.id,
               ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
             },
           });
