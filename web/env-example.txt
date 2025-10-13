@@ -49,11 +49,12 @@ UPSTASH_REDIS_REST_URL=""
 UPSTASH_REDIS_REST_TOKEN=""
 
 # Configuracion admin inicial
-ADMIN_EMAIL="contacto.pichapp@gmail.com"
-ADMIN_PASSWORD="Babolat3008"
+# Actualiza estos valores con las credenciales reales en tu entorno local o de despliegue.
+ADMIN_EMAIL="admin@example.com"
+ADMIN_PASSWORD="cambia-esta-clave"
 ADMIN_USER_ID="admin-user-id"
-ADMIN_EMAILS="contacto.pichapp@gmail.com"
-NEXT_PUBLIC_ADMIN_EMAIL="contacto.pichapp@gmail.com"
+ADMIN_EMAILS="admin@example.com"
+NEXT_PUBLIC_ADMIN_EMAIL="admin@example.com"
 
 # Supabase (solo si usas scripts opcionales)
 NEXT_PUBLIC_SUPABASE_URL=""

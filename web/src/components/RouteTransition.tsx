@@ -14,7 +14,7 @@ export default function RouteTransition({ children }: Props) {
   }, [pathname]);
 
   // Orden de rutas para inferir dirección del desplazamiento
-  const routeOrder = ["/", "/explorar", "/matches", "/crear", "/organizar", "/perfil", "/dashboard"];
+  const routeOrder = ["/", "/explorar", "/matches", "/crear", "/organizar", "/perfil"];
   const prevIndex = prevPath.current ? routeOrder.indexOf(prevPath.current) : -1;
   const currIndex = pathname ? routeOrder.indexOf(pathname) : -1;
   const direction = prevIndex === -1 || currIndex === -1 ? 0 : currIndex > prevIndex ? 1 : currIndex < prevIndex ? -1 : 0;

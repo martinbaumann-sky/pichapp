@@ -1,4 +1,5 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { getPasswordHash, setPasswordHash } from "@/lib/auth-password";
@@ -7,6 +8,20 @@ import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 import { createVerificationCode, sendVerificationEmail, isEmailVerificationEnabled } from "@/lib/email-verification";
 import { toAuthUser } from "@/lib/auth-user";
 import { verifySupabasePassword } from "@/lib/supabase-admin";
+
+function secureCompare(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const bufferA = Buffer.from(a);
+  const bufferB = Buffer.from(b);
+  if (bufferA.length !== bufferB.length) {
+    return false;
+  }
+  try {
+    return timingSafeEqual(bufferA, bufferB);
+  } catch {
+    return false;
+  }
+}
 
 const rl = createRateLimiter({ name: "auth_login", limit: 10, windowSec: 60 });
 
@@ -30,6 +45,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const envAdminEmail = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+    const envAdminPassword = String(process.env.ADMIN_PASSWORD || "");
+    const isEnvAdmin = Boolean(envAdminEmail) && email === envAdminEmail;
 
     const userSelect = {
       id: true,
@@ -64,17 +83,74 @@ export async function POST(req: NextRequest) {
         orderBy: { createdAt: "asc" },
       }));
 
-    const foundUser = fallbackUser;
-    if (!foundUser) {
-      return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+    let user = fallbackUser;
+    let hash: string | null = null;
+
+    if (!user && isEnvAdmin) {
+      if (!envAdminPassword || !secureCompare(envAdminPassword, password)) {
+        return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+      }
+
+      const adminHash = await bcrypt.hash(envAdminPassword, 10);
+      user = await prisma.user.create({
+        data: {
+          email: envAdminEmail,
+          passwordHash: adminHash,
+          isAdmin: true,
+          role: "SUPERADMIN",
+          emailVerifiedAt: new Date(),
+        },
+        select: userSelect,
+      });
+
+      try {
+        await setPasswordHash(user.id, adminHash);
+      } catch (error) {
+        console.warn("[auth/login] Failed to persist admin password", error);
+      }
+
+      hash = adminHash;
     }
 
-    let user = foundUser;
+    if (!user) {
+      return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+    }
 
     if (user.disabledAt) {
       return NextResponse.json({ ok: false, error: "Tu cuenta esta bloqueada." }, { status: 403 });
     }
 
+    if (isEnvAdmin) {
+      if (!envAdminPassword || !secureCompare(envAdminPassword, password)) {
+        return NextResponse.json({ ok: false, error: "Credenciales invalidas" }, { status: 401 });
+      }
+
+      const adminHash = hash ?? user.passwordHash ?? null;
+      const isHashValid = adminHash ? await bcrypt.compare(envAdminPassword, adminHash) : false;
+      const nextHash = isHashValid ? adminHash : await bcrypt.hash(envAdminPassword, 10);
+
+      if (!isHashValid || !user.isAdmin || String(user.role).toUpperCase() !== "SUPERADMIN") {
+        const updated = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            passwordHash: nextHash,
+            isAdmin: true,
+            role: "SUPERADMIN",
+            emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+          },
+          select: userSelect,
+        });
+        user = updated;
+      }
+
+      try {
+        await setPasswordHash(user.id, nextHash);
+      } catch (error) {
+        console.warn("[auth/login] Failed to persist admin password", error);
+      }
+
+      hash = nextHash;
+    }
     const normalizedRole = String(user.role ?? (user.isAdmin ? "SUPERADMIN" : "PLAYER")).toUpperCase();
     if (normalizedRole === "VENUE_ADMIN") {
       return NextResponse.json(
@@ -115,17 +191,19 @@ export async function POST(req: NextRequest) {
       );
     };
 
-    let hash: string | null = null;
-    try {
-      hash = await getPasswordHash(user.id);
-    } catch {
-      // ignore
+    if (!hash) {
+      try {
+        hash = await getPasswordHash(user.id);
+      } catch {
+        // ignore
+      }
     }
+
     if (!hash && user.passwordHash) {
       hash = user.passwordHash;
     }
 
-    if (!hash) {
+    if (!hash && !isEnvAdmin) {
       if (!user.passwordHash && oauthProviders.size > 0) {
         const response = buildOAuthOnlyResponse();
         if (response) return response;
