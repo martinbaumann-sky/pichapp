@@ -84,25 +84,16 @@ export async function POST(request: NextRequest) {
     const payoutEmail = String(payload.payoutEmail ?? "").trim().toLowerCase();
     const mpCollectorId = String(payload.mpCollectorId ?? "").trim();
     const mpAccountType = String(payload.mpAccountType ?? "").trim();
+    const cleanedMpCollectorId = mpCollectorId.replace(/\D+/g, "");
+    const normalizedMpCollectorId = cleanedMpCollectorId.length > 0 ? cleanedMpCollectorId : null;
+    const normalizedMpAccountType = mpAccountType.length > 0 ? mpAccountType : null;
     const placeId = payload.placeId ? String(payload.placeId).trim() : undefined;
     const latValue = typeof payload.lat === "string" ? Number(payload.lat) : payload.lat;
     const lngValue = typeof payload.lng === "string" ? Number(payload.lng) : payload.lng;
     const lat = typeof latValue === "number" && Number.isFinite(latValue) ? latValue : null;
     const lng = typeof lngValue === "number" && Number.isFinite(lngValue) ? lngValue : null;
 
-    if (
-      !venueName ||
-      !taxId ||
-      !email ||
-      !phoneRaw ||
-      !password ||
-      !address ||
-      !comuna ||
-      !accountHolder ||
-      !payoutEmail ||
-      !mpCollectorId ||
-      !mpAccountType
-    ) {
+    if (!venueName || !taxId || !email || !phoneRaw || !password || !address || !comuna || !accountHolder || !payoutEmail) {
       return NextResponse.json(
         { error: "Completa todos los campos obligatorios del registro." },
         { status: 400 },
@@ -233,8 +224,8 @@ export async function POST(request: NextRequest) {
             plan: "gratis",
             verified: false,
             mpAccountId: null,
-            mpCollectorId,
-            mpAccountType,
+            mpCollectorId: normalizedMpCollectorId,
+            mpAccountType: normalizedMpAccountType,
             placeId: placeId ?? null,
           },
           select: {
@@ -301,8 +292,8 @@ export async function POST(request: NextRequest) {
             plan: "gratis",
             verified: false,
             mpAccountId: null,
-            mpCollectorId,
-            mpAccountType,
+            mpCollectorId: normalizedMpCollectorId,
+            mpAccountType: normalizedMpAccountType,
             placeId: placeId ?? null,
           },
           select: {

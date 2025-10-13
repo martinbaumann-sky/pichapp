@@ -134,8 +134,9 @@ export async function POST(
           throw new Response("La cancha debe completar sus datos de Mercado Pago antes de procesar pagos.", { status: 503 });
         }
       } else if (provider === "FLOW") {
-        const apiKey = decryptSecret(venue.flowApiKey);
-        const secret = decryptSecret(venue.flowSecretKey);
+        const context = `venue:${venue.id}`;
+        const apiKey = decryptSecret(venue.flowApiKey, { context });
+        const secret = decryptSecret(venue.flowSecretKey, { context });
         if (!apiKey || !secret) {
           throw new Response("La cancha debe registrar sus credenciales de Flow para cobrar este partido.", { status: 503 });
         }

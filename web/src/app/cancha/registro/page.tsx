@@ -228,8 +228,8 @@ export default function CanchaRegisterPage() {
       return;
     }
 
-    if (!nextValues.accountHolder || !nextValues.payoutEmail || !nextValues.mpCollectorId || !nextValues.mpAccountType) {
-      setError("Completa los datos de Mercado Pago para continuar.");
+    if (!nextValues.accountHolder || !nextValues.payoutEmail) {
+      setError("Completa los datos del titular y el correo de Mercado Pago para continuar.");
       return;
     }
 
@@ -666,7 +666,7 @@ export default function CanchaRegisterPage() {
                             onChange={(event) =>
                               setFormValues((prev) => ({ ...prev, mpAccountType: event.target.value }))
                             }
-                            required
+
                             className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                           >
                             <option value="">Selecciona una opción</option>
@@ -675,7 +675,7 @@ export default function CanchaRegisterPage() {
                             <option value="Fundación">Fundación u ONG</option>
                           </select>
                           <span className="block text-xs text-gray-500">
-                            Debe coincidir con el perfil habilitado en Mercado Pago.
+                            Al conectar tu cuenta desde el panel detectaremos este dato automaticamente. Ajusta la opcion solo si no coincide.
                           </span>
                         </div>
                         <div className="space-y-2 text-sm text-gray-700">
@@ -687,11 +687,10 @@ export default function CanchaRegisterPage() {
                               setFormValues((prev) => ({ ...prev, mpCollectorId: event.target.value }))
                             }
                             placeholder="123456789"
-                            required
                             className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                           />
                           <span className="block text-xs text-gray-500">
-                            Lo encuentras en Mercado Pago &gt; Configuración &gt; Credenciales.
+                            Este campo se completara automaticamente tras autorizar Mercado Pago en tu panel. Solo indicalo manualmente si necesitas usar otro ID.
                           </span>
                         </div>
                       </div>

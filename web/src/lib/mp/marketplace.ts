@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { decryptSecret, encryptSecret } from "@/lib/encryption";
 
 const MP_API_BASE = "https://api.mercadopago.com";
+const MP_AUTH_BASE = process.env.MP_AUTH_BASE ?? "https://auth.mercadopago.com";
 
 type VenueCredentials = {
   accessToken: string;
@@ -32,7 +33,7 @@ export function buildMpOauthUrl({ state }: { state?: string } = {}) {
     state: state || "",
   });
   params.append("scope", scopes.join(" "));
-  return `${MP_API_BASE}/authorization?${params.toString()}`;
+  return `${MP_AUTH_BASE.replace(/\/+$/, "")}/authorization?${params.toString()}`;
 }
 
 type TokenExchangeResponse = {
@@ -40,6 +41,24 @@ type TokenExchangeResponse = {
   refresh_token?: string;
   expires_in?: number;
   user_id?: string;
+};
+
+type MpUserProfile = {
+  id?: number | string;
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  nickname?: string | null;
+  business_name?: string | null;
+  reason?: string | null;
+  description?: string | null;
+  user_type?: string | null;
+  type?: string | null;
+  registration_type?: string | null;
+  tax_condition?: string | null;
+  tags?: Array<string | { tag?: string }>;
+  identification?: { type?: string | null; number?: string | number | null };
+  company?: { legal_name?: string | null; name?: string | null };
 };
 
 async function requestToken(params: URLSearchParams): Promise<TokenExchangeResponse> {
@@ -69,6 +88,112 @@ export async function exchangeMpAuthorizationCode(code: string): Promise<TokenEx
   return requestToken(params);
 }
 
+function normalizeTags(raw: MpUserProfile["tags"]): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((tag) => {
+      if (typeof tag === "string") return tag.toLowerCase();
+      if (tag && typeof tag.tag === "string") return tag.tag.toLowerCase();
+      return null;
+    })
+    .filter((value): value is string => Boolean(value));
+}
+
+export async function fetchMpUserProfile(accessToken: string): Promise<MpUserProfile | null> {
+  const res = await fetch(`${MP_API_BASE}/users/me`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `No se pudo obtener el perfil de Mercado Pago (${res.status})`);
+  }
+  return (await res.json()) as MpUserProfile;
+}
+
+export function deriveMpAccountType(profile: MpUserProfile | null | undefined): string | null {
+  if (!profile) return null;
+  const normalizedUserType = [profile.user_type, profile.type, profile.registration_type]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.toLowerCase());
+
+  if (normalizedUserType.some((value) => value.includes("business") || value.includes("corporate") || value.includes("company"))) {
+    return "Empresa";
+  }
+  if (normalizedUserType.some((value) => value.includes("personal") || value.includes("individual"))) {
+    return "Persona";
+  }
+
+  const tags = normalizeTags(profile.tags);
+  if (tags.some((tag) => tag.includes("non_profit") || tag.includes("fundacion") || tag.includes("ong"))) {
+    return "Fundación";
+  }
+  if (tags.some((tag) => tag.includes("company") || tag.includes("corporate") || tag.includes("business"))) {
+    return "Empresa";
+  }
+  if (tags.some((tag) => tag.includes("personal") || tag.includes("seller"))) {
+    return "Persona";
+  }
+
+  const idType = profile.identification?.type ? String(profile.identification.type).toLowerCase() : "";
+  if (["cuit", "rut", "ruc", "nit"].includes(idType)) {
+    return "Empresa";
+  }
+  if (["dni", "cc", "ce", "cpf", "ci"].includes(idType)) {
+    return "Persona";
+  }
+
+  if (profile.company?.legal_name || profile.company?.name) {
+    return "Empresa";
+  }
+
+  if (typeof profile.tax_condition === "string" && profile.tax_condition.toLowerCase().includes("exent")) {
+    return "Fundación";
+  }
+
+  return null;
+}
+
+export function deriveMpAccountHolder(profile: MpUserProfile | null | undefined): string | null {
+  if (!profile) return null;
+  const businessName = profile.business_name ?? profile.reason ?? profile.description;
+  if (typeof businessName === "string" && businessName.trim().length > 0) {
+    return businessName.trim();
+  }
+
+  const legalName =
+    typeof profile.company?.legal_name === "string" && profile.company.legal_name.trim().length > 0
+      ? profile.company.legal_name.trim()
+      : typeof profile.company?.name === "string" && profile.company.name.trim().length > 0
+        ? profile.company.name.trim()
+        : null;
+  if (legalName) return legalName;
+
+  const names = [profile.first_name, profile.last_name]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter((value) => value.length > 0);
+  if (names.length > 0) {
+    return names.join(" ");
+  }
+
+  if (typeof profile.nickname === "string" && profile.nickname.trim().length > 0) {
+    return profile.nickname.trim();
+  }
+
+  return null;
+}
+
+export function deriveMpTaxId(profile: MpUserProfile | null | undefined): string | null {
+  if (!profile) return null;
+  const number = profile.identification?.number;
+  if (typeof number === "string" && number.trim().length > 0) {
+    return number.trim();
+  }
+  if (typeof number === "number") {
+    return String(number);
+  }
+  return null;
+}
+
 async function refreshMpAccessToken(venueId: string, refreshToken: string) {
   const clientId = requireEnv("MP_CLIENT_ID");
   const clientSecret = requireEnv("MP_CLIENT_SECRET");
@@ -83,8 +208,8 @@ async function refreshMpAccessToken(venueId: string, refreshToken: string) {
   await prisma.venue.update({
     where: { id: venueId },
     data: {
-      mpAccessToken: encryptSecret(response.access_token),
-      mpRefreshToken: response.refresh_token ? encryptSecret(response.refresh_token) : null,
+      mpAccessToken: encryptSecret(response.access_token, { context: `venue:${venueId}` }),
+      mpRefreshToken: response.refresh_token ? encryptSecret(response.refresh_token, { context: `venue:${venueId}` }) : null,
       mpTokenExpiresAt: expiresAt,
       mpUserId: response.user_id ? String(response.user_id) : undefined,
     },
@@ -103,9 +228,10 @@ async function decryptVenueCredentials(venueId: string): Promise<VenueCredential
     select: { mpAccessToken: true, mpRefreshToken: true, mpTokenExpiresAt: true, mpUserId: true },
   });
   if (!venue?.mpAccessToken) return null;
-  const accessToken = decryptSecret(venue.mpAccessToken);
+  const context = `venue:${venueId}`;
+  const accessToken = decryptSecret(venue.mpAccessToken, { context });
   if (!accessToken) return null;
-  const refreshToken = decryptSecret(venue.mpRefreshToken ?? null);
+  const refreshToken = decryptSecret(venue.mpRefreshToken ?? null, { context });
   const expiresAt = venue.mpTokenExpiresAt ? new Date(venue.mpTokenExpiresAt) : null;
   const userId = venue.mpUserId ?? null;
   return { accessToken, refreshToken, expiresAt, userId };

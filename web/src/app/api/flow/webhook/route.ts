@@ -86,7 +86,7 @@ async function handle(req: NextRequest) {
       return NextResponse.json({ ok: false }, { status: 404 });
     }
 
-    const secret = decryptSecret(venue.flowSecretKey);
+    const secret = decryptSecret(venue.flowSecretKey, { context: `venue:${venue.id}` });
     if (!secret) {
       return NextResponse.json({ ok: false }, { status: 503 });
     }

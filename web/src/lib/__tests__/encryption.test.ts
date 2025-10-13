@@ -10,9 +10,16 @@ describe("encryption", () => {
 
   it("encrypts and decrypts values symmetrically", () => {
     const encrypted = encryptSecret("hola mundo");
-    expect(encrypted).toBeTypeOf("string");
+    expect(encrypted.startsWith("enc:v1:")).toBe(true);
     const decrypted = decryptSecret(encrypted);
     expect(decrypted).toBe("hola mundo");
+  });
+
+  it("supports contextual keys", () => {
+    const encrypted = encryptSecret("token-123", { context: "venue:test" });
+    expect(encrypted.startsWith("enc:v1:")).toBe(true);
+    const decrypted = decryptSecret(encrypted, { context: "venue:test" });
+    expect(decrypted).toBe("token-123");
   });
 
   it("throws on invalid payload", () => {
@@ -24,7 +31,7 @@ describe("encryption", () => {
     process.env.ENCRYPTION_KEY = "";
     const encrypted = encryptSecret("fallback");
     expect(encrypted).toBeTypeOf("string");
-    process.env.ENCRYPTION_KEY = undefined;
+    delete process.env.ENCRYPTION_KEY;
     const decrypted = decryptSecret(encrypted);
     expect(decrypted).toBe("fallback");
   });

@@ -170,7 +170,7 @@ export async function PATCH(req: NextRequest) {
         updates.flowApiKey = null;
         updates.flowApiKeyHash = null;
       } else {
-        updates.flowApiKey = encryptSecret(flowApiKeyRaw);
+        updates.flowApiKey = encryptSecret(flowApiKeyRaw, { context: `venue:${venue.id}` });
         updates.flowApiKeyHash = createHash("sha256").update(flowApiKeyRaw).digest("hex");
       }
     }
@@ -179,7 +179,7 @@ export async function PATCH(req: NextRequest) {
       if (!flowSecretKeyRaw) {
         updates.flowSecretKey = null;
       } else {
-        updates.flowSecretKey = encryptSecret(flowSecretKeyRaw);
+        updates.flowSecretKey = encryptSecret(flowSecretKeyRaw, { context: `venue:${venue.id}` });
       }
     }
 

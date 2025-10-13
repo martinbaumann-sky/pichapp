@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret, encryptSecret } from "@/lib/encryption";
-import { exchangeMpAuthorizationCode } from "@/lib/mp/marketplace";
+import {
+  deriveMpAccountHolder,
+  deriveMpAccountType,
+  deriveMpTaxId,
+  exchangeMpAuthorizationCode,
+  fetchMpUserProfile,
+} from "@/lib/mp/marketplace";
 import { prisma } from "@/lib/db";
 
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -33,7 +39,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "El enlace de autorización expiró" }, { status: 400 });
     }
 
-    const venue = await prisma.venue.findUnique({ where: { id: payload.venueId }, select: { id: true } });
+    const venue = await prisma.venue.findUnique({
+      where: { id: payload.venueId },
+      select: {
+        id: true,
+        mpCollectorId: true,
+        mpAccountType: true,
+        accountHolder: true,
+        payoutEmail: true,
+        taxId: true,
+        paymentProvider: true,
+      },
+    });
     if (!venue) {
       return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
     }
@@ -41,14 +58,62 @@ export async function GET(req: NextRequest) {
     const tokenResponse = await exchangeMpAuthorizationCode(code);
     const expiresAt = tokenResponse.expires_in ? new Date(Date.now() + tokenResponse.expires_in * 1000) : null;
 
-    await prisma.venue.update({
+    let collectorIdFromProfile: string | null = null;
+    let accountTypeFromProfile: string | null = null;
+    let accountHolderFromProfile: string | null = null;
+    let payoutEmailFromProfile: string | null = null;
+    let taxIdFromProfile: string | null = null;
+
+    try {
+      const profile = await fetchMpUserProfile(tokenResponse.access_token);
+      if (profile) {
+        collectorIdFromProfile = profile.id ? String(profile.id) : null;
+        accountTypeFromProfile = deriveMpAccountType(profile);
+        accountHolderFromProfile = deriveMpAccountHolder(profile);
+        payoutEmailFromProfile = typeof profile.email === "string" ? profile.email.trim().toLowerCase() : null;
+        taxIdFromProfile = deriveMpTaxId(profile);
+      }
+    } catch (err) {
+      console.warn(`[mp/oauth/callback] no se pudo obtener el perfil de MP para la cancha ${venue.id}`, err);
+    }
+
+    const context = `venue:${venue.id}`;
+    const dataToPersist: any = {
       where: { id: venue.id },
       data: {
-        mpAccessToken: encryptSecret(tokenResponse.access_token),
-        mpRefreshToken: tokenResponse.refresh_token ? encryptSecret(tokenResponse.refresh_token) : null,
+        mpAccessToken: encryptSecret(tokenResponse.access_token, { context }),
+        mpRefreshToken: tokenResponse.refresh_token ? encryptSecret(tokenResponse.refresh_token, { context }) : null,
         mpTokenExpiresAt: expiresAt,
-        mpUserId: tokenResponse.user_id ? String(tokenResponse.user_id) : undefined,
+        mpUserId: collectorIdFromProfile ?? (tokenResponse.user_id ? String(tokenResponse.user_id) : undefined),
       },
+    } as const;
+
+    const updates: Record<string, unknown> = {};
+
+    const resolvedCollectorId =
+      collectorIdFromProfile ?? (tokenResponse.user_id ? String(tokenResponse.user_id) : null);
+    if (resolvedCollectorId && venue.mpCollectorId !== resolvedCollectorId) {
+      updates.mpCollectorId = resolvedCollectorId;
+    }
+    if (!venue.mpAccountType && accountTypeFromProfile) {
+      updates.mpAccountType = accountTypeFromProfile;
+    }
+    if (!venue.accountHolder && accountHolderFromProfile) {
+      updates.accountHolder = accountHolderFromProfile;
+    }
+    if (!venue.payoutEmail && payoutEmailFromProfile) {
+      updates.payoutEmail = payoutEmailFromProfile;
+    }
+    if (!venue.taxId && taxIdFromProfile) {
+      updates.taxId = taxIdFromProfile;
+    }
+    if (venue.paymentProvider !== "MP") {
+      updates.paymentProvider = "MP";
+    }
+
+    await prisma.venue.update({
+      where: dataToPersist.where,
+      data: { ...dataToPersist.data, ...updates },
     });
 
     const redirect = process.env.MP_REDIRECT_SUCCESS_URL || "/panel/cancha?mp=connected";
