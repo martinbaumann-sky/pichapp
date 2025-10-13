@@ -308,7 +308,18 @@ export default function ExplorePage() {
               <input
                 type="date"
                 value={pendingCustomDate}
-                onChange={(event) => setPendingCustomDate(event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setPendingCustomDate(value);
+                  if (value) {
+                    const baseDate = new Date(`${value}T00:00:00`);
+                    const startIso = startOfDayIso(baseDate);
+                    const endIso = endOfDayIso(baseDate);
+                    setFilters((f) => ({ ...f, from: startIso, to: endIso, page: 1 }));
+                  } else {
+                    setFilters((f) => ({ ...f, from: "", to: "", page: 1 }));
+                  }
+                }}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
               />
               <Button

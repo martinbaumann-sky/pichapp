@@ -6,7 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/`, priority: 1 },
     { url: `${base}/explorar` },
     { url: `${base}/organizar` },
-    { url: `${base}/dashboard` },
+    { url: `${base}/perfil` },
   ];
 }
 
