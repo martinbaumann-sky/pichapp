@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { Mail, Eye, EyeOff, ChevronLeft } from "lucide-react";
+import { Mail, Eye, EyeOff, ChevronLeft, AlertTriangle } from "lucide-react";
 import { comunasRM } from "@/lib/comunas-rm";
 
-type AuthPhase = "auth" | "verify";
+type AuthPhase = "auth" | "verify" | "suspended";
 
 type Props = {
   tab: "login" | "signup";
@@ -57,6 +57,8 @@ export default function FrostedAuthCard({
   const [lastExpiresAt, setLastExpiresAt] = React.useState<string | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [oauthHints, setOauthHints] = React.useState<string[] | null>(null);
+  const [suspendedEmail, setSuspendedEmail] = React.useState<string | null>(null);
+  const [suspensionMessage, setSuspensionMessage] = React.useState<string | null>(null);
 
   const loginEmailRef = React.useRef<HTMLInputElement>(null);
   const loginPasswordRef = React.useRef<HTMLInputElement>(null);
@@ -140,6 +142,14 @@ export default function FrostedAuthCard({
     setLastExpiresAt(null);
   }, []);
 
+  const resetSuspendedState = React.useCallback(() => {
+    setSuspendedEmail(null);
+    setSuspensionMessage(null);
+    if (phase === "suspended") {
+      setPhase("auth");
+    }
+  }, [phase]);
+
   React.useEffect(() => {
     setOauthHints(null);
   }, [email, tab, phase]);
@@ -147,8 +157,9 @@ export default function FrostedAuthCard({
   React.useEffect(() => {
     if (!isOpen) {
       resetVerificationState();
+      resetSuspendedState();
     }
-  }, [isOpen, resetVerificationState]);
+  }, [isOpen, resetSuspendedState, resetVerificationState]);
 
   React.useEffect(() => {
     if (phase === "verify" && !pendingEmail) {
@@ -246,6 +257,12 @@ export default function FrostedAuthCard({
             setOauthHints(d.providers as string[]);
           }
           setFormError(d?.error || "Tu cuenta fue creada con Google. Usa \"Continuar con Google\".");
+          return;
+        }
+        if (r.status === 403 && typeof d?.error === "string") {
+          setSuspendedEmail(email);
+          setSuspensionMessage(d.error);
+          setPhase("suspended");
           return;
         }
         throw new Error(d?.error || "Credenciales inválidas");
@@ -399,6 +416,51 @@ export default function FrostedAuthCard({
       </div>
     </div>
   ) : null;
+
+  const suspendedView = phase === "suspended" ? (
+    <div className="w-full">
+      <div
+        className="relative overflow-hidden rounded-3xl p-6"
+        style={{
+          background: "linear-gradient(135deg, rgba(248,113,113,0.16), rgba(248,113,113,0.05))",
+          border: "1px solid rgba(248,113,113,0.2)",
+        }}
+      >
+        <div className="absolute -inset-1 blur-lg opacity-30 pointer-events-none" style={{ background: "linear-gradient(90deg, rgba(248,113,113,0.12), rgba(239,68,68,0.16))" }} />
+        <div className="relative z-10 space-y-5 text-white">
+          <button
+            type="button"
+            onClick={() => {
+              resetSuspendedState();
+              setFormError(null);
+            }}
+            className="inline-flex items-center gap-2 text-sm text-white/80 hover:text-white"
+          >
+            <ChevronLeft className="w-4 h-4" /> Volver al inicio
+          </button>
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
+              <AlertTriangle className="h-4 w-4" /> Cuenta suspendida
+            </div>
+            <h3 className="text-2xl font-semibold">No pudimos habilitar tu acceso</h3>
+            <p className="text-white/80">
+              {suspensionMessage ?? "Tu cuenta está temporalmente suspendida por el equipo administrador."}
+            </p>
+            {suspendedEmail ? (
+              <p className="text-xs text-white/60">Correo asociado: {suspendedEmail}</p>
+            ) : null}
+            <p className="text-xs text-white/60">
+              Si crees que se trata de un error, escríbenos a <a href="mailto:contacto@pichangapp.cl" className="underline">contacto@pichangapp.cl</a> o comunícate con soporte interno.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  if (suspendedView) {
+    return suspendedView;
+  }
 
   if (verifyView) {
     return verifyView;

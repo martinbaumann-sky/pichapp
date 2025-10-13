@@ -25,6 +25,7 @@ export async function GET() {
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - THIRTY_DAYS_MS);
+    const activeWindow = new Date(now.getTime() - 10 * 60 * 1000);
 
     const [
       playerCount,
@@ -49,6 +50,8 @@ export async function GET() {
       subscriptionsExpiring,
       adminUsers,
       recentSessions,
+      activePlayersNowCount,
+      activeSessionsNow,
     ] = await Promise.all([
       prisma.user.count({ where: { role: "PLAYER" } }),
       prisma.user.count({ where: { role: "VENUE_ADMIN" } }),
@@ -172,6 +175,29 @@ export async function GET() {
       }),
       prisma.session.findMany({
         where: { createdAt: { gte: thirtyDaysAgo } },
+        orderBy: { createdAt: "desc" },
+        take: 40,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: { select: { name: true, comuna: true } },
+            },
+          },
+        },
+      }),
+      prisma.session.count({
+        where: {
+          createdAt: { gte: activeWindow },
+          user: { role: "PLAYER" },
+        },
+      }),
+      prisma.session.findMany({
+        where: {
+          createdAt: { gte: activeWindow },
+          user: { role: "PLAYER" },
+        },
         orderBy: { createdAt: "desc" },
         take: 40,
         include: {
@@ -429,6 +455,16 @@ export async function GET() {
         createdAt: session.createdAt.toISOString(),
       }));
 
+    const activeNowPayload = activeSessionsNow
+      .filter((session) => session.user)
+      .map((session) => ({
+        userId: session.user.id,
+        email: session.user.email ?? null,
+        name: session.user.profile?.name ?? null,
+        comuna: session.user.profile?.comuna ?? null,
+        lastSeenAt: session.createdAt.toISOString(),
+      }));
+
     const totalApproved = paymentsTotals._sum.amountCLP ?? 0;
     const totalApproved30d = payments30dTotals._sum.amountCLP ?? 0;
     const totalPending = pendingPaymentsTotals._sum.amountCLP ?? 0;
@@ -450,6 +486,7 @@ export async function GET() {
           totals: {
             players: playerCount,
             activePlayers30d: activePlayersCount,
+            activePlayersNow: activePlayersNowCount,
             organizers: organizerCount,
             activeOrganizers30d: activeOrganizersCount,
             venues: venueCount,
@@ -469,9 +506,11 @@ export async function GET() {
             players: playerCount,
             organizers: organizerCount,
             suspended: suspendedCount,
+            activeNow: activePlayersNowCount,
           },
           list: usersPayload,
           recentLogins: sessionsPayload,
+          activeNow: activeNowPayload,
         },
         venues: {
           totals: {
