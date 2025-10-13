@@ -83,6 +83,30 @@ export async function POST(
         return { status: "free" as const };
       }
 
+      if (!match.venueId) {
+        throw new Response("Este partido no tiene una cancha asociada para procesar el pago.", { status: 400 });
+      }
+
+      const venue = await tx.venue.findUnique({
+        where: { id: match.venueId },
+        select: {
+          id: true,
+          mpAccessToken: true,
+          payoutEmail: true,
+          accountHolder: true,
+          mpCollectorId: true,
+          mpAccountType: true,
+        },
+      });
+
+      if (!venue?.mpAccessToken) {
+        throw new Response("La cancha debe conectar Mercado Pago para recibir el pago.", { status: 503 });
+      }
+
+      if (!venue.payoutEmail || !venue.accountHolder || !venue.mpCollectorId || !venue.mpAccountType) {
+        throw new Response("La cancha debe completar sus datos de liquidación antes de procesar pagos.", { status: 503 });
+      }
+
       const paidSpot = await tx.spot.findFirst({
         where: { matchId, userId, status: "PAID" },
         select: { id: true },

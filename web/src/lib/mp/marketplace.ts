@@ -151,15 +151,15 @@ export async function createMarketplacePreference({
       const creds = await ensureVenueAccessToken(venueId);
       accessToken = creds.accessToken;
     } catch (e) {
-      if (!envToken) {
-        throw e;
-      }
+      throw new Error(
+        "La cancha debe conectar su cuenta de Mercado Pago para recibir los pagos de sus partidos.",
+      );
     }
   }
 
   if (!accessToken) {
     if (!envToken) {
-      throw new Error("Mercado Pago no está configurado para esta cancha");
+      throw new Error("Mercado Pago no está configurado");
     }
     accessToken = envToken;
   }

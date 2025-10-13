@@ -23,7 +23,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const venue = await prisma.venue.findFirst({ where: { ownerId: organizerId }, select: { id: true, name: true, address: true, comuna: true } });
+    const venue = await prisma.venue.findFirst({
+      where: { ownerId: organizerId },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        comuna: true,
+        mpAccessToken: true,
+        mpCollectorId: true,
+        mpAccountType: true,
+        payoutEmail: true,
+        accountHolder: true,
+      },
+    });
 
     // Defaults defensivos para evitar "invalid input"
     const payloadComuna = typeof json?.comuna === "string" ? json.comuna.trim() : "";
@@ -115,6 +128,33 @@ export async function POST(req: NextRequest) {
           .join(",");
         coverImageUrl = `https://source.unsplash.com/800x400/?${parts}`;
       } catch {}
+    }
+
+    if (safePrice > 0) {
+      if (!venue) {
+        return NextResponse.json(
+          {
+            error: "Necesitas registrar tu cancha antes de crear partidos pagados.",
+          },
+          { status: 400 },
+        );
+      }
+      if (!venue.mpAccessToken) {
+        return NextResponse.json(
+          {
+            error: "Conecta Mercado Pago desde el panel de tu cancha para recibir los pagos directamente.",
+          },
+          { status: 400 },
+        );
+      }
+      if (!venue.payoutEmail || !venue.accountHolder || !venue.mpCollectorId || !venue.mpAccountType) {
+        return NextResponse.json(
+          {
+            error: "Completa los datos de liquidación y credenciales de Mercado Pago en el perfil de la cancha antes de publicar partidos pagados.",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const match = await prisma.$transaction(async (tx: any) => {
