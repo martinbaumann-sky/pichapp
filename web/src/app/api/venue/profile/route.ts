@@ -1,7 +1,11 @@
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
 import { normalizeForStorage } from "@/lib/phone";
+import { encryptSecret } from "@/lib/encryption";
+
+type PaymentProviderOption = "MP" | "FLOW";
 
 function parseFields(raw: unknown): string[] | null {
   if (Array.isArray(raw)) {
@@ -18,6 +22,24 @@ function parseFields(raw: unknown): string[] | null {
       .slice(0, 12);
   }
   return null;
+}
+
+function normalizeProvider(raw: unknown, fallback: PaymentProviderOption): PaymentProviderOption {
+  if (typeof raw !== "string") return fallback;
+  const normalized = raw.trim().toUpperCase();
+  if (normalized === "FLOW" || normalized === "MP") {
+    return normalized;
+  }
+  return fallback;
+}
+
+function normalizeFlowEnv(raw: unknown, fallback: string | null | undefined): "PROD" | "SANDBOX" {
+  if (typeof raw !== "string") {
+    return fallback === "PROD" ? "PROD" : "SANDBOX";
+  }
+  const normalized = raw.trim().toUpperCase();
+  if (normalized === "PROD") return "PROD";
+  return "SANDBOX";
 }
 
 export async function GET() {
@@ -44,6 +66,9 @@ export async function GET() {
         accountHolder: venue.accountHolder,
         mpCollectorId: venue.mpCollectorId,
         mpAccountType: venue.mpAccountType,
+        paymentProvider: venue.paymentProvider,
+        flowConfigured: Boolean(venue.flowApiKey && venue.flowSecretKey),
+        flowEnv: venue.flowEnv ?? "SANDBOX",
         plan: venue.plan,
         verified: venue.verified,
         fields: venue.fields,
@@ -78,13 +103,18 @@ export async function PATCH(req: NextRequest) {
       typeof payload?.mpAccountType === "string" ? payload.mpAccountType.trim() : venue.mpAccountType ?? "";
     const fieldNames = parseFields(payload?.fields);
 
-    if (!name || !address || !comuna || !payoutEmail || !accountHolder || !taxId || !mpCollectorIdRaw || !mpAccountTypeRaw) {
+    const paymentProvider = normalizeProvider(payload?.paymentProvider, (venue.paymentProvider as PaymentProviderOption) ?? "MP");
+    const flowEnv = normalizeFlowEnv(payload?.flowEnv, venue.flowEnv);
+    const flowApiKeyRaw = typeof payload?.flowApiKey === "string" ? payload.flowApiKey.trim() : undefined;
+    const flowSecretKeyRaw = typeof payload?.flowSecretKey === "string" ? payload.flowSecretKey.trim() : undefined;
+
+    if (!name || !address || !comuna || !payoutEmail || !accountHolder || !taxId) {
       return NextResponse.json({ error: "Completa todos los campos obligatorios." }, { status: 400 });
     }
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
     if (!emailPattern.test(payoutEmail)) {
-      return NextResponse.json({ error: "Ingresa un correo de Mercado Pago válido." }, { status: 400 });
+      return NextResponse.json({ error: "Ingresa un correo de contacto válido." }, { status: 400 });
     }
 
     if (accountHolder.length < 3) {
@@ -92,8 +122,12 @@ export async function PATCH(req: NextRequest) {
     }
 
     const collectorIdDigits = mpCollectorIdRaw.replace(/\D+/g, "");
-    if (collectorIdDigits.length < 5) {
+    if (paymentProvider === "MP" && collectorIdDigits.length < 5) {
       return NextResponse.json({ error: "Ingresa un Collector ID de Mercado Pago válido." }, { status: 400 });
+    }
+
+    if (paymentProvider === "MP" && !mpAccountTypeRaw) {
+      return NextResponse.json({ error: "Selecciona el tipo de cuenta de Mercado Pago." }, { status: 400 });
     }
 
     const mpAccountType = (() => {
@@ -106,20 +140,53 @@ export async function PATCH(req: NextRequest) {
 
     const normalizedPhone = phoneRaw ? normalizeForStorage(phoneRaw) : null;
 
+    const hasExistingFlowCreds = Boolean(venue.flowApiKey && venue.flowSecretKey);
+    const willStoreFlowApiKey = flowApiKeyRaw !== undefined ? flowApiKeyRaw.length > 0 : hasExistingFlowCreds;
+    const willStoreFlowSecret = flowSecretKeyRaw !== undefined ? flowSecretKeyRaw.length > 0 : hasExistingFlowCreds;
+
+    if (paymentProvider === "FLOW" && (!willStoreFlowApiKey || !willStoreFlowSecret)) {
+      return NextResponse.json(
+        { error: "Ingresa las credenciales de Flow para poder cobrar los cupos directamente en tu cuenta." },
+        { status: 400 },
+      );
+    }
+
+    const updates: any = {
+      name,
+      address,
+      comuna,
+      payoutEmail,
+      accountHolder,
+      taxId,
+      phone: normalizedPhone,
+      paymentProvider,
+      flowEnv,
+      mpCollectorId: collectorIdDigits || null,
+      mpAccountType: paymentProvider === "MP" ? mpAccountType : null,
+    };
+
+    if (flowApiKeyRaw !== undefined) {
+      if (!flowApiKeyRaw) {
+        updates.flowApiKey = null;
+        updates.flowApiKeyHash = null;
+      } else {
+        updates.flowApiKey = encryptSecret(flowApiKeyRaw);
+        updates.flowApiKeyHash = createHash("sha256").update(flowApiKeyRaw).digest("hex");
+      }
+    }
+
+    if (flowSecretKeyRaw !== undefined) {
+      if (!flowSecretKeyRaw) {
+        updates.flowSecretKey = null;
+      } else {
+        updates.flowSecretKey = encryptSecret(flowSecretKeyRaw);
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.venue.update({
         where: { id: venue.id },
-        data: {
-          name,
-          address,
-          comuna,
-          payoutEmail,
-          accountHolder,
-          taxId,
-          phone: normalizedPhone,
-          mpCollectorId: collectorIdDigits,
-          mpAccountType,
-        },
+        data: updates,
       });
 
       if (Array.isArray(fieldNames)) {
@@ -157,6 +224,9 @@ export async function PATCH(req: NextRequest) {
             fields: fresh.fields,
             mpCollectorId: fresh.mpCollectorId,
             mpAccountType: fresh.mpAccountType,
+            paymentProvider: fresh.paymentProvider,
+            flowConfigured: Boolean(fresh.flowApiKey && fresh.flowSecretKey),
+            flowEnv: fresh.flowEnv ?? "SANDBOX",
           }
         : null,
     });

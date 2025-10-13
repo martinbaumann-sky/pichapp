@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { PaymentProvider } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createMatchSchema, listMatchesSchema } from "@/lib/validator";
 import { requireUserId } from "@/lib/auth";
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
         mpAccountType: true,
         payoutEmail: true,
         accountHolder: true,
+        paymentProvider: true,
+        flowApiKey: true,
+        flowSecretKey: true,
       },
     });
 
@@ -139,18 +143,47 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
-      if (!venue.mpAccessToken) {
+
+      if (!venue.payoutEmail || !venue.accountHolder) {
         return NextResponse.json(
           {
-            error: "Conecta Mercado Pago desde el panel de tu cancha para recibir los pagos directamente.",
+            error: "Completa los datos de contacto y liquidación de tu cancha antes de publicar partidos pagados.",
           },
           { status: 400 },
         );
       }
-      if (!venue.payoutEmail || !venue.accountHolder || !venue.mpCollectorId || !venue.mpAccountType) {
+
+      const paymentProvider: PaymentProvider = (venue.paymentProvider as PaymentProvider) ?? "MP";
+      if (paymentProvider === "MP") {
+        if (!venue.mpAccessToken) {
+          return NextResponse.json(
+            {
+              error: "Conecta Mercado Pago desde el panel de tu cancha para recibir los pagos directamente.",
+            },
+            { status: 400 },
+          );
+        }
+        if (!venue.mpCollectorId || !venue.mpAccountType) {
+          return NextResponse.json(
+            {
+              error: "Completa el Collector ID y el tipo de cuenta de Mercado Pago antes de publicar partidos pagados.",
+            },
+            { status: 400 },
+          );
+        }
+      } else if (paymentProvider === "FLOW") {
+        if (!venue.flowApiKey || !venue.flowSecretKey) {
+          return NextResponse.json(
+            {
+              error: "Ingresa las credenciales de Flow en el perfil de la cancha antes de publicar partidos pagados.",
+            },
+            { status: 400 },
+          );
+        }
+      } else {
         return NextResponse.json(
           {
-            error: "Completa los datos de liquidación y credenciales de Mercado Pago en el perfil de la cancha antes de publicar partidos pagados.",
+            error: "El proveedor de cobros configurado en tu cancha no es compatible para publicar partidos pagados.",
           },
           { status: 400 },
         );

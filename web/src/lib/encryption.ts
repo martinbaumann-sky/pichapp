@@ -1,11 +1,37 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 
+let warnedFallback = false;
+
+function pickEncryptionSource(): { key: string; source: "ENCRYPTION_KEY" | "AUTH_SECRET" | "NEXTAUTH_SECRET" } | null {
+  const candidates: Array<["ENCRYPTION_KEY" | "AUTH_SECRET" | "NEXTAUTH_SECRET", string | undefined]> = [
+    ["ENCRYPTION_KEY", process.env.ENCRYPTION_KEY],
+    ["AUTH_SECRET", process.env.AUTH_SECRET],
+    ["NEXTAUTH_SECRET", process.env.NEXTAUTH_SECRET],
+  ];
+
+  for (const [source, value] of candidates) {
+    if (value && value.trim().length > 0) {
+      return { key: value.trim(), source };
+    }
+  }
+  return null;
+}
+
 function getKey(): Buffer {
-  const envKey = process.env.ENCRYPTION_KEY;
-  if (!envKey) {
+  const resolved = pickEncryptionSource();
+  if (!resolved) {
     throw new Error("ENCRYPTION_KEY no está configurado");
   }
-  const keyBuffer = Buffer.from(envKey, envKey.length === 64 ? "hex" : "utf8");
+
+  if (resolved.source !== "ENCRYPTION_KEY" && !warnedFallback) {
+    warnedFallback = true;
+    console.warn(
+      `ENCRYPTION_KEY no está configurado. Usando ${resolved.source} como clave de cifrado fallback. Configura ENCRYPTION_KEY para un mayor control.`,
+    );
+  }
+
+  const isHex = /^[0-9a-f]+$/i.test(resolved.key) && resolved.key.length === 64;
+  const keyBuffer = Buffer.from(resolved.key, isHex ? "hex" : "utf8");
   if (keyBuffer.length === 32) {
     return keyBuffer;
   }

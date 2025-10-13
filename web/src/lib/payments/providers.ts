@@ -13,12 +13,15 @@ export type PaymentInitResult = {
   extra?: Record<string, unknown>;
 };
 
+type FlowOverride = { apiKey: string; secret: string; env?: "PROD" | "SANDBOX" };
+
 export type InitPaymentArgs = {
   provider: ProviderKey;
   payment: { id: string; amountCLP: number; spotId: string };
   match: { id: string; title?: string | null; comuna?: string | null; venueId?: string | null };
   baseUrl: string;
   user: { email: string | null; name?: string | null };
+  venue?: { id?: string | null; flow?: FlowOverride };
 };
 
 export function getEnabledProviders() {
@@ -40,10 +43,10 @@ export function getEnabledProviders() {
   };
 }
 
-export async function initPaymentSession({ provider, payment, match, baseUrl, user }: InitPaymentArgs): Promise<PaymentInitResult> {
+export async function initPaymentSession({ provider, payment, match, baseUrl, user, venue }: InitPaymentArgs): Promise<PaymentInitResult> {
   switch (provider) {
     case "MP":
-      return initMercadoPago({ payment, match, baseUrl, user });
+      return initMercadoPago({ payment, match, baseUrl, user, venueId: venue?.id ?? match.venueId ?? null });
     case "MP_QR":
       return initMercadoPagoQr({ payment, match, baseUrl, user });
     case "WEBPAY":
@@ -51,7 +54,7 @@ export async function initPaymentSession({ provider, payment, match, baseUrl, us
     case "KHIPU":
       return initKhipu({ payment, match, baseUrl, user });
     case "FLOW":
-      return initFlow({ payment, match, baseUrl, user });
+      return initFlow({ payment, match, baseUrl, user, credentials: venue?.flow });
     case "FINTOC":
       return initFintoc({ payment, match, baseUrl, user });
     default:
@@ -64,16 +67,18 @@ async function initMercadoPago({
   match,
   baseUrl,
   user,
+  venueId,
 }: {
   payment: { id: string; amountCLP: number; spotId: string };
   match: { id: string; title?: string | null; venueId?: string | null };
   baseUrl: string;
   user: { email: string | null; name?: string | null };
+  venueId: string | null;
 }): Promise<PaymentInitResult> {
   const title = match.title || "Cupo PichangApp";
   const externalReference = `${match.id}:${payment.spotId}`;
   const preference = await createMarketplacePreference({
-    venueId: match.venueId,
+    venueId,
     title,
     priceCLP: payment.amountCLP,
     externalReference,
@@ -89,7 +94,10 @@ async function initMercadoPagoQr(args: {
   baseUrl: string;
   user: { email: string | null; name?: string | null };
 }): Promise<PaymentInitResult> {
-  const result = await initMercadoPago(args);
+  const result = await initMercadoPago({
+    ...args,
+    venueId: args.match.venueId ?? null,
+  });
   const encoded = encodeURIComponent(result.url!);
   const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=320x320&chl=${encoded}`;
   return { ...result, type: "qr", qrUrl };
@@ -141,13 +149,26 @@ async function initKhipu({ payment, match, baseUrl, user }: { payment: { id: str
   return { type: "redirect", providerRef: String(data.payment_id || data.id || payment.id), url: data.payment_url || data.url };
 }
 
-async function initFlow({ payment, match, baseUrl, user }: { payment: { id: string; amountCLP: number }; match: { id: string; title?: string | null }; baseUrl: string; user: { email: string | null } }): Promise<PaymentInitResult> {
-  const apiKey = process.env.FLOW_API_KEY;
-  const secret = process.env.FLOW_SECRET_KEY;
+async function initFlow({
+  payment,
+  match,
+  baseUrl,
+  user,
+  credentials,
+}: {
+  payment: { id: string; amountCLP: number };
+  match: { id: string; title?: string | null };
+  baseUrl: string;
+  user: { email: string | null };
+  credentials?: FlowOverride;
+}): Promise<PaymentInitResult> {
+  const apiKey = credentials?.apiKey ?? process.env.FLOW_API_KEY;
+  const secret = credentials?.secret ?? process.env.FLOW_SECRET_KEY;
   if (!apiKey || !secret) {
-    throw new Error("Configura FLOW_API_KEY y FLOW_SECRET_KEY");
+    throw new Error("Configura las credenciales de Flow");
   }
-  const env = process.env.FLOW_ENV === "PROD" ? "https://www.flow.cl/api" : "https://sandbox.flow.cl/api";
+  const envSetting = credentials?.env ?? process.env.FLOW_ENV;
+  const env = envSetting === "PROD" ? "https://www.flow.cl/api" : "https://sandbox.flow.cl/api";
   const params: Record<string, string> = {
     apiKey,
     commerceOrder: payment.id,
