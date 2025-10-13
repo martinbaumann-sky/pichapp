@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const exists = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const emailFilter = { email: { equals: email, mode: "insensitive" } } as const;
+    const exists = await prisma.user.findFirst({ where: emailFilter, select: { id: true } });
     if (exists) {
       return NextResponse.json(
         { ok: false, error: "Este correo ya esta registrado" },

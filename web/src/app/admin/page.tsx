@@ -1,318 +1,452 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Activity,
-  AlertTriangle,
-  ArrowDownRight,
+  AlertCircle,
   ArrowRight,
-  ArrowUpRight,
-  CalendarRange,
-  CheckCircle,
+  BarChart3,
+  BellRing,
+  Building2,
+  Calendar,
+  ChartSpline,
+  Check,
   Download,
-  ExternalLink,
-  LineChart,
   Loader2,
-  MailWarning,
+  Mail,
+  MapPin,
+  PauseCircle,
+  PieChart,
+  PlayCircle,
   RefreshCcw,
+  Search,
+  Settings2,
   ShieldCheck,
-  TrendingUp,
-  Trophy,
+  Table,
+  Ticket,
+  UserCheck,
+  UserCog,
   Users,
 } from "lucide-react";
 
 import AuthDialog from "@/components/AuthDialog";
+import { ADMIN_EMAIL } from "@/constants/admin";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/utils/cn";
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from "@/constants/admin";
-import { formatCurrencyCLP, formatPercentage } from "@/utils/formatters";
-interface ActivityEntry {
-  hour: string;
-  total: number;
-  players: number;
-  organizers: number;
-}
+import { formatCurrencyCLP } from "@/utils/formatters";
+import { VENUE_PLANS } from "@/lib/venuePlans";
 
-interface MatchMetric {
-  published: number;
-  confirmed: number;
-  cancelled: number;
-  fillRate: number;
-  trend: number;
-}
+type AdminTab =
+  | "overview"
+  | "users"
+  | "venues"
+  | "finances"
+  | "matches"
+  | "subscriptions"
+  | "reports"
+  | "config"
+  | "alerts"
+  | "admins"
+  | "support";
 
-interface RevenueMetric {
-  total: number;
-  commissions: number;
-  avgTicket: number;
-  trend: number;
-}
+type MatchStatus =
+  | "PUBLISHED"
+  | "CONFIRMED"
+  | "FULL"
+  | "FINISHED"
+  | "CANCELED"
+  | "CANCELED_MINIMUM";
 
-interface VenuePayout {
-  venue: string;
-  comuna: string;
-  amount: number;
-  matches: number;
-}
-
-interface PaymentItem {
-  id: string;
-  amount: number;
-  venue: string;
-  match: string;
-  date: string;
-  status: "approved" | "pending" | "failed";
-  method: string;
-}
-
-interface SystemAlert {
+type MatchSummary = {
   id: string;
   title: string;
-  detail: string;
-  severity: "critical" | "warning" | "info";
-  timestamp: string;
+  status: MatchStatus;
+  startsAt: string;
+  comuna: string;
+  venueName: string | null;
+  organizerName: string | null;
+  pricePerSpot: number;
+  totalSpots: number;
+  paidSpots: number;
+  reservedSpots: number;
+};
+
+type AdminOverviewResponse = {
+  generatedAt: string;
+  summary: {
+    totals: {
+      players: number;
+      activePlayers30d: number;
+      organizers: number;
+      activeOrganizers30d: number;
+      venues: number;
+      verifiedVenues: number;
+      upcomingMatches: number;
+      finishedMatches30d: number;
+    };
+    revenue: {
+      totalApproved: number;
+      approved30d: number;
+      pending: number;
+      retainedCommission30d: number;
+    };
+  };
+  users: {
+    totals: {
+      players: number;
+      organizers: number;
+      suspended: number;
+    };
+    list: Array<{
+      id: string;
+      email: string | null;
+      role: "PLAYER" | "VENUE_ADMIN" | "SUPERADMIN";
+      createdAt: string;
+      disabledAt: string | null;
+      isAdmin: boolean;
+      profile: {
+        name: string | null;
+        comuna: string | null;
+        phone: string | null;
+        rating: number | null;
+      };
+      matchesOrganized: number;
+      matchesPlayed: number;
+      paymentsTotal: number;
+      paymentsCount: number;
+      lastLoginAt: string | null;
+    }>;
+    recentLogins: Array<{
+      userId: string;
+      email: string | null;
+      name: string | null;
+      comuna: string | null;
+      createdAt: string;
+    }>;
+  };
+  venues: {
+    totals: {
+      active: number;
+      inactive: number;
+    };
+    list: Array<{
+      id: string;
+      name: string;
+      comuna: string;
+      plan: string;
+      verified: boolean;
+      createdAt: string;
+      owner: {
+        id: string | null;
+        name: string | null;
+        email: string | null;
+      };
+      revenueApproved: number;
+      revenueApproved30d: number;
+      pendingPayments: number;
+      matchStats: {
+        active: number;
+        upcoming: number;
+      };
+      subscriptions: Array<{
+        id: string;
+        plan: string;
+        status: string;
+        createdAt: string;
+        activatedAt: string | null;
+        canceledAt: string | null;
+        nextChargeAt: string | null;
+        lastChargeAt: string | null;
+      }>;
+    }>;
+  };
+  matches: {
+    active: MatchSummary[];
+    finished: MatchSummary[];
+    canceled: MatchSummary[];
+  };
+  payments: {
+    recent: Array<{
+      id: string;
+      amountCLP: number;
+      status: string;
+      provider: string;
+      createdAt: string;
+      user: { email: string | null; name: string | null };
+      match: { title: string | null; venueName: string | null };
+    }>;
+  };
+  subscriptions: {
+    countsByPlan: Record<string, Record<string, number>>;
+    expiringSoon: Array<{
+      id: string;
+      plan: string;
+      status: string;
+      nextChargeAt: string | null;
+      venueName: string | null;
+      venuePlan: string | null;
+    }>;
+  };
+  admins: {
+    list: Array<{
+      id: string;
+      email: string | null;
+      role: string;
+      name: string | null;
+      createdAt: string;
+      lastLoginAt: string | null;
+    }>;
+  };
+};
+
+const TABS: Array<{ id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { id: "overview", label: "Resumen", icon: Activity },
+  { id: "users", label: "Usuarios", icon: Users },
+  { id: "venues", label: "Canchas", icon: Building2 },
+  { id: "finances", label: "Finanzas", icon: PieChart },
+  { id: "matches", label: "Partidos", icon: Ticket },
+  { id: "subscriptions", label: "Suscripciones", icon: Calendar },
+  { id: "reports", label: "Reportes", icon: BarChart3 },
+  { id: "config", label: "Configuración", icon: Settings2 },
+  { id: "alerts", label: "Alertas", icon: BellRing },
+  { id: "admins", label: "Administradores", icon: UserCog },
+  { id: "support", label: "Soporte", icon: Mail },
+];
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "-";
+  try {
+    const date = new Date(value);
+    return new Intl.DateTimeFormat("es-CL", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  } catch {
+    return value;
+  }
 }
 
-const BASE_ACTIVITY: ActivityEntry[] = [
-  { hour: "09:00", players: 18, organizers: 4, total: 22 },
-  { hour: "10:00", players: 24, organizers: 5, total: 29 },
-  { hour: "11:00", players: 31, organizers: 6, total: 37 },
-  { hour: "12:00", players: 36, organizers: 7, total: 43 },
-  { hour: "13:00", players: 28, organizers: 6, total: 34 },
-  { hour: "14:00", players: 26, organizers: 5, total: 31 },
-  { hour: "15:00", players: 32, organizers: 7, total: 39 },
-  { hour: "16:00", players: 41, organizers: 8, total: 49 },
-  { hour: "17:00", players: 48, organizers: 9, total: 57 },
-  { hour: "18:00", players: 56, organizers: 10, total: 66 },
-  { hour: "19:00", players: 63, organizers: 11, total: 74 },
-  { hour: "20:00", players: 59, organizers: 10, total: 69 },
-];
+function formatRelative(value: string | null | undefined) {
+  if (!value) return "-";
+  const date = new Date(value);
+  const now = Date.now();
+  const diff = date.getTime() - now;
+  const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+  const minutes = Math.round(diff / (1000 * 60));
+  const hours = Math.round(diff / (1000 * 60 * 60));
+  const days = Math.round(diff / (1000 * 60 * 60 * 24));
+  if (Math.abs(minutes) < 120) return rtf.format(minutes, "minute");
+  if (Math.abs(hours) < 72) return rtf.format(hours, "hour");
+  return rtf.format(days, "day");
+}
 
-const MATCH_METRICS: Record<"today" | "week" | "month", MatchMetric> = {
-  today: { published: 26, confirmed: 18, cancelled: 1, fillRate: 0.84, trend: 0.12 },
-  week: { published: 148, confirmed: 109, cancelled: 6, fillRate: 0.81, trend: 0.17 },
-  month: { published: 612, confirmed: 468, cancelled: 21, fillRate: 0.83, trend: 0.22 },
-};
+function roleLabel(role: "PLAYER" | "VENUE_ADMIN" | "SUPERADMIN" | string | null | undefined) {
+  if (role === "SUPERADMIN") return "Superadmin";
+  if (role === "VENUE_ADMIN") return "Organizador";
+  return "Jugador";
+}
 
-const REVENUE_METRICS: Record<"week" | "month" | "quarter", RevenueMetric> = {
-  week: { total: 4285000, commissions: 462000, avgTicket: 86900, trend: 0.08 },
-  month: { total: 17842000, commissions: 1846000, avgTicket: 89400, trend: 0.14 },
-  quarter: { total: 53488000, commissions: 5521000, avgTicket: 90100, trend: 0.18 },
-};
+function matchStatusLabel(status: MatchStatus) {
+  switch (status) {
+    case "PUBLISHED":
+    case "CONFIRMED":
+    case "FULL":
+      return "Activo";
+    case "FINISHED":
+      return "Completado";
+    default:
+      return "Cancelado";
+  }
+}
 
-const VENUE_PAYOUTS: VenuePayout[] = [
-  { venue: "Club Deportivo Ñuñoa", comuna: "Ñuñoa", amount: 3248000, matches: 42 },
-  { venue: "Estadio Lo Barnechea", comuna: "Lo Barnechea", amount: 2875000, matches: 36 },
-  { venue: "Santa Rosa Fútbol Park", comuna: "La Florida", amount: 2569000, matches: 33 },
-  { venue: "Complejo Sporting Maipú", comuna: "Maipú", amount: 1984000, matches: 27 },
-  { venue: "Las Condes Arena", comuna: "Las Condes", amount: 1746000, matches: 22 },
-];
+function statusTone(status: MatchStatus) {
+  if (["PUBLISHED", "CONFIRMED", "FULL"].includes(status)) return "bg-emerald-100 text-emerald-700";
+  if (status === "FINISHED") return "bg-sky-100 text-sky-700";
+  return "bg-rose-100 text-rose-700";
+}
 
-const TOTAL_PAID_TO_VENUES = VENUE_PAYOUTS.reduce((sum, item) => sum + item.amount, 0);
-
-const LATEST_PAYMENTS: PaymentItem[] = [
-  {
-    id: "pay_5902",
-    amount: 68000,
-    venue: "Club Deportivo Ñuñoa",
-    match: "Mixto Nocturno 8vs8",
-    date: "2025-02-18T00:45:00.000Z",
-    status: "approved",
-    method: "Mercado Pago",
-  },
-  {
-    id: "pay_5901",
-    amount: 54000,
-    venue: "Estadio Lo Barnechea",
-    match: "Intermedia Miércoles",
-    date: "2025-02-17T23:58:00.000Z",
-    status: "approved",
-    method: "Mercado Pago",
-  },
-  {
-    id: "pay_5898",
-    amount: 48000,
-    venue: "Santa Rosa Fútbol Park",
-    match: "Damas Principiantes",
-    date: "2025-02-17T23:05:00.000Z",
-    status: "pending",
-    method: "Transferencia",
-  },
-  {
-    id: "pay_5892",
-    amount: 72000,
-    venue: "Complejo Sporting Maipú",
-    match: "Avanzado Nocturno",
-    date: "2025-02-17T21:34:00.000Z",
-    status: "approved",
-    method: "Mercado Pago",
-  },
-  {
-    id: "pay_5887",
-    amount: 52000,
-    venue: "Las Condes Arena",
-    match: "Mixto Viernes",
-    date: "2025-02-17T20:11:00.000Z",
-    status: "failed",
-    method: "Webpay",
-  },
-];
-
-const SYSTEM_ALERTS: SystemAlert[] = [
-  {
-    id: "alert_102",
-    title: "Webhook Mercado Pago",
-    detail: "2 eventos fallidos en la última hora. Revisa credenciales de producción.",
-    severity: "warning",
-    timestamp: "2025-02-17T23:21:00.000Z",
-  },
-  {
-    id: "alert_101",
-    title: "Partido sin cupos",
-    detail: "Match #7843 agotó lista de espera. Sugerir cancha alterna a organizador.",
-    severity: "info",
-    timestamp: "2025-02-17T22:54:00.000Z",
-  },
-  {
-    id: "alert_099",
-    title: "Pago observado",
-    detail: "Intento rechazado en Las Condes Arena. Usuario reportó error 4003.",
-    severity: "critical",
-    timestamp: "2025-02-17T21:02:00.000Z",
-  },
-];
-
-const TOP_VENUE = {
-  name: "Club Deportivo Ñuñoa",
-  matches: 42,
-  occupancy: 0.92,
-  trend: 0.11,
-};
-
-const TOP_PLAYER = {
-  name: "Ignacio Rivas",
-  comuna: "Providencia",
-  matchesPlayed: 18,
-  streak: 9,
-};
-
-export default function AdminDashboardPage() {
+export default function AdminPage() {
   const router = useRouter();
-  const { user, loading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
+
   const [authOpen, setAuthOpen] = useState(false);
-  const [activity, setActivity] = useState<ActivityEntry[]>(() => BASE_ACTIVITY);
-  const [matchesRange, setMatchesRange] = useState<"today" | "week" | "month">("today");
-  const [revenueRange, setRevenueRange] = useState<"week" | "month" | "quarter">("month");
-  const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date());
-  const previousActiveRef = useRef(activity[activity.length - 1]?.total ?? 0);
-  const [activeDelta, setActiveDelta] = useState(0);
-
-  useEffect(() => {
-    if (!loading && !user) {
-      setAuthOpen(true);
-    }
-  }, [loading, user]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setActivity((prev) => {
-        const next = prev.map((entry, index) => {
-          if (index === prev.length - 1) {
-            const drift = Math.max(2, Math.round(entry.total * 0.06));
-            const nextTotal = Math.max(12, entry.total + Math.round((Math.random() - 0.45) * drift));
-            const players = Math.max(4, Math.round(nextTotal * 0.8));
-            const organizers = Math.max(2, nextTotal - players);
-            return { ...entry, total: nextTotal, players, organizers };
-          }
-          if (index === prev.length - 2) {
-            return { ...entry, total: Math.max(10, entry.total + Math.round((Math.random() - 0.5) * 4)) };
-          }
-          return entry;
-        });
-        setLastUpdated(new Date());
-        return next;
-      });
-    }, 8000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const activeUsers = useMemo(() => activity[activity.length - 1]?.total ?? 0, [activity]);
-
-  useEffect(() => {
-    const prev = previousActiveRef.current;
-    if (prev !== activeUsers) {
-      setActiveDelta(activeUsers - prev);
-      previousActiveRef.current = activeUsers;
-    }
-  }, [activeUsers]);
+  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [loadingData, setLoadingData] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<AdminOverviewResponse | null>(null);
+  const [userSearch, setUserSearch] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [updatingVenueId, setUpdatingVenueId] = useState<string | null>(null);
+  const [matchFilter, setMatchFilter] = useState<"active" | "finished" | "canceled">("active");
 
   const isAdminUser = useMemo(() => {
     if (!user) return false;
-    const emailMatch = user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-    return Boolean(emailMatch || user.isAdmin || (user.role ?? "") === "superadmin");
+    if (user.role === "superadmin" || user.isAdmin) return true;
+    return false;
   }, [user]);
 
-  const revenueMetrics = REVENUE_METRICS[revenueRange];
-  const matchMetrics = MATCH_METRICS[matchesRange];
-  const totalPaidToVenues = TOTAL_PAID_TO_VENUES;
-  const commissionsShare = revenueMetrics.total > 0 ? revenueMetrics.commissions / revenueMetrics.total : 0;
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setAuthOpen(true);
+    }
+  }, [authLoading, user]);
 
-  const handleManualRefresh = () => {
-    setActivity((prev) => {
-      const next = prev.map((entry, index) => {
-        if (index >= prev.length - 2) {
-          const jitter = Math.round((Math.random() - 0.4) * 10);
-          const total = Math.max(12, entry.total + jitter);
-          const players = Math.max(4, Math.round(total * 0.78));
-          const organizers = Math.max(2, total - players);
-          return { ...entry, total, players, organizers };
+  useEffect(() => {
+    if (!isAdminUser) return;
+    const loadData = async () => {
+      try {
+        setLoadingData(true);
+        setError(null);
+        const res = await fetch("/api/admin/overview", { cache: "no-store" });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload?.error || "No pudimos cargar el panel admin");
         }
-        return entry;
-      });
-      return next;
+        const payload = (await res.json()) as AdminOverviewResponse;
+        setData(payload);
+        setSelectedUserId(null);
+        setSelectedVenueId(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Error inesperado";
+        setError(message);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    loadData().catch(() => {});
+  }, [isAdminUser]);
+
+  const selectedUser = useMemo(() => {
+    if (!data || !selectedUserId) return null;
+    return data.users.list.find((item) => item.id === selectedUserId) ?? null;
+  }, [data, selectedUserId]);
+
+  const selectedVenue = useMemo(() => {
+    if (!data || !selectedVenueId) return null;
+    return data.venues.list.find((item) => item.id === selectedVenueId) ?? null;
+  }, [data, selectedVenueId]);
+
+  const filteredUsers = useMemo(() => {
+    if (!data) return [];
+    if (!userSearch.trim()) return data.users.list;
+    const term = userSearch.trim().toLowerCase();
+    return data.users.list.filter((item) => {
+      const name = item.profile.name?.toLowerCase() ?? "";
+      const email = item.email?.toLowerCase() ?? "";
+      const comuna = item.profile.comuna?.toLowerCase() ?? "";
+      return name.includes(term) || email.includes(term) || comuna.includes(term);
     });
-    setLastUpdated(new Date());
+  }, [data, userSearch]);
+
+  const matchSource = useMemo(() => {
+    if (!data) return [] as MatchSummary[];
+    if (matchFilter === "active") return data.matches.active;
+    if (matchFilter === "finished") return data.matches.finished;
+    return data.matches.canceled;
+  }, [data, matchFilter]);
+
+  const refreshData = async () => {
+    try {
+      setLoadingData(true);
+      setError(null);
+      const res = await fetch("/api/admin/overview", { cache: "no-store" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "No pudimos actualizar los datos");
+      }
+      const payload = (await res.json()) as AdminOverviewResponse;
+      setData(payload);
+      setSelectedUserId(null);
+      setSelectedVenueId(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error inesperado";
+      setError(message);
+    } finally {
+      setLoadingData(false);
+    }
   };
 
-  const handleExportPayments = () => {
-    const headers = ["fecha", "monto_clp", "cancha", "partido", "estado", "metodo"];
-    const rows = LATEST_PAYMENTS.map((payment) => [
-      new Date(payment.date).toISOString(),
-      payment.amount.toString(),
-      payment.venue,
-      payment.match,
-      payment.status,
-      payment.method,
-    ]);
-    const csvContent = [headers, ...rows]
-      .map((cells) =>
-        cells
-          .map((value) => {
-            const needsQuotes = value.includes(",") || value.includes("\"") || value.includes("\n");
-            const sanitized = value.replace(/"/g, '""');
-            return needsQuotes ? `"${sanitized}"` : sanitized;
-          })
-          .join(","),
-      )
-      .join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `pagos-pichapp-${new Date().toISOString().slice(0, 10)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+  const toggleUserStatus = async (userId: string, suspend: boolean) => {
+    try {
+      setUpdatingUserId(userId);
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ suspend }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "No se pudo actualizar el usuario");
+      }
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          users: {
+            ...prev.users,
+            list: prev.users.list.map((item) =>
+              item.id === userId
+                ? { ...item, disabledAt: suspend ? new Date().toISOString() : null }
+                : item,
+            ),
+          },
+        };
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo actualizar el usuario";
+      setError(message);
+    } finally {
+      setUpdatingUserId(null);
+    }
   };
 
-  if (loading) {
+  const toggleVenueVerification = async (venueId: string, verified: boolean) => {
+    try {
+      setUpdatingVenueId(venueId);
+      const res = await fetch(`/api/admin/venues/${venueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verified }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "No se pudo actualizar la cancha");
+      }
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          venues: {
+            ...prev.venues,
+            list: prev.venues.list.map((venue) =>
+              venue.id === venueId ? { ...venue, verified } : venue,
+            ),
+          },
+        };
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo actualizar la cancha";
+      setError(message);
+    } finally {
+      setUpdatingVenueId(null);
+    }
+  };
+
+  if (authLoading || (isAdminUser && loadingData && !data)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="flex items-center gap-3 text-white/80 text-sm">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Verificando credenciales del administrador…</span>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-4 shadow-sm">
+          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+          <span className="text-sm font-medium text-gray-700">Cargando panel…</span>
         </div>
       </div>
     );
@@ -320,14 +454,12 @@ export default function AdminDashboardPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900">
         <AuthDialog
           open={authOpen}
           onOpenChange={(open) => {
             setAuthOpen(open);
-            if (!open) {
-              router.replace("/");
-            }
+            if (!open) router.replace("/");
           }}
           initialTab="login"
           next="/admin"
@@ -336,35 +468,33 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const maxActivity = Math.max(...activity.map((item) => item.total));
-  const lastUpdatedLabel = new Intl.DateTimeFormat("es-CL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(lastUpdated);
-
   if (!isAdminUser) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-        <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-6 text-center">
-          <ShieldCheck className="h-12 w-12 mx-auto text-gray-800" />
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
+        <div className="w-full max-w-md space-y-6 rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <ShieldCheck className="mx-auto h-12 w-12 text-gray-900" />
           <div className="space-y-2">
             <h1 className="text-2xl font-semibold text-gray-900">Acceso restringido</h1>
             <p className="text-sm text-gray-600">
-              Esta sección está reservada para el equipo administrador de PichangApp. Inicia sesión con las credenciales asignadas
-              para continuar.
+              Esta sección es exclusiva para el equipo administrador de PichangApp. Inicia sesión con
+              las credenciales asignadas para continuar.
             </p>
-            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-left text-xs text-gray-600">
-              <p className="font-medium text-gray-700">Credenciales del administrador</p>
-              <p className="mt-1"><span className="font-semibold">Correo:</span> {ADMIN_EMAIL}</p>
-              <p><span className="font-semibold">Contraseña:</span> {ADMIN_PASSWORD}</p>
-            </div>
+            {ADMIN_EMAIL ? (
+              <p className="text-xs text-gray-500">
+                ¿Necesitas acceso? Contacta a{" "}
+                <a className="font-medium underline" href={`mailto:${ADMIN_EMAIL}`}>
+                  {ADMIN_EMAIL}
+                </a>{" "}
+                para solicitar tus credenciales.
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-col gap-3">
             <Link
               href="/dashboard"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
-              <ArrowRight className="h-4 w-4" /> Ir a mi dashboard
+              <ArrowRight className="h-4 w-4" /> Ir a mi panel
             </Link>
             <button
               onClick={() => {
@@ -381,458 +511,1174 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
+    <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-emerald-600">
-              <ShieldCheck className="h-4 w-4" /> Acceso administrador seguro
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-700">
+              <ShieldCheck className="h-3.5 w-3.5" /> Panel admin
             </div>
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-              <h1 className="text-3xl font-semibold text-gray-900">Centro de control</h1>
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                Sesión: {user.email}
-              </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <h1 className="text-2xl font-semibold text-gray-900">Control central de PichangApp</h1>
+              {data?.generatedAt ? (
+                <span className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600">
+                  Actualizado {formatRelative(data.generatedAt)}
+                </span>
+              ) : null}
             </div>
-            <p className="text-sm text-gray-600">
-              Monitorea actividad en tiempo real, pagos y alertas críticas de la operación.
-            </p>
           </div>
-          <div className="flex flex-col gap-3 text-sm md:flex-row">
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleExportPayments}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2 font-medium text-gray-700 hover:bg-gray-100"
+              onClick={() => refreshData()}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
-              <Download className="h-4 w-4" /> Exportar pagos
+              <RefreshCcw className="h-4 w-4" /> Actualizar
             </button>
-            <Link
-              href="/panel/cancha"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-black px-4 py-2 font-medium text-white hover:bg-gray-900"
+            <button
+              onClick={() => {
+                void signOut();
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-900"
             >
-              Ver panel de canchas
-              <ExternalLink className="h-4 w-4" />
-            </Link>
+              <Check className="h-4 w-4" /> Salir
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto mt-8 flex max-w-7xl flex-col gap-8 px-6">
-        <section className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Usuarios activos</h2>
-                <p className="text-sm text-gray-600">Personas conectadas navegando o reservando en este momento.</p>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-gray-500">
-                <button
-                  onClick={handleManualRefresh}
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
-                >
-                  <RefreshCcw className="h-3.5 w-3.5" /> Actualizar ahora
-                </button>
-                <span>Actualizado {lastUpdatedLabel}</span>
-              </div>
-            </div>
-            <div className="mt-6 grid gap-6 md:grid-cols-4">
-              <div className="md:col-span-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-semibold text-gray-900">{activeUsers}</span>
-                  <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", activeDelta >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600")}> 
-                    {activeDelta >= 0 ? (
-                      <ArrowUpRight className="h-3 w-3" />
-                    ) : (
-                      <ArrowDownRight className="h-3 w-3" />
-                    )}
-                    {Math.abs(activeDelta)}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">vs hace 10 min</p>
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between text-sm text-gray-700">
-                    <span className="inline-flex items-center gap-2 text-gray-600">
-                      <Users className="h-4 w-4 text-emerald-500" /> Jugadores
-                    </span>
-                    <span>{activity[activity.length - 1]?.players ?? 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-gray-700">
-                    <span className="inline-flex items-center gap-2 text-gray-600">
-                      <Trophy className="h-4 w-4 text-indigo-500" /> Organizadores
-                    </span>
-                    <span>{activity[activity.length - 1]?.organizers ?? 0}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="md:col-span-3">
-                <div className="flex h-48 items-end gap-2">
-                  {activity.map((entry) => (
-                    <div key={entry.hour} className="flex h-full flex-1 flex-col justify-end">
-                      <div
-                        className="flex w-full flex-col justify-end gap-1 rounded-t-lg bg-gradient-to-t from-emerald-500 via-emerald-400 to-emerald-300"
-                        style={{ height: `${Math.max(10, Math.round((entry.total / maxActivity) * 100))}%` }}
-                      >
-                        <span className="px-1 text-[10px] font-medium text-white/90 text-center">{entry.total}</span>
-                      </div>
-                      <div className="mt-2 text-center text-[10px] text-gray-500">{entry.hour}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Partidos publicados</h2>
-                <p className="text-sm text-gray-600">Actividad confirmada por período.</p>
-              </div>
-              <CalendarRange className="h-5 w-5 text-gray-400" />
-            </div>
-            <div className="mt-4 flex gap-2">
-              {(
-                [
-                  { key: "today", label: "Hoy" },
-                  { key: "week", label: "Semana" },
-                  { key: "month", label: "Mes" },
-                ] as const
-              ).map((option) => (
-                <button
-                  key={option.key}
-                  onClick={() => setMatchesRange(option.key)}
-                  className={cn(
-                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition", 
-                    matchesRange === option.key
-                      ? "border-black bg-black text-white"
-                      : "border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-900",
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <div className="mt-6 space-y-4">
-              <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-semibold text-gray-900">{matchMetrics.published}</span>
-                <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", matchMetrics.trend >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600")}> 
-                  {matchMetrics.trend >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                  {formatPercentage(Math.abs(matchMetrics.trend))}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <p className="text-gray-500">Confirmados</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">{matchMetrics.confirmed}</p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <p className="text-gray-500">Cancelados</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">{matchMetrics.cancelled}</p>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <p className="text-gray-500">Ocupación</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">{formatPercentage(matchMetrics.fillRate)}</p>
-                </div>
-              </div>
-              <Link
-                href="/matches"
-                className="inline-flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700"
+      <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+        <nav className="flex flex-wrap gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wide transition",
+                  isActive ? "bg-black text-white" : "text-gray-600 hover:bg-gray-100",
+                )}
               >
-                Ver partidos
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        </section>
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
 
-        <section className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Ingresos totales</h2>
-                <p className="text-sm text-gray-600">Incluye comisiones retenidas por PichangApp.</p>
-              </div>
-              <div className="flex gap-2">
-                {(
-                  [
-                    { key: "week", label: "7 días" },
-                    { key: "month", label: "30 días" },
-                    { key: "quarter", label: "90 días" },
-                  ] as const
-                ).map((option) => (
-                  <button
-                    key={option.key}
-                    onClick={() => setRevenueRange(option.key)}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium",
-                      revenueRange === option.key
-                        ? "bg-black text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+        {error ? (
+          <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertCircle className="h-4 w-4" /> {error}
             </div>
-            <div className="mt-6 grid gap-6 md:grid-cols-3">
-              <div className="md:col-span-2">
-                <div className="flex items-baseline gap-3">
-                  <span className="text-4xl font-semibold text-gray-900">{formatCurrencyCLP(revenueMetrics.total)}</span>
-                  <span className="text-sm text-gray-500">periodo seleccionado</span>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                  <div className="rounded-lg bg-gray-50 p-4">
-                    <p className="text-gray-500">Ticket promedio</p>
-                    <p className="mt-2 text-lg font-semibold text-gray-900">{formatCurrencyCLP(revenueMetrics.avgTicket)}</p>
-                  </div>
-                  <div className="rounded-lg bg-gray-50 p-4">
-                    <p className="text-gray-500">Participación comisión</p>
-                    <p className="mt-2 text-lg font-semibold text-gray-900">{formatPercentage(commissionsShare)}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-col justify-between rounded-xl border border-gray-100 bg-emerald-50 p-4 text-sm text-emerald-800">
-                <div className="flex items-start gap-3">
-                  <TrendingUp className="h-5 w-5" />
-                  <div>
-                    <p className="font-semibold">Comisiones generadas</p>
-                    <p className="text-emerald-600">{formatCurrencyCLP(revenueMetrics.commissions)}</p>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs text-emerald-700/80">
-                  Las comisiones se transfieren semanalmente. Revisa Finanzas &gt; Desglose para programar retiros.
-                </p>
-              </div>
-            </div>
+            <p className="mt-2 text-xs text-rose-600">
+              Si el problema persiste, revisa la consola del servidor o vuelve a autenticarte.
+            </p>
           </div>
+        ) : null}
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Top desempeño</h2>
-              <LineChart className="h-5 w-5 text-gray-400" />
-            </div>
-            <div className="mt-5 space-y-5 text-sm">
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Cancha</p>
-                <p className="mt-1 text-base font-semibold text-gray-900">{TOP_VENUE.name}</p>
-                <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
-                  <span>{TOP_VENUE.matches} partidos</span>
-                  <span>{formatPercentage(TOP_VENUE.occupancy)} ocupación</span>
-                </div>
-                <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                  <ArrowUpRight className="h-3 w-3" /> {formatPercentage(TOP_VENUE.trend)} último mes
-                </div>
-              </div>
-              <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Jugador</p>
-                <p className="mt-1 text-base font-semibold text-gray-900">{TOP_PLAYER.name}</p>
-                <p className="text-xs text-gray-500">{TOP_PLAYER.comuna}</p>
-                <div className="mt-3 flex items-center justify-between text-xs text-gray-600">
-                  <span>{TOP_PLAYER.matchesPlayed} partidos jugados</span>
-                  <span>{TOP_PLAYER.streak} al hilo</span>
-                </div>
-              </div>
-            </div>
-            <Link
-              href="/usuarios"
-              className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700"
-            >
-              Gestionar usuarios
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Pagos a canchas</h2>
-                <p className="text-sm text-gray-600">Transferencias programadas esta semana.</p>
-              </div>
-              <span className="text-sm font-medium text-gray-900">{formatCurrencyCLP(totalPaidToVenues)}</span>
-            </div>
-            <div className="mt-5 space-y-4">
-              {VENUE_PAYOUTS.map((payout) => {
-                const pct = payout.amount / totalPaidToVenues;
-                return (
-                  <div key={payout.venue} className="rounded-xl border border-gray-100 p-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <div>
-                        <p className="font-semibold text-gray-900">{payout.venue}</p>
-                        <p className="text-xs text-gray-500">{payout.comuna} · {payout.matches} partidos</p>
-                      </div>
-                      <p className="font-semibold text-gray-900">{formatCurrencyCLP(payout.amount)}</p>
-                    </div>
-                    <div className="mt-3 h-2 w-full rounded-full bg-gray-100">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400"
-                        style={{ width: `${Math.round(pct * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+        {!data ? (
+          <div className="mt-10 flex justify-center">
+            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-6 py-4 shadow-sm">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Procesando información en vivo…</span>
             </div>
           </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Alertas del sistema</h2>
-              <Activity className="h-5 w-5 text-gray-400" />
-            </div>
-            <div className="mt-5 space-y-4">
-              {SYSTEM_ALERTS.map((alert) => (
-                <div key={alert.id} className="rounded-xl border border-gray-100 p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertIcon severity={alert.severity} />
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-gray-900">{alert.title}</p>
-                        <AlertBadge severity={alert.severity} />
-                      </div>
-                      <p className="text-xs text-gray-600">{alert.detail}</p>
-                      <p className="text-[11px] text-gray-400">
-                        {new Intl.DateTimeFormat("es-CL", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(alert.timestamp))}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Link
-              href="/panel"
-              className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700"
-            >
-              Revisar historial
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+        ) : (
+          <div className="mt-6 space-y-8">
+            {activeTab === "overview" ? <OverviewTab data={data} /> : null}
+            {activeTab === "users" ? (
+              <UsersTab
+                data={data}
+                filteredUsers={filteredUsers}
+                userSearch={userSearch}
+                setUserSearch={setUserSearch}
+                selectedUser={selectedUser}
+                setSelectedUserId={setSelectedUserId}
+                toggleUserStatus={toggleUserStatus}
+                updatingUserId={updatingUserId}
+              />
+            ) : null}
+            {activeTab === "venues" ? (
+              <VenuesTab
+                data={data}
+                selectedVenue={selectedVenue}
+                setSelectedVenueId={setSelectedVenueId}
+                toggleVenueVerification={toggleVenueVerification}
+                updatingVenueId={updatingVenueId}
+              />
+            ) : null}
+            {activeTab === "finances" ? <FinancesTab data={data} /> : null}
+            {activeTab === "matches" ? (
+              <MatchesTab data={matchSource} filter={matchFilter} setFilter={setMatchFilter} />
+            ) : null}
+            {activeTab === "subscriptions" ? <SubscriptionsTab data={data} /> : null}
+            {activeTab === "reports" ? <ReportsTab data={data} /> : null}
+            {activeTab === "config" ? <ConfigTab /> : null}
+            {activeTab === "alerts" ? <AlertsTab data={data} /> : null}
+            {activeTab === "admins" ? <AdminsTab data={data} /> : null}
+            {activeTab === "support" ? <SupportTab data={data} /> : null}
           </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Últimos pagos procesados</h2>
-              <span className="text-sm text-gray-500">Mercado Pago + Transferencias</span>
-            </div>
-            <div className="mt-4 overflow-hidden rounded-xl border border-gray-100">
-              <table className="min-w-full divide-y divide-gray-100 text-sm">
-                <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium">Partido</th>
-                    <th className="px-4 py-3 text-left font-medium">Cancha</th>
-                    <th className="px-4 py-3 text-left font-medium">Monto</th>
-                    <th className="px-4 py-3 text-left font-medium">Fecha</th>
-                    <th className="px-4 py-3 text-left font-medium">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {LATEST_PAYMENTS.map((payment) => (
-                    <tr key={payment.id} className="bg-white">
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">{payment.match}</div>
-                        <div className="text-xs text-gray-500">{payment.method}</div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">{payment.venue}</td>
-                      <td className="px-4 py-3 font-semibold text-gray-900">{formatCurrencyCLP(payment.amount)}</td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {new Intl.DateTimeFormat("es-CL", {
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(payment.date))}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={payment.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-2">
-              <MailWarning className="h-5 w-5 text-gray-500" />
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Pendientes críticos</h2>
-                <p className="text-sm text-gray-600">Seguimiento manual requerido.</p>
-              </div>
-            </div>
-            <div className="mt-5 space-y-4 text-sm">
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="font-semibold text-amber-900">Reintentar pago Webpay</p>
-                <p className="mt-1 text-xs text-amber-800">Las Condes Arena · Ticket #pay_5887</p>
-                <Link
-                  href="/pagos"
-                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-900 hover:underline"
-                >
-                  Ver detalle <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-                <p className="font-semibold text-rose-900">Devolución manual solicitada</p>
-                <p className="mt-1 text-xs text-rose-800">Match #7819 · Jugador reportó ausencia de rival</p>
-                <Link
-                  href="/pagos"
-                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-rose-900 hover:underline"
-                >
-                  Revisar caso <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
-                <p className="font-semibold text-sky-900">Ticket de soporte sin respuesta</p>
-                <p className="mt-1 text-xs text-sky-800">Jugadora Laura Díaz · SLA vence en 35 min</p>
-                <Link
-                  href="/mensajes"
-                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-sky-900 hover:underline"
-                >
-                  Abrir bandeja <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-            </div>
-            <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
-              <CheckCircle className="h-3.5 w-3.5" /> 97% de tickets resueltos dentro de SLA
-            </div>
-          </div>
-        </section>
-      </main>
+        )}
+      </div>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: PaymentItem["status"] }) {
-  const config: Record<PaymentItem["status"], { label: string; className: string }> = {
-    approved: { label: "Aprobado", className: "bg-emerald-50 text-emerald-700" },
-    pending: { label: "Pendiente", className: "bg-amber-50 text-amber-700" },
-    failed: { label: "Fallido", className: "bg-rose-50 text-rose-700" },
-  };
-  const { label, className } = config[status];
-  return <span className={cn("inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold", className)}>{label}</span>;
+type OverviewTabProps = { data: AdminOverviewResponse };
+
+function OverviewTab({ data }: OverviewTabProps) {
+  const { summary, users, venues } = data;
+
+  return (
+    <section className="space-y-8">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <OverviewCard
+          title="Jugadores activos"
+          value={summary.totals.activePlayers30d}
+          helper={`Total registrados: ${summary.totals.players}`}
+          icon={Users}
+        />
+        <OverviewCard
+          title="Organizadores activos"
+          value={summary.totals.activeOrganizers30d}
+          helper={`Total organizadores: ${summary.totals.organizers}`}
+          icon={UserCheck}
+        />
+        <OverviewCard
+          title="Canchas verificadas"
+          value={summary.totals.verifiedVenues}
+          helper={`Total en plataforma: ${summary.totals.venues}`}
+          icon={Building2}
+        />
+        <OverviewCard
+          title="Partidos próximos"
+          value={summary.totals.upcomingMatches}
+          helper={`Terminados en 30 días: ${summary.totals.finishedMatches30d}`}
+          icon={Ticket}
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
+        <div className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Ingresos netos</p>
+              <h2 className="text-xl font-semibold text-gray-900">Rendimiento financiero</h2>
+            </div>
+            <PieChart className="h-5 w-5 text-gray-400" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <MetricStack
+              label="Total histórico"
+              value={formatCurrencyCLP(summary.revenue.totalApproved)}
+              tone="text-gray-900"
+            />
+            <MetricStack
+              label="Últimos 30 días"
+              value={formatCurrencyCLP(summary.revenue.approved30d)}
+              tone="text-emerald-600"
+            />
+            <MetricStack
+              label="Comisión retenida"
+              value={formatCurrencyCLP(summary.revenue.retainedCommission30d)}
+              tone="text-slate-600"
+            />
+          </div>
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-xs uppercase tracking-wider text-gray-500">Pagos pendientes</p>
+            <p className="text-lg font-semibold text-gray-900">{formatCurrencyCLP(summary.revenue.pending)}</p>
+            <p className="text-xs text-gray-500">
+              Suma de reservas aprobadas por Mercado Pago que aún no se liquida a la cancha.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-900">Últimos ingresos al sistema</h3>
+            <Activity className="h-5 w-5 text-gray-400" />
+          </div>
+          <ul className="space-y-3 text-sm">
+            {users.recentLogins.length === 0 ? (
+              <li className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500">
+                Aún no registramos sesiones en los últimos 30 días.
+              </li>
+            ) : (
+              users.recentLogins.map((login) => (
+                <li
+                  key={`${login.userId}-${login.createdAt}`}
+                  className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {login.name ?? login.email ?? "Usuario"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {login.comuna ? `Desde ${login.comuna}` : "Sesión iniciada"}
+                    </p>
+                  </div>
+                  <span className="text-xs font-medium text-gray-500">{formatRelative(login.createdAt)}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Uso de la plataforma</h3>
+              <p className="text-xs text-gray-500">
+                Resumen de crecimiento y salud de la comunidad en los últimos 30 días.
+              </p>
+            </div>
+            <ChartSpline className="h-5 w-5 text-gray-400" />
+          </div>
+          <dl className="mt-6 grid gap-3 text-sm">
+            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <dt className="text-gray-600">Retención de jugadores activos</dt>
+              <dd className="font-semibold text-gray-900">
+                {summary.totals.players === 0
+                  ? "-"
+                  : `${Math.round((summary.totals.activePlayers30d / summary.totals.players) * 100)}%`}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <dt className="text-gray-600">Canchas verificadas</dt>
+              <dd className="font-semibold text-gray-900">
+                {summary.totals.venues === 0
+                  ? "-"
+                  : `${Math.round((summary.totals.verifiedVenues / summary.totals.venues) * 100)}%`}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <dt className="text-gray-600">Partidos confirmados vs publicados</dt>
+              <dd className="font-semibold text-gray-900">
+                {summary.totals.upcomingMatches + summary.totals.finishedMatches30d === 0
+                  ? "-"
+                  : `${summary.totals.finishedMatches30d}/${summary.totals.upcomingMatches + summary.totals.finishedMatches30d}`}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-900">Canchas con más actividad</h3>
+            <Table className="h-5 w-5 text-gray-400" />
+          </div>
+          <ul className="mt-4 space-y-3 text-sm">
+            {venues.list.slice(0, 4).map((venue) => (
+              <li
+                key={venue.id}
+                className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+              >
+                <div>
+                  <p className="font-semibold text-gray-900">{venue.name}</p>
+                  <p className="text-xs text-gray-500">{venue.comuna}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">Partidos activos</p>
+                  <p className="text-sm font-semibold text-gray-900">{venue.matchStats.active}</p>
+                </div>
+              </li>
+            ))}
+            {venues.list.length === 0 ? (
+              <li className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500">
+                No hay canchas registradas todavía.
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function AlertBadge({ severity }: { severity: SystemAlert["severity"] }) {
-  const config: Record<SystemAlert["severity"], { label: string; className: string }> = {
-    critical: { label: "Crítico", className: "bg-rose-100 text-rose-700" },
-    warning: { label: "Atención", className: "bg-amber-100 text-amber-800" },
-    info: { label: "Info", className: "bg-sky-100 text-sky-700" },
-  };
-  const { label, className } = config[severity];
-  return <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", className)}>{label}</span>;
+type OverviewCardProps = {
+  title: string;
+  value: number;
+  helper: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+function OverviewCard({ title, value, helper, icon: Icon }: OverviewCardProps) {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between text-xs text-gray-500">
+        <span className="font-semibold uppercase tracking-wider">{title}</span>
+        <Icon className="h-5 w-5 text-gray-400" />
+      </div>
+      <p className="mt-3 text-3xl font-semibold text-gray-900">{value.toLocaleString("es-CL")}</p>
+      <p className="text-xs text-gray-500">{helper}</p>
+    </div>
+  );
 }
 
-function AlertIcon({ severity }: { severity: SystemAlert["severity"] }) {
-  if (severity === "critical") {
-    return <AlertTriangle className="h-5 w-5 text-rose-600" />;
+type MetricStackProps = { label: string; value: string; tone: string };
+
+function MetricStack({ label, value, tone }: MetricStackProps) {
+  return (
+    <div className="space-y-1 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+      <p className="text-xs uppercase tracking-wider text-gray-500">{label}</p>
+      <p className={cn("text-lg font-semibold", tone)}>{value}</p>
+    </div>
+  );
+}
+
+type UsersTabProps = {
+  data: AdminOverviewResponse;
+  filteredUsers: AdminOverviewResponse["users"]["list"];
+  userSearch: string;
+  setUserSearch: (value: string) => void;
+  selectedUser: AdminOverviewResponse["users"]["list"][number] | null;
+  setSelectedUserId: (value: string | null) => void;
+  toggleUserStatus: (id: string, suspend: boolean) => void;
+  updatingUserId: string | null;
+};
+
+function UsersTab({
+  data,
+  filteredUsers,
+  userSearch,
+  setUserSearch,
+  selectedUser,
+  setSelectedUserId,
+  toggleUserStatus,
+  updatingUserId,
+}: UsersTabProps) {
+  return (
+    <section className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
+      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Gestión de usuarios</h2>
+            <p className="text-sm text-gray-600">
+              Busca, filtra y controla cuentas de jugadores y organizadores con datos reales.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-500">
+            <Search className="h-4 w-4" />
+            <input
+              value={userSearch}
+              onChange={(event) => setUserSearch(event.target.value)}
+              placeholder="Buscar por nombre, correo o comuna"
+              className="w-48 border-none bg-transparent text-sm text-gray-700 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 overflow-hidden rounded-2xl border border-gray-100">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Usuario</th>
+                <th className="px-4 py-3 text-left font-medium">Rol</th>
+                <th className="px-4 py-3 text-left font-medium">Partidos</th>
+                <th className="px-4 py-3 text-left font-medium">Pagos</th>
+                <th className="px-4 py-3 text-left font-medium">Último acceso</th>
+                <th className="px-4 py-3 text-right font-medium">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredUsers.map((user) => {
+                const isSuspended = Boolean(user.disabledAt);
+                const isSelected = selectedUser?.id === user.id;
+                return (
+                  <tr key={user.id} className={cn("bg-white", isSelected ? "bg-emerald-50/70" : "")}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{user.profile.name ?? user.email ?? "Usuario"}</div>
+                      <div className="text-xs text-gray-500">
+                        {user.email ?? "Sin correo"} · {user.profile.comuna ?? "Sin comuna"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
+                        {roleLabel(user.role)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <div className="text-sm font-semibold text-gray-900">{user.matchesPlayed.toLocaleString("es-CL")}</div>
+                      <div className="text-xs text-gray-500">Organizados: {user.matchesOrganized}</div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <div className="text-sm font-semibold text-gray-900">{user.paymentsCount} pagos</div>
+                      <div className="text-xs text-gray-500">{formatCurrencyCLP(user.paymentsTotal)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{formatRelative(user.lastLoginAt)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setSelectedUserId(isSelected ? null : user.id)}
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                        >
+                          Ver detalles
+                        </button>
+                        <button
+                          onClick={() => toggleUserStatus(user.id, !isSuspended)}
+                          disabled={updatingUserId === user.id}
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                            isSuspended
+                              ? "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                              : "border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+                            updatingUserId === user.id ? "opacity-60" : "",
+                          )}
+                        >
+                          {updatingUserId === user.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : isSuspended ? (
+                            <PlayCircle className="h-3.5 w-3.5" />
+                          ) : (
+                            <PauseCircle className="h-3.5 w-3.5" />
+                          )}
+                          {isSuspended ? "Reactivar" : "Suspender"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                    No encontramos usuarios con ese criterio.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-900">Detalles del usuario</h3>
+          <Users className="h-5 w-5 text-gray-400" />
+        </div>
+        {selectedUser ? (
+          <div className="space-y-4 text-sm text-gray-600">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <p className="text-xs uppercase tracking-wider text-gray-500">Identidad</p>
+              <p className="mt-1 text-base font-semibold text-gray-900">
+                {selectedUser.profile.name ?? selectedUser.email ?? "Usuario"}
+              </p>
+              <p className="text-xs text-gray-500">
+                {selectedUser.email ?? "Sin correo"} · {selectedUser.profile.phone ?? "Sin teléfono"}
+              </p>
+              <p className="text-xs text-gray-500">
+                Rol: {roleLabel(selectedUser.role)} · Rating promedio: {selectedUser.profile.rating?.toFixed(1) ?? "N/A"}
+              </p>
+            </div>
+            <dl className="space-y-3 text-sm">
+              <DetailRow label="Partidos jugados" value={selectedUser.matchesPlayed.toLocaleString("es-CL")} />
+              <DetailRow label="Partidos organizados" value={selectedUser.matchesOrganized.toLocaleString("es-CL")} />
+              <DetailRow label="Pagos registrados" value={`${selectedUser.paymentsCount} · ${formatCurrencyCLP(selectedUser.paymentsTotal)}`} />
+              <DetailRow label="Último acceso" value={formatDate(selectedUser.lastLoginAt)} />
+              <DetailRow label="Estado" value={selectedUser.disabledAt ? "Suspendido" : "Activo"} />
+              <DetailRow label="Creado" value={formatDate(selectedUser.createdAt)} />
+            </dl>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+            Selecciona un usuario para revisar su historial real de partidos, pagos y accesos.
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-xs text-gray-500">
+          <p>
+            Total jugadores: {data.users.totals.players.toLocaleString("es-CL")} · Organizadores: {data.users.totals.organizers.toLocaleString("es-CL")} · Suspendidos: {data.users.totals.suspended.toLocaleString("es-CL")}.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type DetailRowProps = { label: string; value: string };
+
+function DetailRow({ label, value }: DetailRowProps) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white px-3 py-2">
+      <span className="text-xs uppercase tracking-wider text-gray-500">{label}</span>
+      <span className="text-sm font-semibold text-gray-900">{value}</span>
+    </div>
+  );
+}
+
+type VenuesTabProps = {
+  data: AdminOverviewResponse;
+  selectedVenue: AdminOverviewResponse["venues"]["list"][number] | null;
+  setSelectedVenueId: (value: string | null) => void;
+  toggleVenueVerification: (venueId: string, verified: boolean) => void;
+  updatingVenueId: string | null;
+};
+
+function VenuesTab({ data, selectedVenue, setSelectedVenueId, toggleVenueVerification, updatingVenueId }: VenuesTabProps) {
+  return (
+    <section className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
+      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Canchas registradas</h2>
+            <p className="text-sm text-gray-600">Controla la oferta disponible, planes y estado de verificación.</p>
+          </div>
+          <Building2 className="h-5 w-5 text-gray-400" />
+        </div>
+
+        <div className="mt-6 overflow-hidden rounded-2xl border border-gray-100">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Cancha</th>
+                <th className="px-4 py-3 text-left font-medium">Plan</th>
+                <th className="px-4 py-3 text-left font-medium">Ingresos</th>
+                <th className="px-4 py-3 text-left font-medium">Partidos</th>
+                <th className="px-4 py-3 text-right font-medium">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {data.venues.list.map((venue) => {
+                const isSelected = selectedVenue?.id === venue.id;
+                const isVerified = venue.verified;
+                return (
+                  <tr key={venue.id} className={cn("bg-white", isSelected ? "bg-emerald-50/70" : "")}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{venue.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {venue.comuna} · {venue.owner?.name ?? venue.owner?.email ?? "Sin propietario"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <div className="text-sm font-semibold text-gray-900">{venue.plan.toUpperCase()}</div>
+                      <div className="text-xs text-gray-500">
+                        {isVerified ? "Verificada" : "Pendiente"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <div className="text-sm font-semibold text-gray-900">{formatCurrencyCLP(venue.revenueApproved)}</div>
+                      <div className="text-xs text-gray-500">Últimos 30 días: {formatCurrencyCLP(venue.revenueApproved30d)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <div className="text-sm font-semibold text-gray-900">{venue.matchStats.active} activos</div>
+                      <div className="text-xs text-gray-500">Próximos: {venue.matchStats.upcoming}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setSelectedVenueId(isSelected ? null : venue.id)}
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                        >
+                          Ver detalles
+                        </button>
+                        <button
+                          onClick={() => toggleVenueVerification(venue.id, !isVerified)}
+                          disabled={updatingVenueId === venue.id}
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                            isVerified
+                              ? "border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                              : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+                            updatingVenueId === venue.id ? "opacity-60" : "",
+                          )}
+                        >
+                          {updatingVenueId === venue.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : isVerified ? (
+                            <PauseCircle className="h-3.5 w-3.5" />
+                          ) : (
+                            <PlayCircle className="h-3.5 w-3.5" />
+                          )}
+                          {isVerified ? "Suspender" : "Activar"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {data.venues.list.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                    No hay canchas registradas todavía.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-900">Información de la cancha</h3>
+          <MapPin className="h-5 w-5 text-gray-400" />
+        </div>
+        {selectedVenue ? (
+          <div className="space-y-4 text-sm text-gray-600">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <p className="text-xs uppercase tracking-wider text-gray-500">Datos principales</p>
+              <p className="mt-1 text-base font-semibold text-gray-900">{selectedVenue.name}</p>
+              <p className="text-xs text-gray-500">{selectedVenue.comuna}</p>
+              <p className="text-xs text-gray-500">
+                Plan actual: {selectedVenue.plan.toUpperCase()} · Estado: {selectedVenue.verified ? "Verificada" : "Inactiva"}
+              </p>
+              <p className="text-xs text-gray-500">
+                Dueño: {selectedVenue.owner?.name ?? selectedVenue.owner?.email ?? "Sin registrar"}
+              </p>
+            </div>
+            <dl className="space-y-3 text-sm">
+              <DetailRow label="Ingresos totales" value={formatCurrencyCLP(selectedVenue.revenueApproved)} />
+              <DetailRow label="Pendiente de liquidar" value={formatCurrencyCLP(selectedVenue.pendingPayments)} />
+              <DetailRow label="Partidos activos" value={`${selectedVenue.matchStats.active}`} />
+              <DetailRow label="Creada" value={formatDate(selectedVenue.createdAt)} />
+            </dl>
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-wider text-gray-500">Suscripciones recientes</p>
+              {selectedVenue.subscriptions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                  Sin movimientos registrados.
+                </div>
+              ) : (
+                selectedVenue.subscriptions.map((subscription) => (
+                  <div key={subscription.id} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                    <p className="text-xs font-semibold text-gray-900">
+                      {subscription.plan.toUpperCase()} · {subscription.status}
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      Creado {formatDate(subscription.createdAt)} · Próximo cobro {formatDate(subscription.nextChargeAt)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+            Selecciona una cancha para revisar ingresos, agenda y suscripciones reales.
+          </div>
+        )}
+        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-xs text-gray-500">
+          <p>
+            Canchas activas: {data.venues.totals.active.toLocaleString("es-CL")} · Inactivas: {data.venues.totals.inactive.toLocaleString("es-CL")}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type FinancesTabProps = { data: AdminOverviewResponse };
+
+function FinancesTab({ data }: FinancesTabProps) {
+  const { summary, payments } = data;
+
+  return (
+    <section className="space-y-6">
+      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Finanzas y comisiones</h2>
+            <p className="text-sm text-gray-600">
+              Monitorea pagos procesados, pendientes y retención de comisiones por plan.
+            </p>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-700 hover:bg-gray-100">
+            <Download className="h-4 w-4" /> Exportar CSV
+          </button>
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricStack label="Ingresos totales" value={formatCurrencyCLP(summary.revenue.totalApproved)} tone="text-gray-900" />
+          <MetricStack label="Últimos 30 días" value={formatCurrencyCLP(summary.revenue.approved30d)} tone="text-emerald-600" />
+          <MetricStack label="Pendiente" value={formatCurrencyCLP(summary.revenue.pending)} tone="text-amber-600" />
+          <MetricStack label="Comisión retenida" value={formatCurrencyCLP(summary.revenue.retainedCommission30d)} tone="text-slate-600" />
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-900">Pagos recientes</h3>
+          <PieChart className="h-5 w-5 text-gray-400" />
+        </div>
+        <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Pago</th>
+                <th className="px-4 py-3 text-left font-medium">Jugador</th>
+                <th className="px-4 py-3 text-left font-medium">Partido</th>
+                <th className="px-4 py-3 text-left font-medium">Estado</th>
+                <th className="px-4 py-3 text-right font-medium">Monto</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {payments.recent.map((payment) => (
+                <tr key={payment.id} className="bg-white">
+                  <td className="px-4 py-3 text-xs text-gray-500">{formatDate(payment.createdAt)}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-900">{payment.user.name ?? payment.user.email ?? "Jugador"}</div>
+                    <div className="text-xs text-gray-500">{payment.provider}</div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    <div className="text-sm font-semibold text-gray-900">{payment.match.title ?? "Partido"}</div>
+                    <div className="text-xs text-gray-500">{payment.match.venueName ?? "Sin cancha"}</div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-1 text-xs font-semibold",
+                        payment.status === "APPROVED"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : payment.status === "PENDING"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-rose-100 text-rose-700",
+                      )}
+                    >
+                      {payment.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrencyCLP(payment.amountCLP)}</td>
+                </tr>
+              ))}
+              {payments.recent.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                    No hay pagos registrados aún.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type MatchesTabProps = {
+  data: MatchSummary[];
+  filter: "active" | "finished" | "canceled";
+  setFilter: (value: "active" | "finished" | "canceled") => void;
+};
+
+function MatchesTab({ data, filter, setFilter }: MatchesTabProps) {
+  const tabs: Array<{ id: "active" | "finished" | "canceled"; label: string }> = [
+    { id: "active", label: "Activos" },
+    { id: "finished", label: "Completados" },
+    { id: "canceled", label: "Cancelados" },
+  ];
+
+  return (
+    <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Partidos</h2>
+          <p className="text-sm text-gray-600">
+            Consulta, filtra y gestiona partidos activos, completados y cancelados.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilter(tab.id)}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wide",
+                filter === tab.id ? "bg-black text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-100",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-gray-100">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">Partido</th>
+              <th className="px-4 py-3 text-left font-medium">Cancha</th>
+              <th className="px-4 py-3 text-left font-medium">Organizador</th>
+              <th className="px-4 py-3 text-left font-medium">Inicio</th>
+              <th className="px-4 py-3 text-left font-medium">Cupos</th>
+              <th className="px-4 py-3 text-left font-medium">Estado</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {data.map((match) => (
+              <tr key={match.id} className="bg-white">
+                <td className="px-4 py-3">
+                  <div className="font-semibold text-gray-900">{match.title}</div>
+                  <div className="text-xs text-gray-500">${formatCurrencyCLP(match.pricePerSpot)} por cupo</div>
+                </td>
+                <td className="px-4 py-3 text-gray-600">{match.venueName ?? "Sin cancha"}</td>
+                <td className="px-4 py-3 text-gray-600">{match.organizerName ?? "Organizador"}</td>
+                <td className="px-4 py-3 text-gray-600">{formatDate(match.startsAt)}</td>
+                <td className="px-4 py-3 text-gray-600">
+                  {match.paidSpots}/{match.totalSpots} pagados · {match.reservedSpots} reservados
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  <span className={cn("rounded-full px-2 py-1 text-xs font-semibold", statusTone(match.status))}>
+                    {matchStatusLabel(match.status)}
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                  No hay partidos en este estado actualmente.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+type SubscriptionsTabProps = { data: AdminOverviewResponse };
+
+function SubscriptionsTab({ data }: SubscriptionsTabProps) {
+  const { subscriptions } = data;
+
+  const planEntries = Object.entries(subscriptions.countsByPlan);
+
+  return (
+    <section className="grid gap-6 lg:grid-cols-[1.4fr,1fr]">
+      <div className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Planes y suscripciones</h2>
+            <p className="text-sm text-gray-600">
+              Visualiza cuántas canchas utilizan cada plan y su estado de facturación.
+            </p>
+          </div>
+          <Calendar className="h-5 w-5 text-gray-400" />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {planEntries.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+              No hay suscripciones registradas aún.
+            </div>
+          ) : (
+            planEntries.map(([plan, statuses]) => (
+              <div key={plan} className="space-y-2 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <p className="text-xs uppercase tracking-wider text-gray-500">Plan {plan.toUpperCase()}</p>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  {Object.entries(statuses).map(([status, count]) => (
+                    <li key={`${plan}-${status}`} className="flex items-center justify-between">
+                      <span className="text-gray-500">{status}</span>
+                      <span className="text-sm font-semibold text-gray-900">{count}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-900">Renovaciones próximas</h3>
+          <RefreshCcw className="h-5 w-5 text-gray-400" />
+        </div>
+        <ul className="space-y-3 text-sm">
+          {subscriptions.expiringSoon.length === 0 ? (
+            <li className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500">
+              No hay renovaciones programadas.
+            </li>
+          ) : (
+            subscriptions.expiringSoon.map((subscription) => (
+              <li key={subscription.id} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-gray-900">{subscription.venueName ?? "Cancha"}</p>
+                    <p className="text-xs text-gray-500">
+                      Plan {subscription.venuePlan?.toUpperCase() ?? subscription.plan.toUpperCase()}
+                    </p>
+                  </div>
+                  <span className="text-xs font-medium text-gray-500">
+                    {formatRelative(subscription.nextChargeAt)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">Estado: {subscription.status}</p>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+type ReportsTabProps = { data: AdminOverviewResponse };
+
+function ReportsTab({ data }: ReportsTabProps) {
+  const { summary, users, venues } = data;
+
+  const fillRate = summary.totals.upcomingMatches + summary.totals.finishedMatches30d === 0
+    ? 0
+    : summary.totals.finishedMatches30d / (summary.totals.upcomingMatches + summary.totals.finishedMatches30d);
+
+  return (
+    <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Analítica y reportes</h2>
+          <p className="text-sm text-gray-600">
+            Indicadores clave para presentar en directorio o exportar a BI.
+          </p>
+        </div>
+        <BarChart3 className="h-5 w-5 text-gray-400" />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricStack label="Retención jugadores" value={`${summary.totals.players ? Math.round((summary.totals.activePlayers30d / summary.totals.players) * 100) : 0}%`} tone="text-gray-900" />
+        <MetricStack label="Retención organizadores" value={`${summary.totals.organizers ? Math.round((summary.totals.activeOrganizers30d / summary.totals.organizers) * 100) : 0}%`} tone="text-gray-900" />
+        <MetricStack label="Tasa de llenado" value={`${Math.round(fillRate * 100)}%`} tone="text-gray-900" />
+        <MetricStack label="Canchas activas" value={`${venues.totals.active}`} tone="text-gray-900" />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <p className="text-xs uppercase tracking-wider text-gray-500">Actividad de usuarios</p>
+          <ul className="space-y-2 text-sm">
+            <li className="flex items-center justify-between">
+              <span className="text-gray-600">Jugadores activos 30d</span>
+              <span className="font-semibold text-gray-900">{summary.totals.activePlayers30d}</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="text-gray-600">Organizadores activos 30d</span>
+              <span className="font-semibold text-gray-900">{summary.totals.activeOrganizers30d}</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="text-gray-600">Nuevas sesiones 30d</span>
+              <span className="font-semibold text-gray-900">{users.recentLogins.length}</span>
+            </li>
+          </ul>
+        </div>
+        <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <p className="text-xs uppercase tracking-wider text-gray-500">Canchas con mejor desempeño</p>
+          <ul className="space-y-2 text-sm">
+            {venues.list.slice(0, 5).map((venue) => (
+              <li key={venue.id} className="flex items-center justify-between">
+                <span className="text-gray-600">{venue.name}</span>
+                <span className="font-semibold text-gray-900">{formatCurrencyCLP(venue.revenueApproved30d)}</span>
+              </li>
+            ))}
+            {venues.list.length === 0 ? (
+              <li className="text-xs text-gray-500">Sin canchas registradas.</li>
+            ) : null}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type ConfigTabProps = Record<string, never>;
+
+function ConfigTab(_: ConfigTabProps) {
+  return (
+    <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Configuración global</h2>
+          <p className="text-sm text-gray-600">
+            Parámetros corporativos vigentes en PichangApp.
+          </p>
+        </div>
+        <Settings2 className="h-5 w-5 text-gray-400" />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {Object.values(VENUE_PLANS).map((plan) => (
+          <div key={plan.slug} className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+            <div className="flex items-center justify-between text-xs uppercase tracking-wider text-gray-500">
+              <span>Plan {plan.name}</span>
+              <span>{plan.priceLabel}</span>
+            </div>
+            <p className="text-sm font-semibold text-gray-900">Comisión {Math.round(plan.commissionRate * 100)}%</p>
+            <ul className="space-y-1 text-xs text-gray-600">
+              {plan.features.slice(0, 3).map((feature) => (
+                <li key={`${plan.slug}-${feature}`}>• {feature}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-xs text-gray-500">
+        <p>
+          Los parámetros avanzados de Mercado Pago y webhooks se administran desde la configuración del entorno.
+          Revisa el repositorio para actualizar claves seguras y URLs.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+type AlertsTabProps = { data: AdminOverviewResponse };
+
+function AlertsTab({ data }: AlertsTabProps) {
+  const alerts: Array<{ id: string; title: string; description: string; tone: string }> = [];
+
+  if (data.summary.revenue.pending > 0) {
+    alerts.push({
+      id: "pending-payments",
+      title: "Pagos pendientes por liquidar",
+      description: `Hay ${formatCurrencyCLP(data.summary.revenue.pending)} esperando confirmación de Mercado Pago.`,
+      tone: "text-amber-700",
+    });
   }
-  if (severity === "warning") {
-    return <AlertTriangle className="h-5 w-5 text-amber-500" />;
+
+  const suspendedUsers = data.users.list.filter((user) => user.disabledAt).length;
+  if (suspendedUsers > 0) {
+    alerts.push({
+      id: "suspended-users",
+      title: "Cuentas suspendidas",
+      description: `${suspendedUsers} usuarios están con acceso restringido. Revisa si corresponde reactivar.`,
+      tone: "text-rose-700",
+    });
   }
-  return <AlertTriangle className="h-5 w-5 text-sky-500" />;
+
+  const unverifiedVenues = data.venues.list.filter((venue) => !venue.verified).length;
+  if (unverifiedVenues > 0) {
+    alerts.push({
+      id: "unverified-venues",
+      title: "Canchas pendientes de verificación",
+      description: `${unverifiedVenues} canchas necesitan revisión antes de publicar nuevos partidos.`,
+      tone: "text-sky-700",
+    });
+  }
+
+  if (alerts.length === 0) {
+    alerts.push({
+      id: "all-good",
+      title: "Sin alertas críticas",
+      description: "El sistema opera sin incidencias relevantes en este momento.",
+      tone: "text-emerald-700",
+    });
+  }
+
+  return (
+    <section className="space-y-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Alertas y notificaciones</h2>
+          <p className="text-sm text-gray-600">Monitorea eventos que requieren acción del equipo admin.</p>
+        </div>
+        <BellRing className="h-5 w-5 text-gray-400" />
+      </div>
+
+      <ul className="space-y-3 text-sm">
+        {alerts.map((alert) => (
+          <li key={alert.id} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+            <p className={cn("text-sm font-semibold", alert.tone)}>{alert.title}</p>
+            <p className="text-xs text-gray-600">{alert.description}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+type AdminsTabProps = { data: AdminOverviewResponse };
+
+function AdminsTab({ data }: AdminsTabProps) {
+  return (
+    <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Administradores y roles</h2>
+          <p className="text-sm text-gray-600">
+            Lista de cuentas con permisos elevados y su última actividad registrada.
+          </p>
+        </div>
+        <UserCog className="h-5 w-5 text-gray-400" />
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-gray-100">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">Administrador</th>
+              <th className="px-4 py-3 text-left font-medium">Rol</th>
+              <th className="px-4 py-3 text-left font-medium">Último acceso</th>
+              <th className="px-4 py-3 text-left font-medium">Alta</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {data.admins.list.map((admin) => (
+              <tr key={admin.id} className="bg-white">
+                <td className="px-4 py-3">
+                  <div className="font-semibold text-gray-900">{admin.name ?? admin.email ?? "Admin"}</div>
+                  <div className="text-xs text-gray-500">{admin.email ?? "Sin correo"}</div>
+                </td>
+                <td className="px-4 py-3 text-gray-600">{roleLabel(admin.role)}</td>
+                <td className="px-4 py-3 text-gray-600">{formatDate(admin.lastLoginAt)}</td>
+                <td className="px-4 py-3 text-gray-600">{formatDate(admin.createdAt)}</td>
+              </tr>
+            ))}
+            {data.admins.list.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                  No hay administradores registrados.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+type SupportTabProps = { data: AdminOverviewResponse };
+
+function SupportTab({ data }: SupportTabProps) {
+  return (
+    <section className="grid gap-6 lg:grid-cols-[1.4fr,1fr]">
+      <div className="space-y-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Soporte y feedback</h2>
+            <p className="text-sm text-gray-600">
+              Centraliza tickets de jugadores o canchas y mide tiempos de respuesta.
+            </p>
+          </div>
+          <Mail className="h-5 w-5 text-gray-400" />
+        </div>
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+          Aún no integramos un sistema de tickets en la base de datos. Puedes revisar las bandejas de correo corporativas para dar seguimiento.
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="text-base font-semibold text-gray-900">Actividad reciente</h3>
+        <p className="text-sm text-gray-600">
+          En los últimos 30 días registramos {data.users.recentLogins.length} inicios de sesión únicos. Utiliza esta sección para comunicar mantenimientos o avisos importantes.
+        </p>
+        <button className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-700 hover:bg-gray-100">
+          <SendIcon /> Enviar broadcast por correo
+        </button>
+        <p className="text-xs text-gray-500">
+          El envío masivo requiere configurar la integración de correo transactional en el backend.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function SendIcon() {
+  return <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.293 2.293a1 1 0 0 1 1.074-.217l14 5a1 1 0 0 1 0 1.848l-14 5A1 1 0 0 1 2 13.999V6.618a1 1 0 0 1 .293-.707l3-3a1 1 0 1 1 1.414 1.414L4 7.414V12.5l10.382-3.707L4 5.086V6.586l1.707-1.707a1 1 0 0 1 1.414 1.414l-3 3A1 1 0 0 1 3 9.414V4a1 1 0 0 1 .293-.707Z" fill="currentColor" /></svg>;
 }

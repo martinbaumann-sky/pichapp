@@ -21,7 +21,7 @@ import {
   Settings,
   ShieldCheck,
 } from "lucide-react";
-import { ADMIN_EMAIL } from "@/constants/admin";
+import { ADMIN_EMAILS } from "@/constants/admin";
 import { useAuth } from "@/hooks/useAuth";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
@@ -72,7 +72,10 @@ export default function Header() {
     markAsSeen,
   } = useNotifications(Boolean(user) && !isVenueAdmin);
   const showNotifications = Boolean(user) && !isVenueAdmin;
-  const adminEmail = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const normalizedUserEmail = user?.email?.toLowerCase();
+  const adminEmail = normalizedUserEmail
+    ? ADMIN_EMAILS.some((email) => email.toLowerCase() === normalizedUserEmail)
+    : false;
   const isSuperAdmin = adminEmail || userRole === "superadmin";
 
   const openLoginDialog = useCallback(() => {
@@ -108,16 +111,18 @@ export default function Header() {
     }
 
     if (user) {
-      const base: NavItem[] = [
+      if (isSuperAdmin) {
+        return [
+          { type: "link", href: "/admin", label: "Admin" },
+          { type: "link", href: "/mensajes", label: "Mensajes" },
+        ];
+      }
+      return [
         { type: "link", href: "/explorar", label: "Explorar" },
         { type: "link", href: "/reservas", label: "Reservas" },
         { type: "link", href: "/amigos", label: "Amigos" },
         { type: "link", href: "/mensajes", label: "Mensajes" },
       ];
-      if (isSuperAdmin) {
-        base.unshift({ type: "link", href: "/admin", label: "Admin" });
-      }
-      return base;
     }
 
     return [
