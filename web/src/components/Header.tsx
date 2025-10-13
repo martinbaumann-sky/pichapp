@@ -54,7 +54,8 @@ export default function Header() {
   const userRole =
     (user?.role as "player" | "venue_admin" | "superadmin" | undefined) ??
     (user?.isAdmin ? "superadmin" : undefined);
-  const canAccessVenuePanel = userRole === "venue_admin" || userRole === "superadmin";
+  const isAdminPanelView = pathname?.startsWith("/admin") ?? false;
+  const canAccessVenuePanel = userRole === "venue_admin" && !isAdminPanelView;
   const isVenueAdmin = userRole === "venue_admin";
   const isVenueMarketingView = pathname?.startsWith("/cancha") ?? false;
   const [authOpen, setAuthOpen] = useState(false);

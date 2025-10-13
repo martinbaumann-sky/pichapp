@@ -26,9 +26,11 @@ import {
   ShieldCheck,
   Table,
   Ticket,
+  Trash2,
   UserCheck,
   UserCog,
   Users,
+  X,
 } from "lucide-react";
 
 import AuthDialog from "@/components/AuthDialog";
@@ -79,6 +81,7 @@ type AdminOverviewResponse = {
     totals: {
       players: number;
       activePlayers30d: number;
+      activePlayersNow: number;
       organizers: number;
       activeOrganizers30d: number;
       venues: number;
@@ -98,6 +101,7 @@ type AdminOverviewResponse = {
       players: number;
       organizers: number;
       suspended: number;
+      activeNow: number;
     };
     list: Array<{
       id: string;
@@ -124,6 +128,13 @@ type AdminOverviewResponse = {
       name: string | null;
       comuna: string | null;
       createdAt: string;
+    }>;
+    activeNow: Array<{
+      userId: string;
+      email: string | null;
+      name: string | null;
+      comuna: string | null;
+      lastSeenAt: string;
     }>;
   };
   venues: {
@@ -199,6 +210,32 @@ type AdminOverviewResponse = {
       lastLoginAt: string | null;
     }>;
   };
+};
+
+type AdminMatchDetail = {
+  id: string;
+  title: string;
+  comuna: string;
+  startsAt: string;
+  durationMins: number;
+  pricePerSpot: number;
+  status: MatchStatus;
+  totalSpots: number;
+  minSpotsToConfirm: number;
+  organizer: { id: string | null; email: string | null; name: string | null } | null;
+  venue: { id: string | null; name: string | null } | null;
+  spots: Array<{
+    id: string;
+    status: string;
+    team: string | null;
+    position: string | null;
+    userId: string | null;
+    priceCLP: number;
+    createdAt: string;
+    user: { id: string; email: string | null; name: string | null; comuna: string | null; position: string | null } | null;
+    payment: { id: string; status: string; provider: string; amountCLP: number; createdAt: string } | null;
+    guestInvite: { name: string | null; email: string | null; inviterId: string | null } | null;
+  }>;
 };
 
 const TABS: Array<{ id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
@@ -285,6 +322,13 @@ export default function AdminPage() {
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [updatingVenueId, setUpdatingVenueId] = useState<string | null>(null);
   const [matchFilter, setMatchFilter] = useState<"active" | "finished" | "canceled">("active");
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [deletingVenueId, setDeletingVenueId] = useState<string | null>(null);
+  const [selectedMatchDetail, setSelectedMatchDetail] = useState<AdminMatchDetail | null>(null);
+  const [loadingMatchDetail, setLoadingMatchDetail] = useState(false);
+  const [updatingMatchId, setUpdatingMatchId] = useState<string | null>(null);
+  const [exportingEmails, setExportingEmails] = useState(false);
+  const [matchLoadingId, setMatchLoadingId] = useState<string | null>(null);
 
   const isAdminUser = useMemo(() => {
     if (!user) return false;
@@ -438,6 +482,151 @@ export default function AdminPage() {
       setError(message);
     } finally {
       setUpdatingVenueId(null);
+    }
+  };
+
+  const deleteUserAccount = async (userId: string) => {
+    try {
+      setDeletingUserId(userId);
+      const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "No se pudo eliminar el usuario");
+      }
+      setSelectedUserId((prev) => (prev === userId ? null : prev));
+      await refreshData();
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo eliminar el usuario";
+      setError(message);
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
+  const deleteVenueAccount = async (venueId: string) => {
+    try {
+      setDeletingVenueId(venueId);
+      const res = await fetch(`/api/admin/venues/${venueId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "No se pudo eliminar la cancha");
+      }
+      setSelectedVenueId((prev) => (prev === venueId ? null : prev));
+      await refreshData();
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo eliminar la cancha";
+      setError(message);
+    } finally {
+      setDeletingVenueId(null);
+    }
+  };
+
+  const loadMatchDetail = async (matchId: string) => {
+    try {
+      setLoadingMatchDetail(true);
+      setMatchLoadingId(matchId);
+      setSelectedMatchDetail((prev) => (prev?.id === matchId ? prev : null));
+      const res = await fetch(`/api/admin/matches/${matchId}`, { cache: "no-store" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "No se pudo cargar el partido");
+      }
+      const detail = (await res.json()) as AdminMatchDetail;
+      setSelectedMatchDetail(detail);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo cargar el partido";
+      setError(message);
+    } finally {
+      setLoadingMatchDetail(false);
+      setMatchLoadingId(null);
+    }
+  };
+
+  const mutateMatch = async (matchId: string, body: Record<string, unknown>) => {
+    try {
+      setUpdatingMatchId(matchId);
+      const res = await fetch(`/api/admin/matches/${matchId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "No se pudo actualizar el partido");
+      }
+      const detail = (await res.json()) as AdminMatchDetail;
+      setSelectedMatchDetail(detail);
+      await refreshData();
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo actualizar el partido";
+      setError(message);
+    } finally {
+      setUpdatingMatchId(null);
+    }
+  };
+
+  const rescheduleMatchAdmin = async (matchId: string, startsAt: string, durationMins?: number) => {
+    await mutateMatch(matchId, {
+      reschedule: { startsAt, durationMins: typeof durationMins === "number" ? durationMins : undefined },
+    });
+  };
+
+  const removeMatchSpot = async (matchId: string, spotId: string) => {
+    await mutateMatch(matchId, { removeSpotIds: [spotId] });
+  };
+
+  const updateMatchSpot = async (
+    matchId: string,
+    spotId: string,
+    updates: { team?: string | null; position?: string | null; status?: string | null },
+  ) => {
+    await mutateMatch(matchId, { updateSpots: [{ spotId, ...updates }] });
+  };
+
+  const deleteMatchAdmin = async (matchId: string) => {
+    try {
+      setUpdatingMatchId(matchId);
+      const res = await fetch(`/api/admin/matches/${matchId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "No se pudo eliminar el partido");
+      }
+      setSelectedMatchDetail(null);
+      await refreshData();
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo eliminar el partido";
+      setError(message);
+    } finally {
+      setUpdatingMatchId(null);
+    }
+  };
+
+  const exportEmails = async () => {
+    try {
+      setExportingEmails(true);
+      const res = await fetch("/api/admin/export/emails", { cache: "no-store" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "No se pudo exportar los correos");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `pichapp-emails-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo exportar los correos";
+      setError(message);
+    } finally {
+      setExportingEmails(false);
     }
   };
 
@@ -598,6 +787,8 @@ export default function AdminPage() {
                 setSelectedUserId={setSelectedUserId}
                 toggleUserStatus={toggleUserStatus}
                 updatingUserId={updatingUserId}
+                deleteUser={deleteUserAccount}
+                deletingUserId={deletingUserId}
               />
             ) : null}
             {activeTab === "venues" ? (
@@ -607,18 +798,46 @@ export default function AdminPage() {
                 setSelectedVenueId={setSelectedVenueId}
                 toggleVenueVerification={toggleVenueVerification}
                 updatingVenueId={updatingVenueId}
+                deleteVenue={deleteVenueAccount}
+                deletingVenueId={deletingVenueId}
               />
             ) : null}
             {activeTab === "finances" ? <FinancesTab data={data} /> : null}
             {activeTab === "matches" ? (
-              <MatchesTab data={matchSource} filter={matchFilter} setFilter={setMatchFilter} />
+              <MatchesTab
+                data={matchSource}
+                filter={matchFilter}
+                setFilter={setMatchFilter}
+                onManageMatch={loadMatchDetail}
+                loadingMatchDetail={loadingMatchDetail}
+                loadingMatchId={matchLoadingId}
+                selectedMatchId={selectedMatchDetail?.id ?? null}
+              />
             ) : null}
             {activeTab === "subscriptions" ? <SubscriptionsTab data={data} /> : null}
             {activeTab === "reports" ? <ReportsTab data={data} /> : null}
-            {activeTab === "config" ? <ConfigTab /> : null}
+            {activeTab === "config" ? (
+              <ConfigTab
+                onExportEmails={exportEmails}
+                exportingEmails={exportingEmails}
+                totals={data.users.totals}
+              />
+            ) : null}
             {activeTab === "alerts" ? <AlertsTab data={data} /> : null}
-            {activeTab === "admins" ? <AdminsTab data={data} /> : null}
+            {activeTab === "admins" ? <AdminsTab data={data} onAdminAdded={refreshData} /> : null}
             {activeTab === "support" ? <SupportTab data={data} /> : null}
+            {activeTab === "matches" && (selectedMatchDetail || loadingMatchDetail) ? (
+              <MatchDetailPanel
+                match={selectedMatchDetail}
+                loading={loadingMatchDetail}
+                updatingMatchId={updatingMatchId}
+                onClose={() => setSelectedMatchDetail(null)}
+                onReschedule={rescheduleMatchAdmin}
+                onRemoveSpot={removeMatchSpot}
+                onUpdateSpot={updateMatchSpot}
+                onDeleteMatch={deleteMatchAdmin}
+              />
+            ) : null}
           </div>
         )}
       </div>
@@ -637,7 +856,7 @@ function OverviewTab({ data }: OverviewTabProps) {
         <OverviewCard
           title="Jugadores activos"
           value={summary.totals.activePlayers30d}
-          helper={`Total registrados: ${summary.totals.players}`}
+          helper={`Total registrados: ${summary.totals.players} · En línea ahora: ${summary.totals.activePlayersNow}`}
           icon={Users}
         />
         <OverviewCard
@@ -839,6 +1058,8 @@ type UsersTabProps = {
   setSelectedUserId: (value: string | null) => void;
   toggleUserStatus: (id: string, suspend: boolean) => void;
   updatingUserId: string | null;
+  deleteUser: (id: string) => void;
+  deletingUserId: string | null;
 };
 
 function UsersTab({
@@ -850,7 +1071,11 @@ function UsersTab({
   setSelectedUserId,
   toggleUserStatus,
   updatingUserId,
+  deleteUser,
+  deletingUserId,
 }: UsersTabProps) {
+  const activeNowSet = useMemo(() => new Set(data.users.activeNow.map((item) => item.userId)), [data.users.activeNow]);
+
   return (
     <section className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
       <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -861,14 +1086,20 @@ function UsersTab({
               Busca, filtra y controla cuentas de jugadores y organizadores con datos reales.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-500">
-            <Search className="h-4 w-4" />
-            <input
-              value={userSearch}
-              onChange={(event) => setUserSearch(event.target.value)}
-              placeholder="Buscar por nombre, correo o comuna"
-              className="w-48 border-none bg-transparent text-sm text-gray-700 focus:outline-none"
-            />
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-500">
+              <Search className="h-4 w-4" />
+              <input
+                value={userSearch}
+                onChange={(event) => setUserSearch(event.target.value)}
+                placeholder="Buscar por nombre, correo o comuna"
+                className="w-48 border-none bg-transparent text-sm text-gray-700 focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+              <Activity className="h-4 w-4" />
+              <span>{data.users.totals.activeNow.toLocaleString("es-CL")} conectados ahora</span>
+            </div>
           </div>
         </div>
 
@@ -888,10 +1119,14 @@ function UsersTab({
               {filteredUsers.map((user) => {
                 const isSuspended = Boolean(user.disabledAt);
                 const isSelected = selectedUser?.id === user.id;
+                const isActiveNow = activeNowSet.has(user.id);
                 return (
                   <tr key={user.id} className={cn("bg-white", isSelected ? "bg-emerald-50/70" : "")}>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{user.profile.name ?? user.email ?? "Usuario"}</div>
+                      <div className="flex items-center gap-2 font-medium text-gray-900">
+                        {isActiveNow ? <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" /> : null}
+                        <span>{user.profile.name ?? user.email ?? "Usuario"}</span>
+                      </div>
                       <div className="text-xs text-gray-500">
                         {user.email ?? "Sin correo"} · {user.profile.comuna ?? "Sin comuna"}
                       </div>
@@ -938,6 +1173,26 @@ function UsersTab({
                           )}
                           {isSuspended ? "Reactivar" : "Suspender"}
                         </button>
+                        <button
+                          onClick={() => {
+                            if (typeof window !== "undefined") {
+                              const confirmed = window.confirm(
+                                "¿Eliminar esta cuenta? Esta acción no se puede deshacer.",
+                              );
+                              if (!confirmed) return;
+                            }
+                            deleteUser(user.id);
+                          }}
+                          disabled={deletingUserId === user.id}
+                          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100"
+                        >
+                          {deletingUserId === user.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                          Eliminar
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -959,6 +1214,21 @@ function UsersTab({
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-gray-900">Detalles del usuario</h3>
           <Users className="h-5 w-5 text-gray-400" />
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-xs text-gray-600">
+          <p className="font-semibold text-gray-900">Jugadores activos ({data.users.totals.activeNow})</p>
+          <ul className="mt-2 space-y-1">
+            {data.users.activeNow.length === 0 ? (
+              <li className="text-gray-500">No hay jugadores navegando en este momento.</li>
+            ) : (
+              data.users.activeNow.slice(0, 6).map((session) => (
+                <li key={session.userId} className="flex items-center justify-between">
+                  <span>{session.name ?? session.email ?? "Usuario"}</span>
+                  <span className="text-[11px] text-gray-500">{formatRelative(session.lastSeenAt)}</span>
+                </li>
+              ))
+            )}
+          </ul>
         </div>
         {selectedUser ? (
           <div className="space-y-4 text-sm text-gray-600">
@@ -1016,9 +1286,19 @@ type VenuesTabProps = {
   setSelectedVenueId: (value: string | null) => void;
   toggleVenueVerification: (venueId: string, verified: boolean) => void;
   updatingVenueId: string | null;
+  deleteVenue: (id: string) => void;
+  deletingVenueId: string | null;
 };
 
-function VenuesTab({ data, selectedVenue, setSelectedVenueId, toggleVenueVerification, updatingVenueId }: VenuesTabProps) {
+function VenuesTab({
+  data,
+  selectedVenue,
+  setSelectedVenueId,
+  toggleVenueVerification,
+  updatingVenueId,
+  deleteVenue,
+  deletingVenueId,
+}: VenuesTabProps) {
   return (
     <section className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
       <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -1094,6 +1374,26 @@ function VenuesTab({ data, selectedVenue, setSelectedVenueId, toggleVenueVerific
                             <PlayCircle className="h-3.5 w-3.5" />
                           )}
                           {isVerified ? "Suspender" : "Activar"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (typeof window !== "undefined") {
+                              const confirmed = window.confirm(
+                                "¿Eliminar esta cancha y sus partidos asociados?",
+                              );
+                              if (!confirmed) return;
+                            }
+                            deleteVenue(venue.id);
+                          }}
+                          disabled={deletingVenueId === venue.id}
+                          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100"
+                        >
+                          {deletingVenueId === venue.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                          Eliminar
                         </button>
                       </div>
                     </td>
@@ -1263,9 +1563,21 @@ type MatchesTabProps = {
   data: MatchSummary[];
   filter: "active" | "finished" | "canceled";
   setFilter: (value: "active" | "finished" | "canceled") => void;
+  onManageMatch: (matchId: string) => void;
+  loadingMatchDetail: boolean;
+  loadingMatchId: string | null;
+  selectedMatchId: string | null;
 };
 
-function MatchesTab({ data, filter, setFilter }: MatchesTabProps) {
+function MatchesTab({
+  data,
+  filter,
+  setFilter,
+  onManageMatch,
+  loadingMatchDetail,
+  loadingMatchId,
+  selectedMatchId,
+}: MatchesTabProps) {
   const tabs: Array<{ id: "active" | "finished" | "canceled"; label: string }> = [
     { id: "active", label: "Activos" },
     { id: "finished", label: "Completados" },
@@ -1299,23 +1611,26 @@ function MatchesTab({ data, filter, setFilter }: MatchesTabProps) {
 
       <div className="overflow-hidden rounded-2xl border border-gray-100">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium">Partido</th>
-              <th className="px-4 py-3 text-left font-medium">Cancha</th>
-              <th className="px-4 py-3 text-left font-medium">Organizador</th>
-              <th className="px-4 py-3 text-left font-medium">Inicio</th>
-              <th className="px-4 py-3 text-left font-medium">Cupos</th>
-              <th className="px-4 py-3 text-left font-medium">Estado</th>
-            </tr>
-          </thead>
+            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Partido</th>
+                <th className="px-4 py-3 text-left font-medium">Cancha</th>
+                <th className="px-4 py-3 text-left font-medium">Organizador</th>
+                <th className="px-4 py-3 text-left font-medium">Inicio</th>
+                <th className="px-4 py-3 text-left font-medium">Cupos</th>
+                <th className="px-4 py-3 text-left font-medium">Estado</th>
+                <th className="px-4 py-3 text-right font-medium">Acciones</th>
+              </tr>
+            </thead>
           <tbody className="divide-y divide-gray-100">
-            {data.map((match) => (
-              <tr key={match.id} className="bg-white">
-                <td className="px-4 py-3">
-                  <div className="font-semibold text-gray-900">{match.title}</div>
-                  <div className="text-xs text-gray-500">${formatCurrencyCLP(match.pricePerSpot)} por cupo</div>
-                </td>
+            {data.map((match) => {
+              const isSelected = selectedMatchId === match.id || loadingMatchId === match.id;
+              return (
+                <tr key={match.id} className={cn("bg-white", isSelected ? "bg-emerald-50/60" : "")}>
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-gray-900">{match.title}</div>
+                    <div className="text-xs text-gray-500">${formatCurrencyCLP(match.pricePerSpot)} por cupo</div>
+                  </td>
                 <td className="px-4 py-3 text-gray-600">{match.venueName ?? "Sin cancha"}</td>
                 <td className="px-4 py-3 text-gray-600">{match.organizerName ?? "Organizador"}</td>
                 <td className="px-4 py-3 text-gray-600">{formatDate(match.startsAt)}</td>
@@ -1327,15 +1642,282 @@ function MatchesTab({ data, filter, setFilter }: MatchesTabProps) {
                     {matchStatusLabel(match.status)}
                   </span>
                 </td>
-              </tr>
-            ))}
+                <td className="px-4 py-3 text-right text-gray-600">
+                  <button
+                    onClick={() => onManageMatch(match.id)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                  >
+                    {loadingMatchDetail && loadingMatchId === match.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Settings2 className="h-3.5 w-3.5" />
+                    )}
+                    Gestionar
+                  </button>
+                </td>
+                </tr>
+              );
+            })}
             {data.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                   No hay partidos en este estado actualmente.
                 </td>
               </tr>
             ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+type MatchDetailPanelProps = {
+  match: AdminMatchDetail | null;
+  loading: boolean;
+  updatingMatchId: string | null;
+  onClose: () => void;
+  onReschedule: (matchId: string, startsAt: string, durationMins?: number) => Promise<void> | void;
+  onRemoveSpot: (matchId: string, spotId: string) => Promise<void> | void;
+  onUpdateSpot: (
+    matchId: string,
+    spotId: string,
+    updates: { team?: string | null; position?: string | null; status?: string | null },
+  ) => Promise<void> | void;
+  onDeleteMatch: (matchId: string) => Promise<void> | void;
+};
+
+function formatDateTimeInput(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const iso = date.toISOString();
+  return iso.slice(0, 16);
+}
+
+function MatchDetailPanel({
+  match,
+  loading,
+  updatingMatchId,
+  onClose,
+  onReschedule,
+  onRemoveSpot,
+  onUpdateSpot,
+  onDeleteMatch,
+}: MatchDetailPanelProps) {
+  const [scheduledAt, setScheduledAt] = useState<string>(match ? formatDateTimeInput(match.startsAt) : "");
+  const [duration, setDuration] = useState<string>(match ? String(match.durationMins) : "");
+
+  useEffect(() => {
+    if (!match) return;
+    setScheduledAt(formatDateTimeInput(match.startsAt));
+    setDuration(String(match.durationMins));
+  }, [match, formatDateTimeInput]);
+
+  const disabled = updatingMatchId === match?.id;
+
+  if (loading && !match) {
+    return (
+      <section className="rounded-3xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+        <div className="flex items-center justify-center gap-3 text-sm text-gray-600">
+          <Loader2 className="h-4 w-4 animate-spin" /> Cargando partido…
+        </div>
+      </section>
+    );
+  }
+
+  if (!match) return null;
+
+  return (
+    <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Gestión avanzada de partido</h2>
+          <p className="text-sm text-gray-600">
+            Administra horarios, cupos y equipos de forma directa. Los cambios impactan a todos los jugadores al instante.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                const confirmed = window.confirm(
+                  "¿Eliminar este partido y notificar a los jugadores?",
+                );
+                if (!confirmed) return;
+              }
+              onDeleteMatch(match.id);
+            }}
+            disabled={disabled}
+            className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+          >
+            {disabled ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            Eliminar partido
+          </button>
+          <button
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100"
+          >
+            <X className="h-3.5 w-3.5" /> Cerrar
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.3fr,1fr]">
+        <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <h3 className="text-sm font-semibold text-gray-900">Detalles generales</h3>
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs uppercase tracking-wider text-gray-500">Partido</dt>
+              <dd className="font-semibold text-gray-900">{match.title}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wider text-gray-500">Estado</dt>
+              <dd>
+                <span className={cn("inline-flex rounded-full px-2 py-1 text-xs font-semibold", statusTone(match.status))}>
+                  {matchStatusLabel(match.status)}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wider text-gray-500">Organizador</dt>
+              <dd className="text-gray-700">{match.organizer?.name ?? match.organizer?.email ?? "Sin datos"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wider text-gray-500">Cancha</dt>
+              <dd className="text-gray-700">{match.venue?.name ?? "Sin asignar"}</dd>
+            </div>
+          </dl>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <p className="text-xs uppercase tracking-wider text-gray-500">Reprogramar horario</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-[1.4fr,0.8fr,auto]">
+              <label className="flex flex-col text-xs text-gray-600">
+                Nueva fecha y hora
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(event) => setScheduledAt(event.target.value)}
+                  className="mt-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700"
+                  disabled={disabled}
+                />
+              </label>
+              <label className="flex flex-col text-xs text-gray-600">
+                Duración (min)
+                <input
+                  type="number"
+                  min={30}
+                  step={15}
+                  value={duration}
+                  onChange={(event) => setDuration(event.target.value)}
+                  className="mt-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700"
+                  disabled={disabled}
+                />
+              </label>
+              <button
+                onClick={() => onReschedule(match.id, scheduledAt, duration ? Number(duration) : undefined)}
+                disabled={disabled || !scheduledAt}
+                className="self-end rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white hover:bg-gray-900 disabled:opacity-60"
+              >
+                {disabled ? "Guardando…" : "Actualizar"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <h3 className="text-sm font-semibold text-gray-900">Resumen de cupos</h3>
+          <ul className="space-y-2 text-sm text-gray-600">
+            <li className="flex items-center justify-between">
+              <span>Total de cupos</span>
+              <span className="font-semibold text-gray-900">{match.totalSpots}</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span>Pagados</span>
+              <span className="font-semibold text-emerald-700">
+                {match.spots.filter((spot) => spot.status === "PAID").length}
+              </span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span>Reservados</span>
+              <span className="font-semibold text-amber-700">
+                {match.spots.filter((spot) => spot.status === "RESERVED").length}
+              </span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span>Disponibles</span>
+              <span className="font-semibold text-gray-900">
+                {match.spots.filter((spot) => spot.status === "AVAILABLE").length}
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-gray-100">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">Jugador</th>
+              <th className="px-4 py-3 text-left font-medium">Equipo</th>
+              <th className="px-4 py-3 text-left font-medium">Posición</th>
+              <th className="px-4 py-3 text-left font-medium">Estado</th>
+              <th className="px-4 py-3 text-right font-medium">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {match.spots.map((spot) => {
+              const isAvailable = spot.status === "AVAILABLE";
+              return (
+                <tr key={spot.id} className="bg-white">
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-gray-900">{spot.user?.name ?? spot.guestInvite?.name ?? "Disponible"}</div>
+                    <div className="text-xs text-gray-500">{spot.user?.email ?? spot.guestInvite?.email ?? "Sin correo"}</div>
+                  </td>
+                <td className="px-4 py-3 text-gray-600">
+                  <select
+                    value={spot.team ?? ""}
+                    onChange={(event) => onUpdateSpot(match.id, spot.id, { team: event.target.value || null })}
+                    disabled={disabled}
+                    className="rounded-lg border border-gray-200 px-2 py-1 text-xs"
+                  >
+                    <option value="">Sin equipo</option>
+                    <option value="A">Equipo A</option>
+                    <option value="B">Equipo B</option>
+                  </select>
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  <select
+                    value={spot.position ?? ""}
+                    onChange={(event) => onUpdateSpot(match.id, spot.id, { position: event.target.value || null })}
+                    disabled={disabled}
+                    className="rounded-lg border border-gray-200 px-2 py-1 text-xs"
+                  >
+                    <option value="">Sin posición</option>
+                    <option value="ARQUERO">Arquero</option>
+                    <option value="DEFENSA">Defensa</option>
+                    <option value="LATERAL">Lateral</option>
+                    <option value="VOLANTE">Volante</option>
+                    <option value="DELANTERO">Delantero</option>
+                  </select>
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">{spot.status}</span>
+                </td>
+                <td className="px-4 py-3 text-right text-gray-600">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => onRemoveSpot(match.id, spot.id)}
+                      disabled={disabled || isAvailable}
+                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100"
+                    >
+                      {disabled ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      Liberar cupo
+                    </button>
+                  </div>
+                </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -1446,6 +2028,7 @@ function ReportsTab({ data }: ReportsTabProps) {
         <MetricStack label="Retención organizadores" value={`${summary.totals.organizers ? Math.round((summary.totals.activeOrganizers30d / summary.totals.organizers) * 100) : 0}%`} tone="text-gray-900" />
         <MetricStack label="Tasa de llenado" value={`${Math.round(fillRate * 100)}%`} tone="text-gray-900" />
         <MetricStack label="Canchas activas" value={`${venues.totals.active}`} tone="text-gray-900" />
+        <MetricStack label="Jugadores conectados" value={`${users.totals.activeNow}`} tone="text-emerald-700" />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -1481,13 +2064,33 @@ function ReportsTab({ data }: ReportsTabProps) {
           </ul>
         </div>
       </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+        <p className="text-xs uppercase tracking-wider text-gray-500">Jugadores navegando ahora mismo</p>
+        {users.activeNow.length === 0 ? (
+          <p className="mt-2 text-sm text-gray-500">No registramos actividad en los últimos minutos.</p>
+        ) : (
+          <ul className="mt-3 space-y-2 text-sm text-gray-600">
+            {users.activeNow.slice(0, 8).map((session) => (
+              <li key={session.userId} className="flex items-center justify-between">
+                <span>{session.name ?? session.email ?? "Usuario"}</span>
+                <span className="text-xs text-gray-500">{formatRelative(session.lastSeenAt)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
 
-type ConfigTabProps = Record<string, never>;
+type ConfigTabProps = {
+  onExportEmails: () => void;
+  exportingEmails: boolean;
+  totals: AdminOverviewResponse["users"]["totals"];
+};
 
-function ConfigTab(_: ConfigTabProps) {
+function ConfigTab({ onExportEmails, exportingEmails, totals }: ConfigTabProps) {
   return (
     <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between">
@@ -1522,6 +2125,30 @@ function ConfigTab(_: ConfigTabProps) {
           Los parámetros avanzados de Mercado Pago y webhooks se administran desde la configuración del entorno.
           Revisa el repositorio para actualizar claves seguras y URLs.
         </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-[1.4fr,1fr]">
+        <div className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <h3 className="text-sm font-semibold text-gray-900">Exportación de correos</h3>
+          <p className="text-xs text-gray-600">
+            Descarga un CSV con los correos de jugadores y administradores de canchas para campañas o análisis externos.
+          </p>
+          <button
+            onClick={onExportEmails}
+            disabled={exportingEmails}
+            className="inline-flex items-center gap-2 rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white hover:bg-gray-900 disabled:opacity-60"
+          >
+            {exportingEmails ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {exportingEmails ? "Generando…" : "Exportar correos"}
+          </button>
+        </div>
+        <div className="space-y-2 rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-600">
+          <p className="text-xs uppercase tracking-wider text-gray-500">Resumen rápido</p>
+          <p>Jugadores registrados: <span className="font-semibold text-gray-900">{totals.players.toLocaleString("es-CL")}</span></p>
+          <p>Organizadores: <span className="font-semibold text-gray-900">{totals.organizers.toLocaleString("es-CL")}</span></p>
+          <p>Usuarios suspendidos: <span className="font-semibold text-rose-700">{totals.suspended.toLocaleString("es-CL")}</span></p>
+          <p>Conectados ahora: <span className="font-semibold text-emerald-700">{totals.activeNow.toLocaleString("es-CL")}</span></p>
+        </div>
       </div>
     </section>
   );
@@ -1592,9 +2219,44 @@ function AlertsTab({ data }: AlertsTabProps) {
   );
 }
 
-type AdminsTabProps = { data: AdminOverviewResponse };
+type AdminsTabProps = { data: AdminOverviewResponse; onAdminAdded: () => void };
 
-function AdminsTab({ data }: AdminsTabProps) {
+function AdminsTab({ data, onAdminAdded }: AdminsTabProps) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!email.trim()) {
+      setFormError("Ingresa un correo válido");
+      return;
+    }
+    try {
+      setLoading(true);
+      setFormError(null);
+      setMessage(null);
+      const res = await fetch("/api/admin/admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "No se pudo agregar el administrador");
+      }
+      setMessage(`Agregamos a ${payload?.email ?? email} como administrador.`);
+      setEmail("");
+      onAdminAdded();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No se pudo agregar el administrador";
+      setFormError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between">
@@ -1606,6 +2268,29 @@ function AdminsTab({ data }: AdminsTabProps) {
         </div>
         <UserCog className="h-5 w-5 text-gray-400" />
       </div>
+
+      <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <input
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="correo@empresa.com"
+            className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700"
+            type="email"
+            required
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white hover:bg-gray-900 disabled:opacity-60"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}
+            {loading ? "Agregando…" : "Agregar admin"}
+          </button>
+        </div>
+        {formError ? <p className="text-xs text-rose-600">{formError}</p> : null}
+        {message ? <p className="text-xs text-emerald-600">{message}</p> : null}
+      </form>
 
       <div className="overflow-hidden rounded-2xl border border-gray-100">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
