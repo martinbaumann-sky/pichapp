@@ -72,13 +72,37 @@ export async function PATCH(req: NextRequest) {
     const accountHolder = typeof payload?.accountHolder === "string" ? payload.accountHolder.trim() : venue.accountHolder;
     const taxId = typeof payload?.taxId === "string" ? payload.taxId.trim() : venue.taxId;
     const phoneRaw = typeof payload?.phone === "string" ? payload.phone.trim() : venue.phone ?? "";
-    const mpCollectorId = typeof payload?.mpCollectorId === "string" ? payload.mpCollectorId.trim() : venue.mpCollectorId ?? "";
-    const mpAccountType = typeof payload?.mpAccountType === "string" ? payload.mpAccountType.trim() : venue.mpAccountType ?? "";
+    const mpCollectorIdRaw =
+      typeof payload?.mpCollectorId === "string" ? payload.mpCollectorId.trim() : venue.mpCollectorId ?? "";
+    const mpAccountTypeRaw =
+      typeof payload?.mpAccountType === "string" ? payload.mpAccountType.trim() : venue.mpAccountType ?? "";
     const fieldNames = parseFields(payload?.fields);
 
-    if (!name || !address || !comuna || !payoutEmail || !accountHolder || !taxId || !mpCollectorId || !mpAccountType) {
+    if (!name || !address || !comuna || !payoutEmail || !accountHolder || !taxId || !mpCollectorIdRaw || !mpAccountTypeRaw) {
       return NextResponse.json({ error: "Completa todos los campos obligatorios." }, { status: 400 });
     }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+    if (!emailPattern.test(payoutEmail)) {
+      return NextResponse.json({ error: "Ingresa un correo de Mercado Pago válido." }, { status: 400 });
+    }
+
+    if (accountHolder.length < 3) {
+      return NextResponse.json({ error: "Ingresa el nombre completo del titular de la cuenta." }, { status: 400 });
+    }
+
+    const collectorIdDigits = mpCollectorIdRaw.replace(/\D+/g, "");
+    if (collectorIdDigits.length < 5) {
+      return NextResponse.json({ error: "Ingresa un Collector ID de Mercado Pago válido." }, { status: 400 });
+    }
+
+    const mpAccountType = (() => {
+      const normalized = mpAccountTypeRaw.toLowerCase();
+      if (normalized.includes("persona")) return "Persona";
+      if (normalized.includes("empresa") || normalized.includes("sociedad")) return "Empresa";
+      if (normalized.includes("fund")) return "Fundación";
+      return mpAccountTypeRaw;
+    })();
 
     const normalizedPhone = phoneRaw ? normalizeForStorage(phoneRaw) : null;
 
@@ -93,15 +117,16 @@ export async function PATCH(req: NextRequest) {
           accountHolder,
           taxId,
           phone: normalizedPhone,
-          mpCollectorId,
+          mpCollectorId: collectorIdDigits,
           mpAccountType,
         },
       });
 
       if (Array.isArray(fieldNames)) {
+        const uniqueFields = Array.from(new Set(fieldNames.map((value) => value.slice(0, 60))));
         await tx.field.deleteMany({ where: { venueId: venue.id } });
-        if (fieldNames.length > 0) {
-          await tx.field.createMany({ data: fieldNames.map((value) => ({ venueId: venue.id, name: value })) });
+        if (uniqueFields.length > 0) {
+          await tx.field.createMany({ data: uniqueFields.map((value) => ({ venueId: venue.id, name: value })) });
         }
       }
 

@@ -11,12 +11,14 @@ import {
   CreditCard,
   MapPin,
   MessageSquare,
+  PlugZap,
   Loader2,
   RefreshCw,
   Settings,
   ShieldAlert,
   ShieldCheck,
   Ticket,
+  Unplug,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/utils/cn";
@@ -85,15 +87,20 @@ type PanelData = {
     lng: number | null;
     plan: string;
     verified: boolean;
-  payoutEmail: string;
-  taxId: string;
-  phone: string | null;
-  accountHolder: string;
-  mpCollectorId: string | null;
-  mpAccountType: string | null;
-  fields: Array<{ id: string; name: string }>;
-  subscriptions: VenueSubscriptionSummary[];
-};
+    payoutEmail: string;
+    taxId: string;
+    phone: string | null;
+    accountHolder: string;
+    mpCollectorId: string | null;
+    mpAccountType: string | null;
+    mpConnection: {
+      connected: boolean;
+      mpUserId: string | null;
+      expiresAt: string | null;
+    };
+    fields: Array<{ id: string; name: string }>;
+    subscriptions: VenueSubscriptionSummary[];
+  };
   matches: PanelMatch[];
   bookings: PanelBooking[];
   payments: PanelPayment[];
@@ -979,6 +986,18 @@ function SettingsTab({
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mpLoading, setMpLoading] = useState<"connect" | "disconnect" | null>(null);
+  const [mpMessage, setMpMessage] = useState<string | null>(null);
+  const [mpError, setMpError] = useState<string | null>(null);
+
+  const accountTypeOptions = useMemo(
+    () => [
+      { value: "Persona", label: "Persona natural" },
+      { value: "Empresa", label: "Empresa / Sociedad" },
+      { value: "Fundación", label: "Fundación u ONG" },
+    ],
+    [],
+  );
 
   useEffect(() => {
     if (!data?.venue) return;
@@ -996,11 +1015,98 @@ function SettingsTab({
     });
   }, [data]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const mpStatus = params.get("mp");
+    if (!mpStatus) return;
+    if (mpStatus === "connected") {
+      setMpError(null);
+      setMpMessage("Tu cuenta de Mercado Pago quedó conectada correctamente.");
+      onSaved();
+    } else if (mpStatus === "error") {
+      const reason = params.get("reason");
+      setMpMessage(null);
+      setMpError(reason ? `No pudimos conectar Mercado Pago: ${reason}` : "No pudimos conectar Mercado Pago.");
+    }
+    params.delete("mp");
+    params.delete("reason");
+    const query = params.toString();
+    const newUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState({}, "", newUrl);
+  }, [onSaved]);
+
   if (loading && !data) {
     return <div className="h-48 rounded-3xl border border-white/60 bg-white/60 animate-pulse" />;
   }
 
   if (!data) return null;
+
+  const mpConnection = data.venue.mpConnection;
+  const mpConnected = Boolean(mpConnection?.connected);
+  const mpUserId = mpConnection?.mpUserId ?? null;
+  const mpExpiresLabel = mpConnection?.expiresAt ? formatDateTime(mpConnection.expiresAt) : null;
+
+  const handleConnectMp = async () => {
+    try {
+      if (!data?.venue?.id) {
+        throw new Error("No encontramos tu cancha. Actualiza la página e intenta nuevamente.");
+      }
+      setMpError(null);
+      setMpMessage(null);
+      setMpLoading("connect");
+      const res = await fetch("/api/mp/oauth/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ venueId: data.venue.id }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "No pudimos iniciar la conexión con Mercado Pago.");
+      }
+      const url = typeof payload?.url === "string" ? payload.url : null;
+      if (!url) {
+        throw new Error("No recibimos el enlace de Mercado Pago. Intenta nuevamente.");
+      }
+      if (typeof window !== "undefined") {
+        window.location.href = url;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No pudimos iniciar la conexión con Mercado Pago.";
+      setMpError(message);
+    } finally {
+      setMpLoading(null);
+    }
+  };
+
+  const handleDisconnectMp = async () => {
+    try {
+      if (!data?.venue?.id) {
+        throw new Error("No encontramos tu cancha. Actualiza la página e intenta nuevamente.");
+      }
+      if (typeof window !== "undefined") {
+        const confirmDisconnect = window.confirm(
+          "¿Seguro que quieres desconectar Mercado Pago? Los partidos pagados quedarán bloqueados hasta volver a conectar.",
+        );
+        if (!confirmDisconnect) return;
+      }
+      setMpError(null);
+      setMpMessage(null);
+      setMpLoading("disconnect");
+      const res = await fetch("/api/venue/mp/disconnect", { method: "POST" });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload?.error) {
+        throw new Error(payload?.error || "No pudimos desconectar Mercado Pago.");
+      }
+      setMpMessage("Desconectaste Mercado Pago. Conéctalo nuevamente antes de publicar partidos pagados.");
+      onSaved();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No pudimos desconectar Mercado Pago.";
+      setMpError(message);
+    } finally {
+      setMpLoading(null);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1037,6 +1143,79 @@ function SettingsTab({
 
   return (
     <div className="space-y-5">
+      <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold text-gray-900">Conexión con Mercado Pago</h2>
+            <p className="text-sm text-gray-600">
+              Conecta la cuenta que recibirá el 100% de los cobros de tus cupos pagados. Puedes reconectar cuando quieras sin perder tu historial.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-3 py-1 font-semibold shadow-sm",
+                  mpConnected
+                    ? "border-emerald-200 bg-emerald-500/10 text-emerald-700"
+                    : "border-amber-200 bg-amber-500/10 text-amber-700",
+                )}
+              >
+                <PlugZap className="h-3.5 w-3.5" />
+                {mpConnected ? "Mercado Pago conectado" : "Mercado Pago desconectado"}
+              </span>
+              {mpUserId ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white/70 px-3 py-1 font-medium text-gray-600 shadow-sm">
+                  ID usuario {mpUserId}
+                </span>
+              ) : null}
+              {mpExpiresLabel ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white/70 px-3 py-1 font-medium text-gray-600 shadow-sm">
+                  Token expira {mpExpiresLabel}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <button
+              type="button"
+              onClick={handleConnectMp}
+              disabled={mpLoading !== null}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {mpLoading === "connect" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <PlugZap className="h-4 w-4" />
+              )}
+              {mpConnected ? "Volver a conectar Mercado Pago" : "Conectar Mercado Pago"}
+            </button>
+            {mpConnected ? (
+              <button
+                type="button"
+                onClick={handleDisconnectMp}
+                disabled={mpLoading !== null}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-600 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {mpLoading === "disconnect" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Unplug className="h-4 w-4" />
+                )}
+                Desconectar Mercado Pago
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-gray-500">
+          Mantener la conexión activa es obligatorio para publicar partidos pagados y recibir los depósitos automáticos en tu cuenta.
+        </p>
+        {mpError ? (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{mpError}</div>
+        ) : null}
+        {mpMessage ? (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{mpMessage}</div>
+        ) : null}
+      </div>
+
       <form
         onSubmit={handleSubmit}
         className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur space-y-6"
@@ -1116,13 +1295,22 @@ function SettingsTab({
           </label>
           <label className="flex flex-col text-sm text-gray-600">
             Tipo de cuenta en Mercado Pago
-            <input
+            <select
               value={form.mpAccountType}
               onChange={(event) => setForm((prev) => ({ ...prev, mpAccountType: event.target.value }))}
               className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-              placeholder="Empresa / Persona"
               required
-            />
+            >
+              <option value="">Selecciona una opción</option>
+              {accountTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+              {form.mpAccountType && !accountTypeOptions.some((option) => option.value === form.mpAccountType) ? (
+                <option value={form.mpAccountType}>{form.mpAccountType}</option>
+              ) : null}
+            </select>
             <span className="mt-1 text-xs text-gray-400">Debe coincidir con el tipo de titular configurado en Mercado Pago.</span>
           </label>
           <label className="flex flex-col text-sm text-gray-600">
@@ -1132,6 +1320,8 @@ function SettingsTab({
               onChange={(event) => setForm((prev) => ({ ...prev, mpCollectorId: event.target.value }))}
               className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
               placeholder="123456789"
+              inputMode="numeric"
+              autoComplete="off"
               required
             />
             <span className="mt-1 text-xs text-gray-400">Lo encuentras en Configuración &gt; Credenciales de Mercado Pago.</span>
