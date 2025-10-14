@@ -21,17 +21,23 @@ function requireEnv(name: string): string {
   return value;
 }
 
-export function buildMpOauthUrl({ state }: { state?: string } = {}) {
+type BuildMpOauthUrlOptions = {
+  state?: string;
+  redirectUri?: string;
+};
+
+export function buildMpOauthUrl({ state, redirectUri }: BuildMpOauthUrlOptions = {}) {
   const clientId = requireEnv("MP_CLIENT_ID");
-  const redirectUri = requireEnv("MP_REDIRECT_URI");
+  const resolvedRedirectUri =
+    typeof redirectUri === "string" && redirectUri.trim().length > 0 ? redirectUri : requireEnv("MP_REDIRECT_URI");
   const scopes = ["offline_access", "read_preferences", "write_preferences", "read_payments", "write_payments"];
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
-    redirect_uri: redirectUri,
     platform_id: "mp",
     state: state || "",
   });
+  params.set("redirect_uri", resolvedRedirectUri);
   params.append("scope", scopes.join(" "));
   return `${MP_AUTH_BASE.replace(/\/+$/, "")}/authorization?${params.toString()}`;
 }
@@ -74,10 +80,16 @@ async function requestToken(params: URLSearchParams): Promise<TokenExchangeRespo
   return (await res.json()) as TokenExchangeResponse;
 }
 
-export async function exchangeMpAuthorizationCode(code: string): Promise<TokenExchangeResponse> {
+export async function exchangeMpAuthorizationCode(
+  code: string,
+  options: { redirectUri?: string } = {},
+): Promise<TokenExchangeResponse> {
   const clientId = requireEnv("MP_CLIENT_ID");
   const clientSecret = requireEnv("MP_CLIENT_SECRET");
-  const redirectUri = requireEnv("MP_REDIRECT_URI");
+  const redirectUri =
+    typeof options.redirectUri === "string" && options.redirectUri.trim().length > 0
+      ? options.redirectUri
+      : requireEnv("MP_REDIRECT_URI");
   const params = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: clientId,
