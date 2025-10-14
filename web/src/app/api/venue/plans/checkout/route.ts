@@ -5,15 +5,24 @@ import { VENUE_PLANS, getVenuePlan } from "@/lib/venuePlans";
 import { cancelPreapproval, createPreapproval } from "@/lib/mp/subscription";
 
 function getBaseUrl(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  if (fromEnv) {
+  const candidates = [
+    process.env.NEXT_PUBLIC_BASE_URL?.trim(),
+    process.env.MP_REDIRECT_URI?.trim(),
+  ].filter((value): value is string => Boolean(value && value.length > 0));
+
+  if (process.env.VERCEL_URL) {
+    candidates.push(`https://${process.env.VERCEL_URL}`);
+  }
+
+  for (const candidate of candidates) {
     try {
-      const url = new URL(fromEnv);
+      const url = new URL(candidate);
       return url.origin;
     } catch (err) {
-      console.warn("[venue/plans/checkout] invalid NEXT_PUBLIC_BASE_URL", fromEnv, err);
+      console.warn("[venue/plans/checkout] invalid base candidate", candidate, err);
     }
   }
+
   return "http://localhost:3000";
 }
 
@@ -109,14 +118,21 @@ export async function POST(req: Request) {
     const externalReference = `venue:${venue.id}:plan:${plan.slug}:${Date.now()}`;
     const backUrl = payload?.returnUrl?.trim() || dashboardUrl;
 
-    const preapproval = await createPreapproval({
-      payerEmail: venue.payoutEmail,
-      reason: plan.mpReason,
-      externalReference,
-      backUrl,
-      priceCLP: plan.monthlyPriceCLP,
-      notificationUrl: getNotificationUrl(baseUrl),
-    });
+    let preapproval;
+    try {
+      preapproval = await createPreapproval({
+        payerEmail: venue.payoutEmail,
+        reason: plan.mpReason,
+        externalReference,
+        backUrl,
+        priceCLP: plan.monthlyPriceCLP,
+        notificationUrl: getNotificationUrl(baseUrl),
+      });
+    } catch (err: any) {
+      console.error("[venue/plans/checkout] preapproval", err);
+      const message = err?.message ?? "Mercado Pago rechazó la suscripción";
+      return NextResponse.json({ error: message }, { status: 502 });
+    }
 
     const subscription = await prisma.venueSubscription.create({
       data: {

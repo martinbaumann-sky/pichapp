@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
 import { normalizeForStorage } from "@/lib/phone";
 import { encryptSecret } from "@/lib/encryption";
+import { hasModelField } from "@/lib/prismaCompat";
 
 type PaymentProviderOption = "MP" | "FLOW";
 
@@ -103,10 +104,21 @@ export async function PATCH(req: NextRequest) {
       typeof payload?.mpAccountType === "string" ? payload.mpAccountType.trim() : venue.mpAccountType ?? "";
     const fieldNames = parseFields(payload?.fields);
 
-    const paymentProvider = normalizeProvider(payload?.paymentProvider, (venue.paymentProvider as PaymentProviderOption) ?? "MP");
-    const flowEnv = normalizeFlowEnv(payload?.flowEnv, venue.flowEnv);
-    const flowApiKeyRaw = typeof payload?.flowApiKey === "string" ? payload.flowApiKey.trim() : undefined;
-    const flowSecretKeyRaw = typeof payload?.flowSecretKey === "string" ? payload.flowSecretKey.trim() : undefined;
+    const supportsPaymentProvider = hasModelField(venue, "paymentProvider");
+    const supportsFlowApiKey = hasModelField(venue, "flowApiKey");
+    const supportsFlowSecretKey = hasModelField(venue, "flowSecretKey");
+    const supportsFlowEnv = hasModelField(venue, "flowEnv");
+    const supportsFlowApiKeyHash = hasModelField(venue, "flowApiKeyHash");
+    const supportsMpAccountType = hasModelField(venue, "mpAccountType");
+
+    let paymentProvider = supportsPaymentProvider
+      ? normalizeProvider(payload?.paymentProvider, (venue.paymentProvider as PaymentProviderOption) ?? "MP")
+      : "MP";
+    const flowEnv = supportsFlowEnv ? normalizeFlowEnv(payload?.flowEnv, venue.flowEnv) : "SANDBOX";
+    const flowApiKeyRaw =
+      supportsFlowApiKey && typeof payload?.flowApiKey === "string" ? payload.flowApiKey.trim() : undefined;
+    const flowSecretKeyRaw =
+      supportsFlowSecretKey && typeof payload?.flowSecretKey === "string" ? payload.flowSecretKey.trim() : undefined;
 
     if (!name || !address || !comuna || !payoutEmail || !accountHolder || !taxId) {
       return NextResponse.json({ error: "Completa todos los campos obligatorios." }, { status: 400 });
@@ -140,9 +152,22 @@ export async function PATCH(req: NextRequest) {
 
     const normalizedPhone = phoneRaw ? normalizeForStorage(phoneRaw) : null;
 
-    const hasExistingFlowCreds = Boolean(venue.flowApiKey && venue.flowSecretKey);
-    const willStoreFlowApiKey = flowApiKeyRaw !== undefined ? flowApiKeyRaw.length > 0 : hasExistingFlowCreds;
-    const willStoreFlowSecret = flowSecretKeyRaw !== undefined ? flowSecretKeyRaw.length > 0 : hasExistingFlowCreds;
+    const hasExistingFlowCreds =
+      supportsFlowApiKey && supportsFlowSecretKey ? Boolean(venue.flowApiKey && venue.flowSecretKey) : false;
+    const willStoreFlowApiKey = supportsFlowApiKey
+      ? flowApiKeyRaw !== undefined
+        ? flowApiKeyRaw.length > 0
+        : hasExistingFlowCreds
+      : false;
+    const willStoreFlowSecret = supportsFlowSecretKey
+      ? flowSecretKeyRaw !== undefined
+        ? flowSecretKeyRaw.length > 0
+        : hasExistingFlowCreds
+      : false;
+
+    if (paymentProvider === "FLOW" && (!supportsFlowApiKey || !supportsFlowSecretKey)) {
+      paymentProvider = "MP";
+    }
 
     if (paymentProvider === "FLOW" && (!willStoreFlowApiKey || !willStoreFlowSecret)) {
       return NextResponse.json(
@@ -151,7 +176,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       name,
       address,
       comuna,
@@ -159,23 +184,34 @@ export async function PATCH(req: NextRequest) {
       accountHolder,
       taxId,
       phone: normalizedPhone,
-      paymentProvider,
-      flowEnv,
       mpCollectorId: collectorIdDigits || null,
-      mpAccountType: paymentProvider === "MP" ? mpAccountType : null,
     };
 
-    if (flowApiKeyRaw !== undefined) {
+    if (supportsPaymentProvider) {
+      updates.paymentProvider = paymentProvider;
+    }
+    if (supportsFlowEnv) {
+      updates.flowEnv = flowEnv;
+    }
+    if (supportsMpAccountType) {
+      updates.mpAccountType = paymentProvider === "MP" ? mpAccountType : null;
+    }
+
+    if (supportsFlowApiKey && flowApiKeyRaw !== undefined) {
       if (!flowApiKeyRaw) {
         updates.flowApiKey = null;
-        updates.flowApiKeyHash = null;
+        if (supportsFlowApiKeyHash) {
+          updates.flowApiKeyHash = null;
+        }
       } else {
         updates.flowApiKey = encryptSecret(flowApiKeyRaw, { context: `venue:${venue.id}` });
-        updates.flowApiKeyHash = createHash("sha256").update(flowApiKeyRaw).digest("hex");
+        if (supportsFlowApiKeyHash) {
+          updates.flowApiKeyHash = createHash("sha256").update(flowApiKeyRaw).digest("hex");
+        }
       }
     }
 
-    if (flowSecretKeyRaw !== undefined) {
+    if (supportsFlowSecretKey && flowSecretKeyRaw !== undefined) {
       if (!flowSecretKeyRaw) {
         updates.flowSecretKey = null;
       } else {

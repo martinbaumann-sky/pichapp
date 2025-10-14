@@ -8,6 +8,7 @@ import {
   fetchMpUserProfile,
 } from "@/lib/mp/marketplace";
 import { prisma } from "@/lib/db";
+import { hasModelField } from "@/lib/prismaCompat";
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -61,17 +62,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "El enlace de autorización expiró" }, { status: 400 });
     }
 
+    // Recuperamos la cancha completa sin `select` para evitar fallos en entornos que todavía no regeneran el Prisma
+    // Client con los campos de pago más recientes (por ejemplo `paymentProvider`). Los atributos faltantes se tratan
+    // con defaults defensivos más adelante.
     const venue = await prisma.venue.findUnique({
       where: { id: payload.venueId },
-      select: {
-        id: true,
-        mpCollectorId: true,
-        mpAccountType: true,
-        accountHolder: true,
-        payoutEmail: true,
-        taxId: true,
-        paymentProvider: true,
-      },
     });
     if (!venue) {
       return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
@@ -147,7 +142,7 @@ export async function GET(req: NextRequest) {
     if (!venue.taxId && taxIdFromProfile) {
       updates.taxId = taxIdFromProfile;
     }
-    if (venue.paymentProvider !== "MP") {
+    if (hasModelField(venue, "paymentProvider") && venue.paymentProvider !== "MP") {
       updates.paymentProvider = "MP";
     }
 
