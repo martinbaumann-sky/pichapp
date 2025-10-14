@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/utils/cn";
+import { MP_POPUP_MESSAGE_SOURCE } from "@/lib/mp/constants";
 import { VENUE_PLANS, getVenuePlan, isPaidVenuePlan } from "@/lib/venuePlans";
 
 type PanelMatch = {
@@ -1082,17 +1083,94 @@ function SettingsTab({
   const mpExpiresLabel = mpConnection?.expiresAt ? formatDateTime(mpConnection.expiresAt) : null;
 
   const handleConnectMp = async () => {
+    let popup: Window | null = null;
+    let messageHandler: ((event: MessageEvent) => void) | null = null;
+    let watcher: number | null = null;
+    let popupCompleted = false;
+    let usedPopup = false;
+
+    const detachPopup = () => {
+      if (typeof window !== "undefined") {
+        if (messageHandler) {
+          window.removeEventListener("message", messageHandler);
+        }
+        if (watcher !== null) {
+          window.clearInterval(watcher);
+        }
+      }
+      messageHandler = null;
+      watcher = null;
+    };
+
+    const closePopup = () => {
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+      popup = null;
+    };
+
     try {
       if (!data?.venue?.id) {
         throw new Error("No encontramos tu cancha. Actualiza la página e intenta nuevamente.");
       }
+
       setMpError(null);
       setMpMessage(null);
       setMpLoading("connect");
+
+      if (typeof window !== "undefined") {
+        popup = window.open("", "pichapp-mp-link", "width=520,height=720");
+        if (popup) {
+          usedPopup = true;
+          popup.document.write(`<!doctype html><html><head><title>Conectando Mercado Pago…</title></head><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; height: 100%; display: flex; align-items: center; justify-content: center; background: #f1f5f9; color: #0f172a;">
+            <div style="text-align: center; padding: 24px; max-width: 320px;">
+              <p style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Conectando Mercado Pago…</p>
+              <p style="font-size: 13px; line-height: 1.4; color: #334155;">No cierres esta ventana hasta completar la autorización en Mercado Pago.</p>
+            </div>
+          </body></html>`);
+          popup.document.close();
+
+          messageHandler = (event: MessageEvent) => {
+            if (typeof window === "undefined") return;
+            if (event.origin !== window.location.origin) return;
+            const detail = event.data as
+              | { source?: string; status?: string; reason?: string | null }
+              | null
+              | undefined;
+            if (!detail || detail.source !== MP_POPUP_MESSAGE_SOURCE) return;
+            popupCompleted = true;
+            detachPopup();
+            closePopup();
+            setMpLoading(null);
+            if (detail.status === "connected") {
+              setMpError(null);
+              setMpMessage("Tu cuenta de Mercado Pago quedó conectada correctamente.");
+              onSaved();
+            } else if (detail.status === "error") {
+              setMpMessage(null);
+              setMpError(detail.reason ? `No pudimos conectar Mercado Pago: ${detail.reason}` : "No pudimos conectar Mercado Pago.");
+            }
+          };
+
+          window.addEventListener("message", messageHandler);
+          watcher = window.setInterval(() => {
+            if (!popup || popup.closed) {
+              if (!popupCompleted) {
+                detachPopup();
+                closePopup();
+                setMpLoading(null);
+                setMpMessage(null);
+                setMpError("La ventana de Mercado Pago se cerró antes de completar la conexión.");
+              }
+            }
+          }, 600);
+        }
+      }
+
       const res = await fetch("/api/mp/oauth/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ venueId: data.venue.id }),
+        body: JSON.stringify({ venueId: data.venue.id, mode: usedPopup ? "popup" : "redirect" }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -1102,13 +1180,27 @@ function SettingsTab({
       if (!url) {
         throw new Error("No recibimos el enlace de Mercado Pago. Intenta nuevamente.");
       }
+
+      if (usedPopup && popup) {
+        popup.location.href = url;
+        return;
+      }
+
+      closePopup();
+
       if (typeof window !== "undefined") {
         window.location.href = url;
       }
+
+      if (!usedPopup) {
+        setMpLoading(null);
+      }
     } catch (err) {
+      detachPopup();
+      closePopup();
       const message = err instanceof Error ? err.message : "No pudimos iniciar la conexión con Mercado Pago.";
+      setMpMessage(null);
       setMpError(message);
-    } finally {
       setMpLoading(null);
     }
   };
@@ -1129,7 +1221,11 @@ function SettingsTab({
       setMpError(null);
       setMpMessage(null);
       setMpLoading("disconnect");
-      const res = await fetch("/api/venue/mp/disconnect", { method: "POST" });
+      const res = await fetch("/api/venue/mp/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ venueId: data.venue.id }),
+      });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(payload?.error || "No pudimos desconectar Mercado Pago.");

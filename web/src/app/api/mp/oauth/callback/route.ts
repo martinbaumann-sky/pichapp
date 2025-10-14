@@ -12,6 +12,8 @@ import { prisma } from "@/lib/db";
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
+  let mode: "popup" | "redirect" = "redirect";
+  let venueId: string | null = null;
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
@@ -35,6 +37,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Falta información de la cancha" }, { status: 400 });
     }
 
+    mode = payload?.mode === "popup" ? "popup" : "redirect";
+    venueId = payload.venueId;
+
     if (payload?.ts && Date.now() - Number(payload.ts) > STATE_TTL_MS) {
       return NextResponse.json({ error: "El enlace de autorización expiró" }, { status: 400 });
     }
@@ -54,6 +59,8 @@ export async function GET(req: NextRequest) {
     if (!venue) {
       return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
     }
+
+    venueId = venue.id;
 
     const tokenResponse = await exchangeMpAuthorizationCode(code);
     const expiresAt = tokenResponse.expires_in ? new Date(Date.now() + tokenResponse.expires_in * 1000) : null;
@@ -92,8 +99,22 @@ export async function GET(req: NextRequest) {
 
     const resolvedCollectorId =
       collectorIdFromProfile ?? (tokenResponse.user_id ? String(tokenResponse.user_id) : null);
-    if (resolvedCollectorId && venue.mpCollectorId !== resolvedCollectorId) {
-      updates.mpCollectorId = resolvedCollectorId;
+    if (resolvedCollectorId) {
+      const existing = await prisma.venue.findFirst({
+        where: { mpUserId: resolvedCollectorId, NOT: { id: venue.id } },
+        select: { id: true, name: true },
+      });
+      if (existing) {
+        throw new Error(
+          existing.name
+            ? `Esta cuenta de Mercado Pago ya está conectada a la cancha ${existing.name}.`
+            : "Esta cuenta de Mercado Pago ya está conectada a otra cancha.",
+        );
+      }
+      updates.mpAccountId = resolvedCollectorId;
+      if (venue.mpCollectorId !== resolvedCollectorId) {
+        updates.mpCollectorId = resolvedCollectorId;
+      }
     }
     if (!venue.mpAccountType && accountTypeFromProfile) {
       updates.mpAccountType = accountTypeFromProfile;
@@ -116,14 +137,40 @@ export async function GET(req: NextRequest) {
       data: { ...dataToPersist.data, ...updates },
     });
 
+    const isPopup = mode === "popup";
+    if (isPopup) {
+      const popupSuccess = process.env.MP_POPUP_SUCCESS_URL || "/panel/cancha/mp/complete";
+      const target = new URL(popupSuccess, url.origin);
+      target.searchParams.set("status", "connected");
+      target.searchParams.set("venueId", venue.id);
+      return NextResponse.redirect(target);
+    }
+
     const redirect = process.env.MP_REDIRECT_SUCCESS_URL || "/panel/cancha?mp=connected";
     return NextResponse.redirect(new URL(redirect, url.origin));
   } catch (err: any) {
     console.error("[mp/oauth/callback]", err);
     const url = new URL(req.url);
+    const message = err?.message ?? "unknown";
+
+    if (mode === "popup") {
+      const popupError = process.env.MP_POPUP_ERROR_URL || "/panel/cancha/mp/complete";
+      const target = new URL(popupError, url.origin);
+      target.searchParams.set("status", "error");
+      if (venueId) {
+        target.searchParams.set("venueId", venueId);
+      }
+      if (message) {
+        target.searchParams.set("reason", message);
+      }
+      return NextResponse.redirect(target);
+    }
+
     const failure = process.env.MP_REDIRECT_ERROR_URL || "/panel/cancha?mp=error";
     const target = new URL(failure, url.origin);
-    target.searchParams.set("reason", err?.message ?? "unknown");
+    if (message) {
+      target.searchParams.set("reason", message);
+    }
     return NextResponse.redirect(target);
   }
 }

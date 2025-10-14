@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
     const userId = await requireUserId();
     const body = await req.json().catch(() => ({}));
     const requestedVenueId = typeof body?.venueId === "string" ? body.venueId : null;
+    const mode = body?.mode === "popup" ? "popup" : "redirect";
 
     const venue = await prisma.venue.findFirst({
       where: requestedVenueId ? { id: requestedVenueId, ownerId: userId } : { ownerId: userId },
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     const nonce = randomBytes(8).toString("hex");
-    const statePayload = JSON.stringify({ venueId: venue.id, nonce, ts: Date.now() });
+    const statePayload = JSON.stringify({ venueId: venue.id, nonce, ts: Date.now(), mode });
     const state = encodeURIComponent(encryptSecret(statePayload));
 
     const url = buildMpOauthUrl({ state });
