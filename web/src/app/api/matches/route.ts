@@ -24,22 +24,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Usamos findFirst sin `select` para soportar instalaciones que todavía ejecutan un Prisma Client antiguo sin
+    // las columnas nuevas de pago. Los campos ausentes quedarán como undefined y usan los fallback más abajo.
     const venue = await prisma.venue.findFirst({
       where: { ownerId: organizerId },
-      select: {
-        id: true,
-        name: true,
-        address: true,
-        comuna: true,
-        mpAccessToken: true,
-        mpCollectorId: true,
-        mpAccountType: true,
-        payoutEmail: true,
-        accountHolder: true,
-        paymentProvider: true,
-        flowApiKey: true,
-        flowSecretKey: true,
-      },
     });
 
     // Defaults defensivos para evitar "invalid input"

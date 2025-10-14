@@ -95,20 +95,11 @@ export async function POST(
         throw new Response("Este partido no tiene una cancha asociada para procesar el pago.", { status: 400 });
       }
 
+      // Nota: evitamos usar `select` explícito aquí para ser compatibles con despliegues que aún no regeneran
+      // Prisma e ignoran columnas recientes como `paymentProvider`; en esos casos los campos faltantes quedan
+      // como undefined y caen en los defaults defensivos más abajo.
       const venue = await tx.venue.findUnique({
         where: { id: match.venueId },
-        select: {
-          id: true,
-          payoutEmail: true,
-          accountHolder: true,
-          paymentProvider: true,
-          mpAccessToken: true,
-          mpCollectorId: true,
-          mpAccountType: true,
-          flowApiKey: true,
-          flowSecretKey: true,
-          flowEnv: true,
-        },
       });
 
       if (!venue) {
