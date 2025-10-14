@@ -8,6 +8,7 @@ import { getSessionUserId } from "@/lib/auth-core";
 import { streetViewUrl, searchPlace, extractComunaFromText } from "@/lib/places";
 import { buildStaticMapUrl } from "@/lib/maps";
 import { normalizeForStorage } from "@/lib/phone";
+import { hasModelField } from "@/lib/prismaCompat";
 
 export const runtime = 'nodejs';
 
@@ -141,7 +142,10 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const paymentProvider: PaymentProvider = (venue.paymentProvider as PaymentProvider) ?? "MP";
+      const paymentProvider: PaymentProvider =
+        hasModelField(venue, "paymentProvider") && typeof venue.paymentProvider === "string"
+          ? (venue.paymentProvider as PaymentProvider)
+          : "MP";
       if (paymentProvider === "MP") {
         if (!venue.mpAccessToken) {
           return NextResponse.json(

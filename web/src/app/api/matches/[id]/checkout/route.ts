@@ -7,6 +7,7 @@ import { sanitizePosition } from "@/lib/teamAssignment";
 import { getEnabledProviders, initPaymentSession } from "@/lib/payments/providers";
 import { isProfileIncomplete, PROFILE_COMPLETION_REQUIRED_MESSAGE } from "@/lib/profileCompletion";
 import { decryptSecret } from "@/lib/encryption";
+import { hasModelField } from "@/lib/prismaCompat";
 
 const DEFAULT_HOLD_MINUTES = 15;
 
@@ -110,7 +111,10 @@ export async function POST(
         throw new Response("La cancha debe completar sus datos de liquidación antes de procesar pagos.", { status: 503 });
       }
 
-      const provider: PaymentProvider = (venue.paymentProvider as PaymentProvider) ?? "MP";
+      const provider: PaymentProvider =
+        hasModelField(venue, "paymentProvider") && typeof venue.paymentProvider === "string"
+          ? (venue.paymentProvider as PaymentProvider)
+          : "MP";
       let flowCredentials: FlowCredentials | null = null;
 
       if (provider === "MP") {

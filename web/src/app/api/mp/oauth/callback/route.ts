@@ -8,6 +8,7 @@ import {
   fetchMpUserProfile,
 } from "@/lib/mp/marketplace";
 import { prisma } from "@/lib/db";
+import { hasModelField } from "@/lib/prismaCompat";
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -141,7 +142,7 @@ export async function GET(req: NextRequest) {
     if (!venue.taxId && taxIdFromProfile) {
       updates.taxId = taxIdFromProfile;
     }
-    if (venue.paymentProvider !== "MP") {
+    if (hasModelField(venue, "paymentProvider") && venue.paymentProvider !== "MP") {
       updates.paymentProvider = "MP";
     }
 
