@@ -39,6 +39,23 @@ export async function GET(req: NextRequest) {
 
     mode = payload?.mode === "popup" ? "popup" : "redirect";
     venueId = payload.venueId;
+    const redirectUriFromState =
+      typeof payload?.redirectUri === "string" && payload.redirectUri.trim().length > 0 ? payload.redirectUri : null;
+    const resolvedRedirectUri = (() => {
+      if (!redirectUriFromState) {
+        return process.env.MP_REDIRECT_URI;
+      }
+      try {
+        const stateHost = new URL(redirectUriFromState).host;
+        const callbackHost = new URL(req.nextUrl.origin).host;
+        if (stateHost !== callbackHost) {
+          return process.env.MP_REDIRECT_URI ?? null;
+        }
+      } catch {
+        return process.env.MP_REDIRECT_URI ?? null;
+      }
+      return redirectUriFromState;
+    })();
 
     if (payload?.ts && Date.now() - Number(payload.ts) > STATE_TTL_MS) {
       return NextResponse.json({ error: "El enlace de autorización expiró" }, { status: 400 });
@@ -62,7 +79,9 @@ export async function GET(req: NextRequest) {
 
     venueId = venue.id;
 
-    const tokenResponse = await exchangeMpAuthorizationCode(code);
+    const tokenResponse = await exchangeMpAuthorizationCode(code, {
+      redirectUri: resolvedRedirectUri ?? undefined,
+    });
     const expiresAt = tokenResponse.expires_in ? new Date(Date.now() + tokenResponse.expires_in * 1000) : null;
 
     let collectorIdFromProfile: string | null = null;
