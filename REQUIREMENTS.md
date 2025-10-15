@@ -18,42 +18,7 @@
   ```
 
 ## Variables de entorno
-Definirlas en `web/.env` para desarrollo y en tu proveedor (Vercel, AWS, etc.) para produccion.
-
-### Basicas (obligatorias en produccion)
-- `DATABASE_URL`: cadena PostgreSQL completa usada por Prisma.
-- `DIRECT_URL`: URL sin pool para `prisma migrate deploy` (usa la variable no pool de tu proveedor; Vercel Postgres expone `POSTGRES_URL_NON_POOLING`).
-- `NEXT_PUBLIC_BASE_URL`: URL publica de la app (incluye protocolo). Define cookies seguras y metadatos.
-- `AUTH_SECRET` (o `JWT_SECRET`): clave HS256 para firmar los tokens de sesion.
-
-### Email y administracion
-- `RESEND_API_KEY`: necesario para enviar correos de verificacion (`/api/auth/verification/resend`).
-- `RESEND_FROM_EMAIL`: remitente mostrado por Resend (default interno si falta).
-- `EMAIL_VERIFICATION_TTL_MINUTES`: minutos de vigencia del codigo (default 15).
-- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_USER_ID`, `ADMIN_EMAILS`, `NEXT_PUBLIC_ADMIN_EMAIL`: datos del usuario administrador y lista blanca usada en seeds/scripts.
-
-### Mapas y contenido
-- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`: habilita Places, Street View Static y fotos en `/api/geocode`.
-- `NEXT_PUBLIC_MAPBOX_TOKEN`: genera imagenes estaticas de canchas (fallback a OSM si falta).
-
-### Rate limiting y cache
-- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`: necesarios para rate limiting persistente. Si faltan, se usa un fallback en memoria (no recomendado para produccion).
-
-### Pagos y proveedores
-- `MP_ACCESS_TOKEN`: requerido para habilitar Mercado Pago checkout.
-- `MP_QR_USER_ID`, `MP_QR_POS_ID`: requeridos solo para la modalidad QR de Mercado Pago.
-- `KHIPU_RECEIVER_ID`, `KHIPU_SECRET_KEY`: habilitan pagos con Khipu.
-- `FLOW_API_KEY`, `FLOW_SECRET_KEY`, `FLOW_ENV`: habilitan Flow (`FLOW_ENV` valores `SANDBOX` o `PROD`).
-- `FINTOC_SECRET_KEY`: habilita Webpay via Fintoc.
-- `TRANSBANK_COMMERCE_CODE`, `TRANSBANK_API_KEY`: usados por el sandbox de Webpay (Transbank).
-
-### Integraciones heredadas y ajustes
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`: solo necesarias si usas los scripts de Supabase (`scripts/clear-users`, `scripts/seed-dev-user`, etc.).
-- `POSTGRES_PRISMA_URL`, `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`: variables que Vercel Postgres entrega y que el script `vercel-build` usa como fallback.
-- `STRICT_BUILD`: define `1` para convertir errores de lint en fallos de build.
-
-### Recomendaciones
-Genera `AUTH_SECRET` con `openssl rand -base64 32` y almacena valores sensibles solo en el gestor de secretos de tu proveedor.
+Consulta [README-ENV.md](./README-ENV.md) para la lista completa de variables, sus descripciones y el detalle de qué servicios habilita cada una. Define los valores en `web/.env` durante el desarrollo y en tu proveedor (Vercel, AWS, etc.) para los entornos desplegados.
 
 ## Pasos rapidos en un PC nuevo
 1. Clonar el repo: `git clone <URL> && cd pichapp`.

@@ -125,27 +125,33 @@ model User {
   // Friend relations
   friendsRequested Friend[] @relation("FriendRequester")
   friendsReceived  Friend[] @relation("FriendAddressee")
+
+  organizerRatingsGiven    OrganizerRating[] @relation("OrganizerRatingRater")
+  organizerRatingsReceived OrganizerRating[] @relation("OrganizerRatingOrganizer")
+  playerRatingsGiven       PlayerRating[]    @relation("PlayerRatingRater")
+  playerRatingsReceived    PlayerRating[]    @relation("PlayerRatingPlayer")
+  messages                 Message[]         @relation("UserMessages")
 }
 
 model Profile {
-  id        String    @id @default(uuid())
-  userId    String    @unique
-  name      String
-  phone     String
-  comuna    String
-  position  Position?
+  id         String      @id @default(uuid())
+  userId     String      @unique
+  name       String
+  phone      String
+  comuna     String
+  position   Position?
   skillLevel SkillLevel?
-  bio       String?
-  avatarUrl String?
+  bio        String?
+  avatarUrl  String?
   // Legacy single rating kept for compatibility; new detailed ratings below
-  rating    Float     @default(5.0)
-  createdAt DateTime  @default(now())
+  rating     Float       @default(5.0)
+  createdAt  DateTime    @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Venue {
-  id               String    @id @default(uuid())
+  id               String          @id @default(uuid())
   ownerId          String
   name             String
   taxId            String
@@ -157,8 +163,8 @@ model Venue {
   payoutEmail      String
   accountHolder    String
   paymentProvider  PaymentProvider @default(MP)
-  plan             String    @default("gratis")
-  verified         Boolean   @default(false)
+  plan             String          @default("gratis")
+  verified         Boolean         @default(false)
   mpAccountId      String?
   mpAccountType    String?
   mpCollectorId    String?
@@ -170,10 +176,10 @@ model Venue {
   flowApiKey       String?
   flowApiKeyHash   String?
   flowSecretKey    String?
-  flowEnv          String?   @default("SANDBOX")
-  createdAt        DateTime  @default(now())
+  flowEnv          String?         @default("SANDBOX")
+  createdAt        DateTime        @default(now())
 
-  owner         User                @relation("VenueOwner", fields: [ownerId], references: [id])
+  owner         User                @relation("VenueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   fields        Field[]
   matches       Match[]
   subscriptions VenueSubscription[]
@@ -187,7 +193,7 @@ model Field {
   name      String
   createdAt DateTime @default(now())
 
-  venue   Venue   @relation(fields: [venueId], references: [id])
+  venue   Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
   matches Match[]
 }
 
@@ -214,13 +220,16 @@ model Match {
   lng           Float?
   coverImageUrl String?
 
-  organizer    User            @relation("MatchOrganizer", fields: [organizerId], references: [id])
-  venue        Venue?          @relation(fields: [venueId], references: [id])
-  field        Field?          @relation(fields: [fieldId], references: [id])
-  spots        Spot[]
-  waitlist     WaitlistEntry[]
-  payments     Payment[]
-  guestInvites GuestInvite[]
+  organizer        User              @relation("MatchOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  venue            Venue?            @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  field            Field?            @relation(fields: [fieldId], references: [id], onDelete: SetNull)
+  spots            Spot[]
+  waitlist         WaitlistEntry[]
+  payments         Payment[]
+  guestInvites     GuestInvite[]
+  organizerRatings OrganizerRating[]
+  playerRatings    PlayerRating[]
+  messages         Message[]         @relation("MatchMessages")
 
   @@index([startsAt])
   @@index([comuna])
@@ -241,8 +250,8 @@ model Spot {
   priceCLP  Int
   createdAt DateTime   @default(now())
 
-  match       Match        @relation(fields: [matchId], references: [id])
-  user        User?        @relation(fields: [userId], references: [id])
+  match       Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   payment     Payment?     @relation("SpotPayment")
   guestInvite GuestInvite?
 
@@ -261,10 +270,10 @@ model GuestInvite {
   position    Position?
   createdAt   DateTime  @default(now())
 
-  match   Match @relation(fields: [matchId], references: [id])
-  inviter User  @relation("GuestInviteInviter", fields: [inviterId], references: [id])
-  guest   User  @relation("GuestInviteGuest", fields: [guestUserId], references: [id])
-  spot    Spot  @relation(fields: [spotId], references: [id])
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  inviter User  @relation("GuestInviteInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  guest   User  @relation("GuestInviteGuest", fields: [guestUserId], references: [id], onDelete: Cascade)
+  spot    Spot  @relation(fields: [spotId], references: [id], onDelete: Cascade)
 
   @@index([matchId])
   @@index([inviterId])
@@ -279,8 +288,12 @@ model OrganizerRating {
   comms       Int // 0..10
   punctual    Int
   fairness    Int
-  overall     Decimal
+  overall     Float
   createdAt   DateTime @default(now())
+
+  match     Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  rater     User  @relation("OrganizerRatingRater", fields: [raterId], references: [id], onDelete: Cascade)
+  organizer User  @relation("OrganizerRatingOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
 
   @@unique([matchId, raterId])
   @@index([organizerId, createdAt])
@@ -294,8 +307,12 @@ model PlayerRating {
   skill     Int
   behavior  Int
   teamwork  Int
-  overall   Decimal
+  overall   Float
   createdAt DateTime @default(now())
+
+  match  Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  rater  User  @relation("PlayerRatingRater", fields: [raterId], references: [id], onDelete: Cascade)
+  player User  @relation("PlayerRatingPlayer", fields: [playerId], references: [id], onDelete: Cascade)
 
   @@unique([matchId, playerId])
   @@index([playerId, createdAt])
@@ -308,7 +325,7 @@ model Session {
   expires      DateTime
   createdAt    DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -345,14 +362,15 @@ model EmailVerification {
   @@index([expiresAt])
 }
 
-// Missing model: Payment
-
 model Message {
   id        String   @id @default(cuid())
   matchId   String
   senderId  String
   text      String
   createdAt DateTime @default(now())
+
+  match  Match @relation("MatchMessages", fields: [matchId], references: [id], onDelete: Cascade)
+  sender User  @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([matchId, createdAt])
 }
@@ -368,8 +386,8 @@ model WaitlistEntry {
   inviteToken String?        @unique
   createdAt   DateTime       @default(now())
 
-  match Match @relation(fields: [matchId], references: [id])
-  user  User  @relation(fields: [userId], references: [id])
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([matchId, userId])
   @@index([matchId, status, position])
@@ -391,9 +409,9 @@ model Payment {
   createdAt   DateTime        @default(now())
   raw         Json?
 
-  user  User  @relation(fields: [userId], references: [id])
-  match Match @relation(fields: [matchId], references: [id])
-  spot  Spot? @relation("SpotPayment", fields: [spotId], references: [id])
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  spot  Spot? @relation("SpotPayment", fields: [spotId], references: [id], onDelete: SetNull)
 
   @@index([providerRef])
 }
@@ -416,7 +434,7 @@ model VenueSubscription {
   lastChargeAt       DateTime?
   cancellationReason String?
 
-  venue Venue @relation(fields: [venueId], references: [id])
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, status])
 }
@@ -441,8 +459,8 @@ model Friend {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  requester User @relation("FriendRequester", fields: [requesterId], references: [id])
-  addressee User @relation("FriendAddressee", fields: [addresseeId], references: [id])
+  requester User @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
 
   @@unique([requesterId, addresseeId])
   @@index([requesterId, status])
