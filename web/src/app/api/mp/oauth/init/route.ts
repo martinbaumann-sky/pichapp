@@ -10,6 +10,26 @@ function resolveMpRedirectUri(req: NextRequest): string {
   const originFromHeader = req.headers.get("origin") ?? undefined;
   const origin = originFromHeader ?? req.nextUrl?.origin ?? undefined;
 
+  const parseHost = (value: string | undefined) => {
+    if (!value) return null;
+    try {
+      return new URL(value).hostname;
+    } catch {
+      return null;
+    }
+  };
+
+  const isLocalHost = (host: string | null) => {
+    if (!host) return false;
+    return (
+      host === "localhost" ||
+      host.endsWith(".localhost") ||
+      host === "127.0.0.1" ||
+      host === "[::1]" ||
+      host.endsWith(".internal")
+    );
+  };
+
   const shouldUseOriginFallback = (() => {
     if (!origin) {
       return false;
@@ -18,13 +38,13 @@ function resolveMpRedirectUri(req: NextRequest): string {
       return true;
     }
     try {
-      const envHost = new URL(envRedirect).hostname;
-      const originHost = new URL(origin).hostname;
+      const envHost = parseHost(envRedirect);
+      const originHost = parseHost(origin);
       if (!envHost || !originHost) {
         return false;
       }
-      const envIsLocalhost = envHost === "localhost" || envHost.endsWith(".localhost");
-      const originIsLocalhost = originHost === "localhost" || originHost.endsWith(".localhost");
+      const envIsLocalhost = isLocalHost(envHost);
+      const originIsLocalhost = isLocalHost(originHost);
       return envIsLocalhost && !originIsLocalhost;
     } catch {
       return true;
@@ -44,9 +64,19 @@ function resolveMpRedirectUri(req: NextRequest): string {
   }
 
   if (origin) {
-    return new URL("/api/mp/oauth/callback", origin).toString();
+    const originHost = parseHost(origin);
+    if (isLocalHost(originHost)) {
+      try {
+        return new URL("/api/mp/oauth/callback", origin).toString();
+      } catch {
+        // fall through to error
+      }
+    }
+    // Guard: avoid generating OAuth redirects that are not registered in Mercado Pago.
+    throw new Error(
+      "MP_REDIRECT_URI no esta configurado. Configura esta variable con la URL registrada en Mercado Pago antes de volver a intentar.",
+    );
   }
-
   throw new Error("No se pudo resolver la URL de retorno de Mercado Pago");
 }
 
