@@ -2,6 +2,7 @@ import { createHmac } from "crypto";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import { prisma } from "@/lib/db";
 import { decryptSecret, encryptSecret } from "@/lib/encryption";
+import { getVenuePlan } from "@/lib/venuePlans";
 
 const MP_API_BASE = "https://api.mercadopago.com";
 const MP_AUTH_BASE = process.env.MP_AUTH_BASE ?? "https://auth.mercadopago.com";
@@ -302,10 +303,28 @@ export async function createMarketplacePreference({
     accessToken = envToken;
   }
 
+  let commissionRate: number | null = null;
+  if (venueId) {
+    const venue = await prisma.venue.findUnique({
+      where: { id: venueId },
+      select: { plan: true },
+    });
+    if (venue) {
+      const plan = getVenuePlan(venue.plan);
+      if (plan) {
+        commissionRate = Math.max(plan.commissionRate, 0);
+      }
+    }
+  }
+
+  if (commissionRate === null) {
+    const feeBps = Number(process.env.MP_FEE_BPS ?? "0");
+    commissionRate = Math.max(feeBps, 0) / 10000;
+  }
+
   const client = new MercadoPagoConfig({ accessToken });
   const preference = new Preference(client);
-  const feeBps = Number(process.env.MP_FEE_BPS ?? "0");
-  const marketplaceFee = Math.round((priceCLP * Math.max(feeBps, 0)) / 10000);
+  const marketplaceFee = Math.round(priceCLP * commissionRate);
   const trimmedBase = (baseUrl || "").trim();
   const fallbackBase = process.env.NEXT_PUBLIC_BASE_URL?.trim();
   let resolvedBase = trimmedBase || fallbackBase || "";
@@ -420,6 +439,32 @@ export async function createRefundForPayment({
   if (!res.ok && res.status !== 409) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `Error al crear reembolso (${res.status})`);
+  }
+  return res.status === 204 ? null : await res.json().catch(() => null);
+}
+
+export async function captureAuthorizedPayment({
+  venueId,
+  paymentId,
+  idempotencyKey,
+}: {
+  venueId: string;
+  paymentId: string;
+  idempotencyKey: string;
+}) {
+  const { accessToken } = await ensureVenueAccessToken(venueId);
+  const res = await fetch(`${MP_API_BASE}/v1/payments/${paymentId}/capture`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "X-Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok && res.status !== 409) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Error al capturar pago (${res.status})`);
   }
   return res.status === 204 ? null : await res.json().catch(() => null);
 }

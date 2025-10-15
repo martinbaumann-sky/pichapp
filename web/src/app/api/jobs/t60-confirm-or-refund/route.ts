@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { refundPayment } from "@/lib/payments/update";
+import { confirmMatchAndCapturePayments, refundPayment } from "@/lib/payments/update";
 import { createRefundForPayment, ensureVenueAccessToken } from "@/lib/mp/marketplace";
 
 function requireCronAuth(req: NextRequest) {
@@ -44,15 +44,23 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const summary: { matchId: string; action: "confirmed" | "refunded" | "skipped"; refunds?: number }[] = [];
+    const summary: {
+      matchId: string;
+      action: "confirmed" | "refunded" | "skipped";
+      refunds?: number;
+      captured?: number;
+    }[] = [];
 
     for (const match of matches) {
       const minRequired = match.minSpotsToConfirm > 0 ? match.minSpotsToConfirm : match.totalSpots;
       const paidCount = await prisma.spot.count({ where: { matchId: match.id, status: "PAID" } });
 
       if (paidCount >= minRequired) {
-        await prisma.match.update({ where: { id: match.id }, data: { status: "CONFIRMED" } }).catch(() => null);
-        summary.push({ matchId: match.id, action: "confirmed" });
+        const captureSummary = await confirmMatchAndCapturePayments(match.id).catch((err) => {
+          console.error(`[t60] confirm error`, { matchId: match.id }, err);
+          return { confirmed: false, captured: 0 };
+        });
+        summary.push({ matchId: match.id, action: "confirmed", captured: captureSummary.captured });
         continue;
       }
 
@@ -60,8 +68,12 @@ export async function POST(req: NextRequest) {
       await prisma.match.update({ where: { id: match.id }, data: { status: "CANCELED_MINIMUM" } }).catch(() => null);
 
       const payments = await prisma.payment.findMany({
-        where: { matchId: match.id, provider: "MP", status: "APPROVED" },
-        select: { id: true, providerRef: true },
+        where: {
+          matchId: match.id,
+          provider: "MP",
+          status: { in: ["APPROVED", "AUTHORIZED"] },
+        },
+        select: { id: true, providerRef: true, status: true },
       });
 
       let refunds = 0;
