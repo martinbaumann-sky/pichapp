@@ -987,8 +987,6 @@ function SettingsTab({
     accountHolder: "",
     phone: "",
     fields: "",
-    mpCollectorId: "",
-    mpAccountType: "",
     paymentProvider: "MP" as PaymentProviderChoice,
     flowEnv: "SANDBOX" as FlowEnvChoice,
     flowApiKey: "",
@@ -1001,15 +999,6 @@ function SettingsTab({
   const [mpLoading, setMpLoading] = useState<"connect" | "disconnect" | null>(null);
   const [mpMessage, setMpMessage] = useState<string | null>(null);
   const [mpError, setMpError] = useState<string | null>(null);
-
-  const accountTypeOptions = useMemo(
-    () => [
-      { value: "Persona", label: "Persona natural" },
-      { value: "Empresa", label: "Empresa / Sociedad" },
-      { value: "Fundación", label: "Fundación u ONG" },
-    ],
-    [],
-  );
 
   const paymentProviderOptions = useMemo(
     () => [
@@ -1040,8 +1029,6 @@ function SettingsTab({
       accountHolder: data.venue.accountHolder ?? "",
       phone: data.venue.phone ?? "",
       fields: data.venue.fields.map((field) => field.name).join("\n"),
-      mpCollectorId: data.venue.mpCollectorId ?? "",
-      mpAccountType: data.venue.mpAccountType ?? "",
       paymentProvider: provider,
       flowEnv: env,
       flowApiKey: "",
@@ -1077,10 +1064,7 @@ function SettingsTab({
 
   if (!data) return null;
 
-  const mpConnection = data.venue.mpConnection;
-  const mpConnected = Boolean(mpConnection?.connected);
-  const mpUserId = mpConnection?.mpUserId ?? null;
-  const mpExpiresLabel = mpConnection?.expiresAt ? formatDateTime(mpConnection.expiresAt) : null;
+  const mpConnected = Boolean(data.venue.mpConnection?.connected);
 
   const handleConnectMp = async () => {
     let popup: Window | null = null;
@@ -1259,11 +1243,6 @@ function SettingsTab({
         flowEnv: form.flowEnv,
       };
 
-      if (form.paymentProvider === "MP") {
-        payload.mpCollectorId = form.mpCollectorId;
-        payload.mpAccountType = form.mpAccountType;
-      }
-
       if (form.paymentProvider === "FLOW") {
         if (form.flowApiKey.trim().length > 0) {
           payload.flowApiKey = form.flowApiKey.trim();
@@ -1289,8 +1268,6 @@ function SettingsTab({
         const env = updatedVenue.flowEnv === "PROD" ? "PROD" : "SANDBOX";
         setForm((prev) => ({
           ...prev,
-          mpCollectorId: updatedVenue.mpCollectorId ?? "",
-          mpAccountType: updatedVenue.mpAccountType ?? "",
           paymentProvider: provider,
           flowEnv: env,
           flowApiKey: "",
@@ -1313,7 +1290,17 @@ function SettingsTab({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      <MpConnectionSection
+        venue={data.venue}
+        mpConnected={mpConnected}
+        mpLoading={mpLoading}
+        mpMessage={mpMessage}
+        mpError={mpError}
+        onConnect={handleConnectMp}
+        onDisconnect={handleDisconnectMp}
+      />
+
       <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Información de la cancha</h2>
@@ -1397,42 +1384,16 @@ function SettingsTab({
             </select>
             <span className="mt-1 text-xs text-gray-400">Define cómo se procesarán los pagos en Chile. Puedes cambiarlo cuando necesites.</span>
           </label>
-          {form.paymentProvider === "MP" ? (
-            <>
-              <label className="flex flex-col text-sm text-gray-600">
-                Tipo de cuenta en Mercado Pago
-                <select
-                  value={form.mpAccountType}
-                  onChange={(event) => setForm((prev) => ({ ...prev, mpAccountType: event.target.value }))}
-                  className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-                  required
-                >
-                  <option value="">Selecciona una opción</option>
-                  {accountTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                  {form.mpAccountType && !accountTypeOptions.some((option) => option.value === form.mpAccountType) ? (
-                    <option value={form.mpAccountType}>{form.mpAccountType}</option>
-                  ) : null}
-                </select>
-                <span className="mt-1 text-xs text-gray-400">Debe coincidir con el tipo de titular configurado en Mercado Pago.</span>
-              </label>
-              <label className="flex flex-col text-sm text-gray-600">
-                Collector ID de Mercado Pago
-                <input
-                  value={form.mpCollectorId}
-                  onChange={(event) => setForm((prev) => ({ ...prev, mpCollectorId: event.target.value }))}
-                  className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-                  placeholder="123456789"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  required
-                />
-                <span className="mt-1 text-xs text-gray-400">Lo encuentras en Configuración &gt; Credenciales de Mercado Pago.</span>
-              </label>
-            </>
+          {form.paymentProvider === "MP" && !mpConnected ? (
+            <div className="md:col-span-2 flex items-start gap-2 rounded-2xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-xs text-amber-900">
+              <ShieldAlert className="h-4 w-4 flex-shrink-0" />
+              <div>
+                <p className="font-semibold">Conecta Mercado Pago desde la tarjeta superior.</p>
+                <p className="mt-1 text-amber-900/80">
+                  La integración OAuth sincroniza automáticamente tu Collector ID y tipo de cuenta. Mientras no esté conectada, los partidos pagados permanecerán bloqueados.
+                </p>
+              </div>
+            </div>
           ) : null}
           <label className="flex flex-col text-sm text-gray-600">
             Teléfono de contacto
@@ -1537,57 +1498,235 @@ function SettingsTab({
         </div>
       </form>
 
-      <div className="space-y-4">
-        <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
+      <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
+        <h3 className="text-lg font-semibold text-gray-900">Verificación</h3>
+        <p className="mt-2 text-sm text-gray-600">
+          {data.venue.verified
+            ? "Tu cancha está verificada. Puedes publicar partidos sin restricciones."
+            : "Estamos revisando tu información. Publica con normalidad y te avisaremos cuando el sello de verificación esté activo."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+type MpConnectionSectionProps = {
+  venue: PanelData["venue"];
+  mpConnected: boolean;
+  mpLoading: "connect" | "disconnect" | null;
+  mpMessage: string | null;
+  mpError: string | null;
+  onConnect: () => void | Promise<void>;
+  onDisconnect: () => void | Promise<void>;
+};
+
+function MpConnectionSection({
+  venue,
+  mpConnected,
+  mpLoading,
+  mpMessage,
+  mpError,
+  onConnect,
+  onDisconnect,
+}: MpConnectionSectionProps) {
+  const mpConnection = venue.mpConnection;
+  const mpUserId = mpConnection?.mpUserId ?? null;
+  const mpExpiresAt = mpConnection?.expiresAt ?? null;
+  const mpExpiresLabel = mpExpiresAt ? formatDateTime(mpExpiresAt) : null;
+  const expiresDate = mpExpiresAt ? new Date(mpExpiresAt) : null;
+  const expiresSoon = expiresDate ? expiresDate.getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000 : false;
+
+  const checklist = [
+    {
+      key: "connection",
+      ok: mpConnected,
+      title: "Cuenta autorizada",
+      description:
+        "Mercado Pago permitirá cobrar cupos y procesar reembolsos automáticamente para tus partidos confirmados.",
+    },
+    {
+      key: "collector",
+      ok: Boolean(venue.mpCollectorId),
+      title: "Collector ID sincronizado",
+      description:
+        "Al autorizar Mercado Pago importamos tu Collector ID para que los pagos lleguen directamente a tu cuenta.",
+    },
+    {
+      key: "accountType",
+      ok: Boolean(venue.mpAccountType),
+      title: "Tipo de cuenta detectado",
+      description:
+        "Identificamos si tu cuenta es persona natural, empresa o fundación para cumplir con las políticas de Mercado Pago.",
+    },
+    {
+      key: "email",
+      ok: Boolean(venue.payoutEmail),
+      title: "Correo de liquidación",
+      description: "Usamos este correo para enviarte comprobantes y avisos de Mercado Pago. Puedes actualizarlo en el formulario.",
+    },
+    {
+      key: "holder",
+      ok: Boolean(venue.accountHolder && venue.taxId),
+      title: "Titular y RUT configurados",
+      description:
+        "Asegúrate de que el nombre del titular y el RUT coincidan con la cuenta autorizada. Se editan en la sección de perfil.",
+    },
+  ] as const;
+
+  const detailItems = [
+    {
+      label: "Collector ID",
+      value: venue.mpCollectorId ? `#${venue.mpCollectorId}` : "Pendiente",
+      hint: mpConnected
+        ? "Se sincroniza automáticamente al completar la autorización."
+        : "Se completará cuando conectes Mercado Pago.",
+    },
+    {
+      label: "Tipo de cuenta",
+      value: venue.mpAccountType ?? "Pendiente",
+      hint: mpConnected
+        ? "Detectamos el tipo de cuenta desde Mercado Pago."
+        : "Se completará cuando conectes Mercado Pago.",
+    },
+    {
+      label: "ID de vendedor",
+      value: mpUserId ?? "Pendiente",
+      hint: mpConnected
+        ? "Es el identificador único de tu cuenta de Mercado Pago."
+        : "Lo obtendremos cuando autorices a PichangApp.",
+    },
+    {
+      label: "Correo Mercado Pago",
+      value: venue.payoutEmail || "Pendiente",
+      hint: "Puedes modificarlo en el formulario de perfil si necesitas otro correo de liquidación.",
+    },
+    {
+      label: "Titular registrado",
+      value: venue.accountHolder || "Pendiente",
+      hint: venue.taxId ? `RUT: ${venue.taxId}` : "Actualiza el titular y RUT desde el formulario de perfil.",
+    },
+  ] as const;
+
+  const connectLabel = mpConnected ? "Actualizar conexión con Mercado Pago" : "Conectar Mercado Pago";
+  const connectIcon = (() => {
+    if (mpLoading === "connect") return <Loader2 className="h-4 w-4 animate-spin" />;
+    if (mpConnected) return <RefreshCw className="h-4 w-4" />;
+    return <PlugZap className="h-4 w-4" />;
+  })();
+
+  const disconnectDisabled = !mpConnected || mpLoading === "disconnect";
+
+  return (
+    <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
           <h3 className="text-lg font-semibold text-gray-900">Conexión con Mercado Pago</h3>
           <p className="mt-1 text-sm text-gray-600">
-            Usa esta integración cuando Mercado Pago sea tu proveedor activo. Si eliges Flow, mantendremos tus credenciales por si deseas volver a Mercado Pago más adelante.
+            Autoriza tu cuenta para recibir pagos directos, separar la comisión de PichangApp y automatizar reembolsos sin gestiones manuales.
           </p>
-          <div className="mt-4 rounded-2xl border border-emerald-200/70 bg-emerald-50/80 p-4 text-sm text-emerald-800">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="font-semibold">
-                  {mpConnected ? "Mercado Pago conectado" : "Mercado Pago desconectado"}
-                </p>
-                <p className="text-xs text-emerald-800/70">
-                  {mpConnected
-                    ? `Cuenta ${mpUserId ?? "vinculada"}. Token vigente hasta ${mpExpiresLabel ?? "actualizar conexión"}.`
-                    : "Conecta Mercado Pago para recibir los pagos directamente en tu cuenta."}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleConnectMp}
-                  disabled={mpLoading === "connect"}
-                  className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-white px-4 py-2 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {mpLoading === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlugZap className="h-4 w-4" />} {mpConnected ? "Volver a conectar Mercado Pago" : "Conectar Mercado Pago"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDisconnectMp}
-                  disabled={!mpConnected || mpLoading === "disconnect"}
-                  className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-600 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {mpLoading === "disconnect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />} Desconectar Mercado Pago
-                </button>
-              </div>
-            </div>
-            {mpMessage ? <p className="mt-3 text-xs text-emerald-700">{mpMessage}</p> : null}
-            {mpError ? <p className="mt-3 text-xs text-rose-600">{mpError}</p> : null}
+        </div>
+        <span
+          className={cn(
+            "inline-flex items-center gap-2 self-start rounded-full border px-3 py-1 text-xs font-semibold",
+            mpConnected
+              ? "border-emerald-200/80 bg-emerald-500/10 text-emerald-700"
+              : "border-rose-200/80 bg-rose-500/10 text-rose-700",
+          )}
+        >
+          {mpConnected ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />} {" "}
+          {mpConnected ? "Mercado Pago conectado" : "Mercado Pago desconectado"}
+        </span>
+      </div>
+
+      {mpMessage ? (
+        <div className="mt-4 rounded-2xl border border-emerald-200/80 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800">
+          {mpMessage}
+        </div>
+      ) : null}
+      {mpError ? (
+        <div className="mt-4 rounded-2xl border border-rose-200/80 bg-rose-500/10 px-4 py-3 text-sm text-rose-700">{mpError}</div>
+      ) : null}
+
+      {mpConnected && mpExpiresLabel ? (
+        <div
+          className={cn(
+            "mt-4 flex items-start gap-3 rounded-2xl border px-4 py-3 text-xs",
+            expiresSoon
+              ? "border-amber-200/80 bg-amber-50/80 text-amber-900"
+              : "border-emerald-200/70 bg-emerald-50/80 text-emerald-900",
+          )}
+        >
+          <RefreshCw className="h-4 w-4 flex-shrink-0" />
+          <div>
+            <p className="font-semibold">Token vigente hasta {mpExpiresLabel}.</p>
+            <p className="mt-1">
+              {expiresSoon
+                ? "Te recomendamos renovar la autorización antes de esa fecha para evitar interrupciones en los cobros."
+                : "Cuando falten pocos días te avisaremos para renovar la conexión sin perder pagos."}
+            </p>
           </div>
         </div>
+      ) : null}
 
-        <div className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
-          <h3 className="text-lg font-semibold text-gray-900">Verificación</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            {data.venue.verified
-              ? "Tu cancha está verificada. Puedes publicar partidos sin restricciones."
-              : "Estamos revisando tu información. Publica con normalidad y te avisaremos cuando el sello de verificación esté activo."}
-          </p>
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Checklist de conexión</p>
+          <ul className="mt-3 space-y-3 text-sm text-gray-600">
+            {checklist.map((item) => (
+              <li key={item.key} className="flex items-start gap-3 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3">
+                <span
+                  className={cn(
+                    "mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border",
+                    item.ok
+                      ? "border-emerald-200/80 bg-emerald-500/10 text-emerald-700"
+                      : "border-amber-200/80 bg-amber-500/10 text-amber-700",
+                  )}
+                >
+                  {item.ok ? <CheckCircle2 className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
+                </span>
+                <div>
+                  <p className="font-semibold text-gray-900">{item.title}</p>
+                  <p className="mt-0.5 text-xs text-gray-600">{item.description}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="rounded-2xl border border-slate-200/70 bg-slate-50/60 p-4">
+          <p className="text-sm font-semibold text-gray-900">Datos sincronizados</p>
+          <dl className="mt-3 space-y-3 text-xs text-gray-600">
+            {detailItems.map((item) => (
+              <div key={item.label} className="rounded-xl border border-white/60 bg-white/80 px-3 py-2 shadow-sm">
+                <dt className="text-[11px] uppercase tracking-[0.2em] text-gray-400">{item.label}</dt>
+                <dd className="mt-1 text-sm font-semibold text-gray-900">{item.value}</dd>
+                <p className="mt-1 text-[11px] text-gray-500">{item.hint}</p>
+              </div>
+            ))}
+          </dl>
         </div>
       </div>
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => onConnect()}
+          disabled={mpLoading === "connect"}
+          className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-white px-5 py-2 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {connectIcon} {connectLabel}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDisconnect()}
+          disabled={disconnectDisabled}
+          className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-5 py-2 text-xs font-semibold text-rose-600 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {mpLoading === "disconnect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />} Desconectar Mercado Pago
+        </button>
+      </div>
+      <p className="mt-3 text-xs text-gray-500">
+        Si desconectas Mercado Pago, los partidos pagados quedarán pausados hasta autorizar nuevamente tu cuenta.
+      </p>
     </div>
   );
 }

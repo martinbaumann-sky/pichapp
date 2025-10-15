@@ -134,21 +134,17 @@ export async function PATCH(req: NextRequest) {
     }
 
     const collectorIdDigits = mpCollectorIdRaw.replace(/\D+/g, "");
-    if (paymentProvider === "MP" && collectorIdDigits.length < 5) {
-      return NextResponse.json({ error: "Ingresa un Collector ID de Mercado Pago válido." }, { status: 400 });
-    }
-
-    if (paymentProvider === "MP" && !mpAccountTypeRaw) {
-      return NextResponse.json({ error: "Selecciona el tipo de cuenta de Mercado Pago." }, { status: 400 });
-    }
-
-    const mpAccountType = (() => {
-      const normalized = mpAccountTypeRaw.toLowerCase();
-      if (normalized.includes("persona")) return "Persona";
-      if (normalized.includes("empresa") || normalized.includes("sociedad")) return "Empresa";
-      if (normalized.includes("fund")) return "Fundación";
-      return mpAccountTypeRaw;
-    })();
+    const mpConnected = Boolean((venue as any).mpAccessToken);
+    const hasCollectorId = collectorIdDigits.length >= 5;
+    const mpAccountType = mpAccountTypeRaw
+      ? (() => {
+          const normalized = mpAccountTypeRaw.toLowerCase();
+          if (normalized.includes("persona")) return "Persona";
+          if (normalized.includes("empresa") || normalized.includes("sociedad")) return "Empresa";
+          if (normalized.includes("fund")) return "Fundación";
+          return mpAccountTypeRaw;
+        })()
+      : null;
 
     const normalizedPhone = phoneRaw ? normalizeForStorage(phoneRaw) : null;
 
@@ -184,7 +180,6 @@ export async function PATCH(req: NextRequest) {
       accountHolder,
       taxId,
       phone: normalizedPhone,
-      mpCollectorId: collectorIdDigits || null,
     };
 
     if (supportsPaymentProvider) {
@@ -193,8 +188,36 @@ export async function PATCH(req: NextRequest) {
     if (supportsFlowEnv) {
       updates.flowEnv = flowEnv;
     }
-    if (supportsMpAccountType) {
-      updates.mpAccountType = paymentProvider === "MP" ? mpAccountType : null;
+
+    if (paymentProvider === "MP") {
+      if (hasCollectorId) {
+        updates.mpCollectorId = collectorIdDigits;
+      } else if (!mpConnected) {
+        updates.mpCollectorId = null;
+      } else {
+        return NextResponse.json(
+          {
+            error: "No pudimos sincronizar tu Collector ID desde Mercado Pago. Vuelve a conectar tu cuenta desde el panel.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (supportsMpAccountType) {
+        if (mpAccountType) {
+          updates.mpAccountType = mpAccountType;
+        } else if (!mpConnected) {
+          updates.mpAccountType = null;
+        } else {
+          return NextResponse.json(
+            {
+              error:
+                "No pudimos detectar el tipo de cuenta de Mercado Pago. Renueva la conexión desde el panel para sincronizarlo automáticamente.",
+            },
+            { status: 400 },
+          );
+        }
+      }
     }
 
     if (supportsFlowApiKey && flowApiKeyRaw !== undefined) {
