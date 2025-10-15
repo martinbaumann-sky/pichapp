@@ -20,6 +20,7 @@ type TxResultPending = {
   holdUntil: Date | null;
   user: { email: string | null; name: string | null };
   provider: PaymentProvider;
+  useVenueMpCredentials: boolean;
   flowCredentials: FlowCredentials | null;
 };
 
@@ -116,16 +117,25 @@ export async function POST(
           ? (venue.paymentProvider as PaymentProvider)
           : "MP";
       let flowCredentials: FlowCredentials | null = null;
+      let useVenueMpCredentials = false;
 
       if (provider === "MP") {
         const providers = getEnabledProviders();
         if (!providers.MP) {
           throw new Response("Mercado Pago no está configurado.", { status: 503 });
         }
-        if (!venue.mpAccessToken) {
+        const hasMpTokenField = hasModelField(venue, "mpAccessToken");
+        const rawVenueMpToken = hasMpTokenField ? (venue as any).mpAccessToken : null;
+        const venueMpToken =
+          typeof rawVenueMpToken === "string" && rawVenueMpToken.trim().length > 0 ? rawVenueMpToken : null;
+        if (venueMpToken) {
+          useVenueMpCredentials = true;
+        } else if (!process.env.MP_ACCESS_TOKEN) {
           throw new Response("La cancha debe conectar Mercado Pago para recibir el pago.", { status: 503 });
         }
-        if (!venue.mpCollectorId || !venue.mpAccountType) {
+        const venueCollectorId = hasModelField(venue, "mpCollectorId") ? (venue as any).mpCollectorId : null;
+        const venueAccountType = hasModelField(venue, "mpAccountType") ? (venue as any).mpAccountType : null;
+        if (!venueCollectorId || !venueAccountType) {
           throw new Response("La cancha debe completar sus datos de Mercado Pago antes de procesar pagos.", { status: 503 });
         }
       } else if (provider === "FLOW") {
@@ -236,6 +246,7 @@ export async function POST(
         holdUntil: reservedSpot.holdUntil ?? holdUntilTarget,
         user: { email: user?.email ?? null, name: user?.profile?.name ?? null },
         provider,
+        useVenueMpCredentials,
         flowCredentials,
       } satisfies TxResult;
     })) as TxResult;
@@ -264,14 +275,18 @@ export async function POST(
           id: txResult.match.id,
           title: txResult.match.title,
           comuna: txResult.match.comuna,
-          venueId: txResult.match.venueId ?? null,
+          venueId: txResult.useVenueMpCredentials ? txResult.match.venueId ?? null : null,
         },
         baseUrl,
         user: { email: txResult.user.email, name: txResult.user.name ?? undefined },
-        venue: {
-          id: txResult.match.venueId ?? null,
-          flow: txResult.flowCredentials ?? undefined,
-        },
+        ...(txResult.useVenueMpCredentials || txResult.flowCredentials
+          ? {
+              venue: {
+                id: txResult.useVenueMpCredentials ? txResult.match.venueId ?? null : null,
+                flow: txResult.flowCredentials ?? undefined,
+              },
+            }
+          : {}),
       });
 
       if (!initResult.url) {
