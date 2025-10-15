@@ -73,6 +73,7 @@ enum PaymentProvider {
 
 enum PaymentStatus {
   PENDING
+  AUTHORIZED
   APPROVED
   REJECTED
   REFUNDED

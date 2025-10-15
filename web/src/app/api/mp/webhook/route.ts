@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { approvePayment, refundPayment, rejectPayment } from "@/lib/payments/update";
+import { approvePayment, confirmMatchAndCapturePayments, refundPayment, rejectPayment } from "@/lib/payments/update";
 import {
   fetchMerchantOrder,
   fetchPaymentDetails,
@@ -174,9 +174,21 @@ async function handlePaymentUpdate({
   }
 
   const status = String(mpPayment?.status || "").toLowerCase();
+  if (status === "authorized") {
+    if (paymentRecord.status !== "AUTHORIZED") {
+      const result = await approvePayment(paymentRecord.id, String(mpPayment.id), mpPayment, {
+        status: "AUTHORIZED",
+      });
+      if (result?.shouldCheckConfirmation) {
+        await confirmMatchAndCapturePayments(result.matchId);
+      }
+    }
+    return;
+  }
+
   if (status === "approved") {
     if (paymentRecord.status !== "APPROVED") {
-      await approvePayment(paymentRecord.id, String(mpPayment.id), mpPayment);
+      await approvePayment(paymentRecord.id, String(mpPayment.id), mpPayment, { status: "APPROVED" });
     }
     return;
   }

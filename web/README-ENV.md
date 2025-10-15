@@ -29,13 +29,13 @@ GOOGLE_OAUTH_CLIENT_SECRET=
 
 3) Variables en producción
 - Configura estas variables en tu proveedor de hosting (Vercel, Fly, Railway, etc.) usando su panel de secretos.
+- Define `MP_REDIRECT_URI` con la URL exacta de callback registrada en Mercado Pago (por ejemplo `https://app.tudominio.cl/api/mp/oauth/callback`). Sin esta variable la conexión con Mercado Pago fallará inmediatamente.
 
 4) Comprobar variables usadas en el código
 - Revisa `web/src` para ver qué variables son necesarias (`process.env.*`).
 
 5) Rotación y seguridad
 - Cambia las claves si crees que se filtraron. No uses la misma clave para desarrollo y producción.
-
 
 
 
