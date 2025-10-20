@@ -5,6 +5,7 @@ const defineConfig = (): ExpoConfig => ({
   slug: 'pichapp-mobile',
   version: '1.0.0',
   orientation: 'portrait',
+  platforms: ['ios', 'android'],
   icon: './assets/icon.png',
   scheme: 'pichapp',
   userInterfaceStyle: 'light',
