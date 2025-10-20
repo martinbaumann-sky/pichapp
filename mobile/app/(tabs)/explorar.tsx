@@ -23,43 +23,48 @@ export default function ExploreScreen() {
     <Screen>
       <FlatList
         ListHeaderComponent={
-          <View style={styles.filters}>
-            <View>
-              <Text style={styles.heading}>Explora pichangas</Text>
-              <Text style={styles.subheading}>Filtra por comuna y nivel para encontrar tu próximo partido.</Text>
+          <View style={styles.headerArea}>
+            <View style={styles.filtersIntro}>
+              <Text style={styles.heading}>Explora pichangas oficiales</Text>
+              <Text style={styles.subheading}>
+                Busca partidos verificados, sincronizados con la experiencia web y con la misma estética de PichangApp.
+              </Text>
             </View>
-            <View style={styles.filterRow}>
-              <Text style={styles.filterLabel}>Comuna</Text>
-              <View style={styles.chipRow}>
-                <Chip tone={!comuna ? 'accent' : 'default'}>
-                  <Pressable onPress={() => setComuna(undefined)}>
-                    <Text style={styles.chipPressable}>Todas</Text>
-                  </Pressable>
-                </Chip>
-                {COMUNAS.map((c) => (
-                  <Chip key={c} tone={comuna === c ? 'accent' : 'default'}>
-                    <Pressable onPress={() => setComuna(c)}>
-                      <Text style={styles.chipPressable}>{c}</Text>
+            <View style={styles.filterCard}>
+              <Text style={styles.filterHeading}>Filtra tu búsqueda</Text>
+              <View style={styles.filterRow}>
+                <Text style={styles.filterLabel}>Comuna</Text>
+                <View style={styles.chipRow}>
+                  <Chip tone={!comuna ? 'accent' : 'default'}>
+                    <Pressable onPress={() => setComuna(undefined)}>
+                      <Text style={styles.chipPressable}>Todas</Text>
                     </Pressable>
                   </Chip>
-                ))}
+                  {COMUNAS.map((c) => (
+                    <Chip key={c} tone={comuna === c ? 'accent' : 'default'}>
+                      <Pressable onPress={() => setComuna(c)}>
+                        <Text style={styles.chipPressable}>{c}</Text>
+                      </Pressable>
+                    </Chip>
+                  ))}
+                </View>
               </View>
-            </View>
-            <View style={styles.filterRow}>
-              <Text style={styles.filterLabel}>Nivel</Text>
-              <View style={styles.chipRow}>
-                <Chip tone={!level ? 'accent' : 'default'}>
-                  <Pressable onPress={() => setLevel(undefined)}>
-                    <Text style={styles.chipPressable}>Todos</Text>
-                  </Pressable>
-                </Chip>
-                {LEVELS.map((lvl) => (
-                  <Chip key={lvl} tone={level === lvl ? 'accent' : 'default'}>
-                    <Pressable onPress={() => setLevel(lvl)}>
-                      <Text style={styles.chipPressable}>{lvl}</Text>
+              <View style={styles.filterRow}>
+                <Text style={styles.filterLabel}>Nivel</Text>
+                <View style={styles.chipRow}>
+                  <Chip tone={!level ? 'accent' : 'default'}>
+                    <Pressable onPress={() => setLevel(undefined)}>
+                      <Text style={styles.chipPressable}>Todos</Text>
                     </Pressable>
                   </Chip>
-                ))}
+                  {LEVELS.map((lvl) => (
+                    <Chip key={lvl} tone={level === lvl ? 'accent' : 'default'}>
+                      <Pressable onPress={() => setLevel(lvl)}>
+                        <Text style={styles.chipPressable}>{lvl}</Text>
+                      </Pressable>
+                    </Chip>
+                  ))}
+                </View>
               </View>
             </View>
           </View>
@@ -71,7 +76,7 @@ export default function ExploreScreen() {
         onRefresh={refetch}
         renderItem={({ item }) => (
           <Link href={`/match/${item.id}`} asChild>
-            <Pressable accessibilityRole="button">
+            <Pressable accessibilityRole="button" style={styles.cardWrapper}>
               <MatchCard match={item} />
             </Pressable>
           </Link>
@@ -88,31 +93,57 @@ export default function ExploreScreen() {
             </View>
           );
         }}
+        ListFooterComponent={<View style={{ height: 32 }} />}
       />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  filters: {
-    paddingVertical: 24,
+  headerArea: {
     gap: 20,
+    paddingTop: 12,
+  },
+  filtersIntro: {
+    gap: 12,
   },
   heading: {
     color: colors.textPrimary,
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   subheading: {
     color: colors.textSecondary,
-    marginTop: 8,
+    lineHeight: 22,
+  },
+  filterCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 24,
+    elevation: 3,
+    gap: 16,
+  },
+  filterHeading: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
   },
   filterRow: {
     gap: 12,
   },
   filterLabel: {
-    color: colors.textSecondary,
-    fontWeight: '600',
+    color: colors.textMuted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   chipRow: {
     flexDirection: 'row',
@@ -124,7 +155,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   listContent: {
-    paddingBottom: 32,
+    paddingBottom: 48,
+    paddingTop: 16,
+    gap: 16,
   },
   empty: {
     paddingVertical: 64,
@@ -139,5 +172,8 @@ const styles = StyleSheet.create({
   emptyMessage: {
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  cardWrapper: {
+    borderRadius: 20,
   },
 });

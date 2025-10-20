@@ -10,8 +10,18 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: '#0d141d',
+          backgroundColor: colors.surface,
           borderTopColor: colors.border,
+          height: 70,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+        },
+        tabBarLabelStyle: {
+          fontWeight: '600',
+          fontSize: 12,
+        },
+        tabBarItemStyle: {
+          borderRadius: 16,
         },
         tabBarIcon: ({ color, size }) => {
           if (route.name === 'index') {

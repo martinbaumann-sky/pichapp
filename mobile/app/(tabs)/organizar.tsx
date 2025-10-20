@@ -65,33 +65,35 @@ export default function OrganizeScreen() {
     return (
       <Screen>
         <View style={styles.authContainer}>
-          <Text style={styles.heading}>Inicia sesión para organizar partidos</Text>
-          <Text style={styles.subheading}>
-            Usa la misma cuenta que en la web. Guardaremos la sesión en el dispositivo para que puedas administrar tus
-            partidos desde la app.
-          </Text>
-          <TextField label="Email" value={loginEmail} onChangeText={setLoginEmail} keyboardType="email-address" autoCapitalize="none" />
-          <TextField label="Contraseña" value={loginPassword} onChangeText={setLoginPassword} secureTextEntry />
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          <Button
-            label={loginLoading ? 'Ingresando...' : 'Iniciar sesión'}
-            onPress={async () => {
-              setLoginLoading(true);
-              setSubmitError(null);
-              try {
-                await login(loginEmail.trim(), loginPassword);
-                setLoginEmail('');
-                setLoginPassword('');
-              } catch (err: any) {
-                setSubmitError(err?.message ?? 'No fue posible iniciar sesión');
-              } finally {
-                setLoginLoading(false);
-              }
-            }}
-            disabled={loginLoading}
-            style={{ marginTop: 8 }}
-          />
-          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+          <View style={styles.card}>
+            <Text style={styles.heading}>Inicia sesión para organizar partidos</Text>
+            <Text style={styles.subheading}>
+              Usa la misma cuenta que en la web. Guardaremos la sesión en el dispositivo para que puedas administrar tus
+              partidos desde la app.
+            </Text>
+            <TextField label="Email" value={loginEmail} onChangeText={setLoginEmail} keyboardType="email-address" autoCapitalize="none" />
+            <TextField label="Contraseña" value={loginPassword} onChangeText={setLoginPassword} secureTextEntry />
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            <Button
+              label={loginLoading ? 'Ingresando...' : 'Iniciar sesión'}
+              onPress={async () => {
+                setLoginLoading(true);
+                setSubmitError(null);
+                try {
+                  await login(loginEmail.trim(), loginPassword);
+                  setLoginEmail('');
+                  setLoginPassword('');
+                } catch (err: any) {
+                  setSubmitError(err?.message ?? 'No fue posible iniciar sesión');
+                } finally {
+                  setLoginLoading(false);
+                }
+              }}
+              disabled={loginLoading}
+              style={{ marginTop: 8 }}
+            />
+            {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+          </View>
         </View>
       </Screen>
     );
@@ -100,122 +102,124 @@ export default function OrganizeScreen() {
   return (
     <Screen>
       <View style={styles.formContainer}>
-        <Text style={styles.heading}>Publica una pichanga</Text>
-        <Text style={styles.subheading}>Completa los detalles para compartirla con toda la comunidad.</Text>
-        <TextField label="Título" value={title} onChangeText={setTitle} />
-        <TextField label="Comuna" value={comuna} onChangeText={setComuna} />
-        <TextField label="Cancha" value={venueName} onChangeText={setVenueName} />
-        <TextField label="Dirección" value={venueAddress} onChangeText={setVenueAddress} placeholder="Av. Siempre Viva 123" />
+        <View style={styles.card}>
+          <Text style={styles.heading}>Publica una pichanga</Text>
+          <Text style={styles.subheading}>Completa los detalles para compartirla con toda la comunidad.</Text>
+          <TextField label="Título" value={title} onChangeText={setTitle} />
+          <TextField label="Comuna" value={comuna} onChangeText={setComuna} />
+          <TextField label="Cancha" value={venueName} onChangeText={setVenueName} />
+          <TextField label="Dirección" value={venueAddress} onChangeText={setVenueAddress} placeholder="Av. Siempre Viva 123" />
 
-        <View style={styles.inlineRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Fecha y hora</Text>
-            <Pressable style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.dateText}>{displayDate}</Text>
-            </Pressable>
+          <View style={styles.inlineRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Fecha y hora</Text>
+              <Pressable style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
+                <Text style={styles.dateText}>{displayDate}</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
 
-        {showDatePicker ? (
-          <DateTimePicker
-            value={startsAt}
-            mode="datetime"
-            display={Platform.OS === 'ios' ? 'inline' : 'default'}
-            onChange={(event, date) => {
-              if (Platform.OS !== 'ios') {
-                setShowDatePicker(false);
-              }
-              if (date) {
-                setStartsAt(date);
+          {showDatePicker ? (
+            <DateTimePicker
+              value={startsAt}
+              mode="datetime"
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              onChange={(event, date) => {
+                if (Platform.OS !== 'ios') {
+                  setShowDatePicker(false);
+                }
+                if (date) {
+                  setStartsAt(date);
+                }
+              }}
+            />
+          ) : null}
+
+          <View style={styles.inlineRow}>
+            <TextField
+              label="Duración (min)"
+              value={duration}
+              onChangeText={setDuration}
+              keyboardType="number-pad"
+              containerStyle={styles.halfInput}
+            />
+            <TextField
+              label="Precio por cupo"
+              value={price}
+              onChangeText={setPrice}
+              keyboardType="number-pad"
+              containerStyle={styles.halfInput}
+            />
+          </View>
+          <View style={styles.inlineRow}>
+            <TextField
+              label="Cupos totales"
+              value={totalSpots}
+              onChangeText={setTotalSpots}
+              keyboardType="number-pad"
+              containerStyle={styles.halfInput}
+            />
+            <TextField
+              label="Cupos para confirmar"
+              value={minSpots}
+              onChangeText={setMinSpots}
+              keyboardType="number-pad"
+              containerStyle={styles.halfInput}
+            />
+          </View>
+
+          <View style={styles.levelRow}>
+            <Text style={styles.label}>Nivel</Text>
+            <View style={styles.levelChips}>
+              {LEVEL_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => setLevel(opt.value)}
+                  style={[styles.levelChip, level === opt.value ? styles.levelChipActive : null]}
+                >
+                  <Text style={[styles.levelChipText, level === opt.value ? styles.levelChipTextActive : null]}>{opt.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {submitMessage ? <Text style={styles.successText}>{submitMessage}</Text> : null}
+          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+
+          <Button
+            label={submitting ? 'Publicando...' : 'Publicar partido'}
+            onPress={async () => {
+              setSubmitError(null);
+              setSubmitMessage(null);
+              setSubmitting(true);
+              try {
+                const total = Number.parseInt(totalSpots, 10) || 0;
+                const minRequired = Number.parseInt(minSpots, 10) || Math.max(1, Math.round(total * 0.6));
+                const payload = {
+                  title: title.trim(),
+                  comuna: comuna.trim(),
+                  startsAt: startsAt.toISOString(),
+                  durationMins: Number.parseInt(duration, 10) || 90,
+                  pricePerSpot: Number.parseInt(price, 10) || 0,
+                  totalSpots: Math.max(1, total),
+                  minSpotsToConfirm: Math.max(1, Math.min(minRequired, Math.max(1, total))),
+                  level,
+                  venueName: venueName.trim(),
+                  venueAddress: venueAddress.trim(),
+                  public: true,
+                };
+                await createMatch(payload);
+                setSubmitMessage('Partido publicado correctamente. Puedes seguirlo desde el panel.');
+              } catch (err: any) {
+                setSubmitError(err?.message ?? 'No fue posible crear el partido');
+              } finally {
+                setSubmitting(false);
               }
             }}
-          />
-        ) : null}
-
-        <View style={styles.inlineRow}>
-          <TextField
-            label="Duración (min)"
-            value={duration}
-            onChangeText={setDuration}
-            keyboardType="number-pad"
-            containerStyle={styles.halfInput}
-          />
-          <TextField
-            label="Precio por cupo"
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="number-pad"
-            containerStyle={styles.halfInput}
+            disabled={submitting}
+            style={{ marginTop: 12 }}
           />
         </View>
-        <View style={styles.inlineRow}>
-          <TextField
-            label="Cupos totales"
-            value={totalSpots}
-            onChangeText={setTotalSpots}
-            keyboardType="number-pad"
-            containerStyle={styles.halfInput}
-          />
-          <TextField
-            label="Cupos para confirmar"
-            value={minSpots}
-            onChangeText={setMinSpots}
-            keyboardType="number-pad"
-            containerStyle={styles.halfInput}
-          />
-        </View>
-
-        <View style={styles.levelRow}>
-          <Text style={styles.label}>Nivel</Text>
-          <View style={styles.levelChips}>
-            {LEVEL_OPTIONS.map((opt) => (
-              <Pressable
-                key={opt.value}
-                onPress={() => setLevel(opt.value)}
-                style={[styles.levelChip, level === opt.value ? styles.levelChipActive : null]}
-              >
-                <Text style={[styles.levelChipText, level === opt.value ? styles.levelChipTextActive : null]}>{opt.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {submitMessage ? <Text style={styles.successText}>{submitMessage}</Text> : null}
-        {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
-
-        <Button
-          label={submitting ? 'Publicando...' : 'Publicar partido'}
-          onPress={async () => {
-            setSubmitError(null);
-            setSubmitMessage(null);
-            setSubmitting(true);
-            try {
-              const total = Number.parseInt(totalSpots, 10) || 0;
-              const minRequired = Number.parseInt(minSpots, 10) || Math.max(1, Math.round(total * 0.6));
-              const payload = {
-                title: title.trim(),
-                comuna: comuna.trim(),
-                startsAt: startsAt.toISOString(),
-                durationMins: Number.parseInt(duration, 10) || 90,
-                pricePerSpot: Number.parseInt(price, 10) || 0,
-                totalSpots: Math.max(1, total),
-                minSpotsToConfirm: Math.max(1, Math.min(minRequired, Math.max(1, total))),
-                level,
-                venueName: venueName.trim(),
-                venueAddress: venueAddress.trim(),
-                public: true,
-              };
-              await createMatch(payload);
-              setSubmitMessage('Partido publicado correctamente. Puedes seguirlo desde el panel.');
-            } catch (err: any) {
-              setSubmitError(err?.message ?? 'No fue posible crear el partido');
-            } finally {
-              setSubmitting(false);
-            }
-          }}
-          disabled={submitting}
-          style={{ marginTop: 12 }}
-        />
       </View>
     </Screen>
   );
@@ -232,17 +236,23 @@ const styles = StyleSheet.create({
   },
   heading: {
     color: colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   subheading: {
     color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
+    marginBottom: 8,
   },
   label: {
-    color: colors.textSecondary,
+    color: colors.textMuted,
     marginBottom: 6,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   inlineRow: {
     flexDirection: 'row',
@@ -252,15 +262,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateButton: {
-    backgroundColor: '#131b26',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 2,
   },
   dateText: {
     color: colors.textPrimary,
+    fontWeight: '600',
   },
   levelRow: {
     gap: 12,
@@ -270,14 +286,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   levelChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
+    backgroundColor: colors.surface,
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 2,
   },
   levelChipActive: {
-    backgroundColor: 'rgba(255, 122, 0, 0.18)',
+    backgroundColor: 'rgba(6, 182, 212, 0.18)',
     borderColor: colors.primary,
   },
   levelChipText: {
@@ -294,5 +316,18 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.danger,
     fontWeight: '600',
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 14 },
+    shadowRadius: 26,
+    elevation: 4,
+    gap: 16,
   },
 });

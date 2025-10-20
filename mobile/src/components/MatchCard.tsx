@@ -5,7 +5,7 @@ import type { MatchSummary } from '../api/matches';
 
 const formatPrice = (price: number) => {
   if (price <= 0) return 'Gratis';
-  return `$${price.toLocaleString('es-CL')}`;
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
 };
 
 const formatDateTime = (iso: string) => {
@@ -23,7 +23,17 @@ type Props = {
   match: MatchSummary;
 };
 
+const levelTone: Record<string, string> = {
+  BEGINNER: colors.success,
+  INTERMEDIATE: colors.warning,
+  ADVANCED: colors.danger,
+};
+
 export function MatchCard({ match }: Props) {
+  const occupied = Math.max(0, match.totalSpots - match.available);
+  const progress = match.totalSpots > 0 ? Math.min(1, occupied / match.totalSpots) : 0;
+  const levelColor = levelTone[match.level] ?? colors.accent;
+
   return (
     <View style={styles.card}>
       {match.coverImageUrl ? (
@@ -36,12 +46,21 @@ export function MatchCard({ match }: Props) {
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>{match.title}</Text>
-          <View style={[styles.badge, match.confirmed ? styles.badgeConfirmed : styles.badgePending]}>
-            <Text style={styles.badgeText}>{match.confirmed ? 'Confirmado' : 'Buscando'}</Text>
+          <View style={[styles.badge, { backgroundColor: `${levelColor}1A` }]}>
+            <Text style={[styles.badgeText, { color: levelColor }]}>{match.level}</Text>
           </View>
         </View>
         <Text style={styles.subtitle}>{match.comuna}</Text>
         <Text style={styles.meta}>{formatDateTime(match.startsAt)}</Text>
+        <View style={styles.metaRow}>
+          <Text style={[styles.status, match.confirmed ? styles.statusConfirmed : styles.statusPending]}>
+            {match.confirmed ? 'Confirmado' : 'Abierto'}
+          </Text>
+          <Text style={styles.spots}>{occupied}/{match.totalSpots} confirmados</Text>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressIndicator, { width: `${Math.max(6, progress * 100)}%`, backgroundColor: levelColor }]} />
+        </View>
         <View style={styles.footer}>
           <Text style={styles.price}>{formatPrice(match.pricePerSpot)}</Text>
           <Text style={styles.spots}>{match.available} cupos libres</Text>
@@ -54,33 +73,40 @@ export function MatchCard({ match }: Props) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 24,
+    elevation: 3,
   },
   cover: {
     width: '100%',
-    height: 160,
+    height: 168,
   },
   coverPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
   },
   coverPlaceholderText: {
-    color: colors.textSecondary,
+    color: colors.textMuted,
     fontSize: 18,
-    letterSpacing: 2,
+    letterSpacing: 1,
+    fontWeight: '700',
   },
   content: {
-    padding: 16,
+    padding: 20,
+    gap: 10,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
   title: {
     color: colors.textPrimary,
@@ -90,42 +116,63 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   subtitle: {
-    color: colors.textSecondary,
+    color: colors.textMuted,
     fontSize: 14,
-    marginBottom: 4,
   },
   meta: {
     color: colors.textSecondary,
     fontSize: 13,
-    marginBottom: 12,
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 8,
   },
   price: {
-    color: colors.primary,
+    color: colors.primaryMuted,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   spots: {
     color: colors.textSecondary,
+    fontSize: 13,
   },
   badge: {
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  badgeConfirmed: {
-    backgroundColor: 'rgba(33, 197, 93, 0.15)',
-  },
-  badgePending: {
-    backgroundColor: 'rgba(255, 122, 0, 0.15)',
+    paddingVertical: 6,
   },
   badgeText: {
-    color: colors.textPrimary,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  status: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  statusConfirmed: {
+    color: colors.accent,
+  },
+  statusPending: {
+    color: colors.warning,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: colors.borderMuted,
+    overflow: 'hidden',
+  },
+  progressIndicator: {
+    height: '100%',
+    borderRadius: 999,
   },
 });
