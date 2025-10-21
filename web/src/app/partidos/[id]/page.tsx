@@ -79,6 +79,16 @@ export default function MatchDetailPage() {
   const [inviteTempCount, setInviteTempCount] = useState(0);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("es-CL", {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0,
+      }),
+    [],
+  );
+
   const pricePerSpot = match?.pricePerSpot ?? 0;
   const isPaidMatch = pricePerSpot > 0;
   const holdMinutes = 15;
@@ -228,7 +238,7 @@ export default function MatchDetailPage() {
   const isFull = availableSpots === 0;
   const isAlmostFull = availableSpots <= 2;
   const maxInvitableFriends = useMemo(
-    () => (isPaidMatch ? 0 : Math.max(0, availableSpots - 1)),
+    () => (isPaidMatch ? 0 : Math.min(4, Math.max(0, availableSpots - 1))),
     [availableSpots, isPaidMatch],
   );
 
@@ -266,15 +276,10 @@ export default function MatchDetailPage() {
       return;
     }
     setInviteTempCount(0);
-    if (isPaidMatch) {
-      initializeJoinSelection();
-      setJoinFriendCount(0);
-      setJoinFriends([]);
-      setJoinDialogOpen(true);
-      return;
-    }
+    setJoinFriendCount(0);
+    setJoinFriends([]);
     setInviteDialogOpen(true);
-  }, [user, isPaidMatch, initializeJoinSelection, requiresProfileCompletion, isVenueViewer]);
+  }, [user, requiresProfileCompletion, isVenueViewer]);
 
   const proceedFromInvite = useCallback(() => {
     initializeJoinSelection();
@@ -290,15 +295,6 @@ export default function MatchDetailPage() {
     setInviteDialogOpen(false);
     setJoinDialogOpen(true);
   }, [initializeJoinSelection, inviteTempCount, maxInvitableFriends]);
-
-  useEffect(() => {
-    if (isPaidMatch) {
-      setJoinFriendCount(0);
-      setJoinFriends([]);
-      setInviteDialogOpen(false);
-    }
-  }, [isPaidMatch]);
-
 
   const closeJoinDialog = useCallback(() => {
     if (joining) return;
@@ -669,7 +665,9 @@ export default function MatchDetailPage() {
     return friendEntries.every((friend) => {
       const nameOk = friend.name.trim().length > 1;
       const emailOk = emailRegex.test(friend.email.trim());
-      return nameOk && emailOk;
+      const teamOk = TEAM_KEYS.includes(friend.team as TeamKey);
+      const positionOk = POSITION_KEYS.includes(friend.position as PositionKey);
+      return nameOk && emailOk && teamOk && positionOk;
     });
   }, [friendEntries, joinFriendCount]);
 
@@ -679,6 +677,10 @@ export default function MatchDetailPage() {
       setJoinFriends((prev) => prev.slice(0, maxInvitableFriends));
     }
   }, [joinFriendCount, maxInvitableFriends]);
+
+  useEffect(() => {
+    setInviteTempCount((prev) => Math.min(prev, maxInvitableFriends));
+  }, [maxInvitableFriends]);
 
   const friendsPlaying = useMemo(() => {
     if (!match || !Array.isArray(match.players)) return [] as any[];
@@ -778,15 +780,25 @@ export default function MatchDetailPage() {
   const dateLabel = startAt ? capitalize(dateFormatter.format(startAt)) : "Fecha por confirmar";
   const timeLabel = startAt ? `${timeFormatter.format(startAt)}${estimatedEndAt ? ` - ${timeFormatter.format(estimatedEndAt)}` : ""}` : "Horario por confirmar";
   const durationLabel = `${match.durationMins ?? 90} minutos`;
-  const priceLabel = match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(match.pricePerSpot) : "Gratis";
+  const priceLabel = pricePerSpot > 0 ? currencyFormatter.format(pricePerSpot) : "Gratis";
+  const totalPlayersSelected = Math.max(1, 1 + joinFriendCount);
+  const totalAmountLabel = pricePerSpot > 0 ? currencyFormatter.format(pricePerSpot * totalPlayersSelected) : "Gratis";
   const paymentConfirmNotice = isPaidMatch ? (
-    <div className="space-y-1">
-      <p className="text-base font-semibold text-slate-900">Total a pagar: {priceLabel}</p>
+    <div className="space-y-2">
+      <p className="text-base font-semibold text-slate-900">
+        Total a pagar por {totalPlayersSelected} jugador{totalPlayersSelected === 1 ? "" : "es"}: {totalAmountLabel}
+      </p>
+      <p className="text-xs text-slate-500">
+        Valor individual por jugador: {priceLabel}. Por cada invitado adicional pagarás su cupo en tu misma transacción.
+      </p>
       <p className="text-sm text-slate-600">
         Al confirmar abriremos Mercado Pago en una nueva pestaña para finalizar el pago de tu cupo.
       </p>
     </div>
   ) : null;
+  const invitePreviewPlayers = Math.max(1, 1 + inviteTempCount);
+  const invitePreviewTotalLabel =
+    pricePerSpot > 0 ? currencyFormatter.format(pricePerSpot * invitePreviewPlayers) : "Gratis";
   const paymentImportantNotice = isPaidMatch ? (
     <div className="flex items-start gap-3">
       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
@@ -1370,50 +1382,88 @@ export default function MatchDetailPage() {
         importantNotice={paymentImportantNotice}
         flowVariant={isPaidMatch ? "paid" : "free"}
       />
-      {!isPaidMatch && inviteDialogOpen && (
+      {inviteDialogOpen && (
         <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setInviteDialogOpen(false)} />
-          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-slate-800">¿Quieres invitar amigos?</h3>
-            <p className="mt-1 text-sm text-slate-600">Elige cuántos amigos traerás además de tu cupo.</p>
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                onClick={() => setInviteTempCount(Math.max(0, inviteTempCount - 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
-                aria-label="disminuir"
-              >
-                -
-              </button>
-              <input
-                type="number"
-                min={0}
-                max={maxInvitableFriends}
-                value={inviteTempCount}
-                onChange={(e) => setInviteTempCount(Math.max(0, Math.min(Number(e.target.value) || 0, maxInvitableFriends)))}
-                className="w-20 rounded-lg border border-slate-200 bg-white p-2 text-center text-slate-800"
-              />
-              <button
-                onClick={() => setInviteTempCount(Math.min(maxInvitableFriends, inviteTempCount + 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
-                aria-label="aumentar"
-              >
-                +
-              </button>
-              <span className="text-sm text-slate-500">máx. {maxInvitableFriends}</span>
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setInviteDialogOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={proceedFromInvite}
-                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
-              >
-                Continuar
-              </button>
+          <div className="relative z-[1001] w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white shadow-xl">
+            <div className="p-6 sm:p-8 space-y-6">
+              <div className="space-y-2 text-center">
+                <h3 className="text-xl font-semibold text-slate-900">¿Cuántos amigos te acompañarán?</h3>
+                <p className="text-sm text-slate-600">
+                  {maxInvitableFriends === 0
+                    ? "En este momento no hay cupos extra disponibles para invitar amigos."
+                    : `Puedes invitar hasta ${maxInvitableFriends} amigo${maxInvitableFriends === 1 ? "" : "s"} además de tu cupo.`}
+                </p>
+                {pricePerSpot > 0 ? (
+                  <p className="text-xs text-emerald-600">
+                    {maxInvitableFriends === 0
+                      ? "Si se abre un cupo extra, pagarás el mismo valor por cada invitado adicional."
+                      : `Por cada invitado pagarás ${priceLabel}. Total estimado para ${invitePreviewPlayers} jugador${invitePreviewPlayers === 1 ? "" : "es"}: ${invitePreviewTotalLabel}.`}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Reservas gratis: recuerda coordinar el pago de la cancha si corresponde.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-center gap-5">
+                <button
+                  onClick={() => setInviteTempCount(Math.max(0, inviteTempCount - 1))}
+                  className="h-11 w-11 rounded-full border border-slate-300 bg-white text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                  aria-label="Disminuir invitados"
+                  disabled={inviteTempCount <= 0}
+                >
+                  −
+                </button>
+                <div className="flex flex-col items-center">
+                  <span className="text-4xl font-bold text-slate-900">{inviteTempCount}</span>
+                  <span className="text-xs uppercase tracking-wide text-slate-500">amigo{inviteTempCount === 1 ? "" : "s"}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={maxInvitableFriends}
+                    value={inviteTempCount}
+                    onChange={(e) =>
+                      setInviteTempCount(Math.max(0, Math.min(Number(e.target.value) || 0, maxInvitableFriends)))
+                    }
+                    className="mt-2 w-24 rounded-xl border border-slate-200 bg-slate-50 py-1 text-center text-sm font-semibold text-slate-700 focus:border-emerald-400 focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={() => setInviteTempCount(Math.min(maxInvitableFriends, inviteTempCount + 1))}
+                  className="h-11 w-11 rounded-full border border-slate-300 bg-white text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                  aria-label="Aumentar invitados"
+                  disabled={inviteTempCount >= maxInvitableFriends}
+                >
+                  +
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center text-xs text-slate-500">
+                {maxInvitableFriends === 0 ? (
+                  <span>No quedan cupos disponibles para invitar en este partido.</span>
+                ) : (
+                  <span>
+                    Incluyendo tu cupo serán {invitePreviewPlayers} jugador{invitePreviewPlayers === 1 ? "" : "es"} listos para reservar.
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  onClick={() => setInviteDialogOpen(false)}
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={proceedFromInvite}
+                  className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow transition hover:bg-emerald-600"
+                >
+                  Continuar
+                </button>
+              </div>
             </div>
           </div>
         </div>
