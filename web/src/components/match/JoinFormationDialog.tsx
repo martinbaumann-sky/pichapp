@@ -158,26 +158,31 @@ export function JoinFormationDialog({
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <h4 className="text-lg font-semibold text-slate-800">¿Quieres traer amigos?</h4>
-                          <p className="text-sm text-slate-500">Reserva cupos para tus invitados y asigna su posición.</p>
+                          <p className="text-sm text-slate-500">
+                            {maxFriends === 0
+                              ? "No quedan cupos extra para invitar en este partido."
+                              : "Reserva cupos para tus invitados, tú cubres el pago de cada uno."}
+                          </p>
                         </div>
                         <div className="inline-flex items-center gap-3">
                           <button
                             type="button"
                             onClick={() => onFriendCountChange?.(Math.max(0, boundedFriendCount - 1))}
                             disabled={boundedFriendCount <= 0 || loading}
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 disabled:opacity-40"
+                            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-40"
                             aria-label="Reducir invitados"
                           >
-                            -
+                            −
                           </button>
-                          <span className="min-w-[2rem] text-center text-sm font-semibold text-slate-700">
+                          <span className="min-w-[2.5rem] text-center text-base font-semibold text-slate-700">
                             {boundedFriendCount}
                           </span>
                           <button
                             type="button"
                             onClick={() => onFriendCountChange?.(Math.min(maxFriends, boundedFriendCount + 1))}
                             disabled={boundedFriendCount >= maxFriends || loading}
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 disabled:opacity-40"
+                            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-40"
+                            aria-label="Aumentar invitados"
                           >
                             +
                           </button>
@@ -187,10 +192,10 @@ export function JoinFormationDialog({
                       {boundedFriendCount > 0 ? (
                         <div className="space-y-4">
                           {friends.slice(0, boundedFriendCount).map((friend, idx) => (
-                            <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                               <div className="mb-3 flex items-center justify-between">
                                 <p className="text-sm font-semibold text-slate-700">Invitado {idx + 1}</p>
-                                <span className="text-xs text-slate-400">Completa sus datos</span>
+                                <span className="text-xs text-slate-400">Pagas su cupo al confirmar</span>
                               </div>
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
@@ -201,6 +206,7 @@ export function JoinFormationDialog({
                                     onChange={(e) => onUpdateFriend?.(idx, { ...friend, name: e.target.value })}
                                     placeholder="Nombre de tu amigo"
                                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                                    required
                                   />
                                 </div>
                                 <div className="sm:col-span-2">
@@ -211,16 +217,20 @@ export function JoinFormationDialog({
                                     onChange={(e) => onUpdateFriend?.(idx, { ...friend, email: e.target.value })}
                                     placeholder="amigo@correo.com"
                                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                                    required
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Equipo</label>
+                                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Equipo preferido</label>
                                   <select
                                     value={friend.team}
                                     onChange={(e) => onUpdateFriend?.(idx, { ...friend, team: (e.target.value as TeamKey) || "" })}
                                     className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                                    required
                                   >
-                                    <option value="">Asignar automáticamente</option>
+                                    <option value="" disabled>
+                                      Selecciona equipo
+                                    </option>
                                     {TEAM_KEYS.map((key) => (
                                       <option key={key} value={key}>
                                         {TEAM_LABELS[key]}
@@ -234,9 +244,12 @@ export function JoinFormationDialog({
                                     value={friend.position}
                                     onChange={(e) => onUpdateFriend?.(idx, { ...friend, position: (e.target.value as PositionKey) || "" })}
                                     className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                                    required
                                   >
-                                    <option value="">Seleccionar posición</option>
-                                    {POSITION_KEYS.filter((key) => key !== "ARQUERO").map((key) => (
+                                    <option value="" disabled>
+                                      Selecciona posición
+                                    </option>
+                                    {POSITION_KEYS.map((key) => (
                                       <option key={key} value={key}>
                                         {posicionES[key]}
                                       </option>

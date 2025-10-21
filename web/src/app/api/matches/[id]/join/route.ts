@@ -20,7 +20,13 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
     const team = body?.team ?? null;
     const position = body?.position ?? null;
     const rawFriends = Array.isArray(body?.friends) ? body.friends : [];
-    const trimmedFriends = rawFriends.slice(0, 6);
+    if (rawFriends.length > 4) {
+      return NextResponse.json(
+        { error: "Solo puedes invitar hasta 4 amigos por reserva." },
+        { status: 400 },
+      );
+    }
+    const trimmedFriends = rawFriends.slice(0, 4);
 
     const sanitizedFriends: Array<{
       name: string;
