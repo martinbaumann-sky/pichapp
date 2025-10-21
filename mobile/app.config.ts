@@ -1,4 +1,4 @@
-﻿import { ExpoConfig } from "expo/config";
+import { ExpoConfig } from "expo/config";
 
 const defineConfig = (): ExpoConfig => ({
   name: "PichangApp",
@@ -35,8 +35,7 @@ const defineConfig = (): ExpoConfig => ({
     typedRoutes: true,
   },
   extra: {
-    apiBaseUrl:
-      process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:3000",
+    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:3000",
   },
 });
 

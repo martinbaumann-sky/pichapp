@@ -27,6 +27,26 @@ config.resolver.alias = {
     'shims',
     'LoadingView.js'
   ),
+  'react-native/Libraries/Utilities/NativePlatformConstantsIOS': path.resolve(
+    projectRoot,
+    'shims',
+    'NativePlatformConstantsIOS.js'
+  ),
+  'react-native/Libraries/Utilities/NativePlatformConstantsAndroid': path.resolve(
+    projectRoot,
+    'shims',
+    'NativePlatformConstantsAndroid.js'
+  ),
+  'react-native/src/private/webapis/performance/specs/NativePerformance': path.resolve(
+    projectRoot,
+    'shims',
+    'NativePerformance.js'
+  ),
+  'react-native/src/private/webapis/performance/specs/NativePerformanceObserver': path.resolve(
+    projectRoot,
+    'shims',
+    'NativePerformanceObserver.js'
+  ),
 };
 
 // Ignorar artefactos de Next.js
