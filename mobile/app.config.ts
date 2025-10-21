@@ -1,37 +1,43 @@
-import { ExpoConfig } from 'expo/config';
+﻿import { ExpoConfig } from "expo/config";
 
 const defineConfig = (): ExpoConfig => ({
-  name: 'PichangApp',
-  slug: 'pichapp-mobile',
-  version: '1.0.0',
-  orientation: 'portrait',
-  platforms: ['ios', 'android'],
-  icon: './assets/icon.png',
-  scheme: 'pichapp',
-  userInterfaceStyle: 'light',
+  name: "PichangApp",
+  slug: "pichapp-mobile",
+  version: "1.0.0",
+  orientation: "portrait",
+  platforms: ["ios", "android"],
+  icon: "./assets/icon.png",
+  scheme: "pichapp",
+  userInterfaceStyle: "light",
   updates: {
-    fallbackToCacheTimeout: 0
+    fallbackToCacheTimeout: 0,
   },
-  assetBundlePatterns: ['**/*'],
+  assetBundlePatterns: ["**/*"],
   ios: {
-    supportsTablet: true
+    supportsTablet: true,
+    jsEngine: "hermes",
+    bundleIdentifier: "com.anonymous.pichappmobile",
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#ffffff'
-    }
+      foregroundImage: "./assets/adaptive-icon.png",
+      backgroundColor: "#ffffff",
+    },
+    jsEngine: "hermes",
+    package: "com.anonymous.pichappmobile",
   },
+  jsEngine: "hermes",
   web: {
-    bundler: 'metro',
-    favicon: './assets/favicon.png'
+    bundler: "metro",
+    favicon: "./assets/favicon.png",
   },
   experiments: {
-    typedRoutes: true
+    typedRoutes: true,
   },
   extra: {
-    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000'
-  }
+    apiBaseUrl:
+      process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:3000",
+  },
 });
 
 export default defineConfig;

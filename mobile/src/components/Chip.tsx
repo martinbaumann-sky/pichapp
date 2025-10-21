@@ -18,21 +18,29 @@ export function Chip({ tone = 'default', children }: Props) {
 const styles = StyleSheet.create({
   base: {
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(154, 165, 177, 0.16)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 1,
   },
   accent: {
-    backgroundColor: 'rgba(0, 194, 168, 0.18)',
+    backgroundColor: 'rgba(6, 182, 212, 0.18)',
+    borderColor: colors.primary,
   },
   text: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   accentText: {
-    color: colors.secondary,
+    color: colors.primary,
   },
 });

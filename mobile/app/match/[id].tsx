@@ -77,8 +77,14 @@ export default function MatchDetailScreen() {
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Precio</Text>
-            <Text style={styles.infoValue}>{data.pricePerSpot > 0 ? `$${data.pricePerSpot}` : 'Gratis'}</Text>
+            <Text style={styles.infoValue}>{data.pricePerSpot > 0 ? `$${data.pricePerSpot.toLocaleString('es-CL')}` : 'Gratis'}</Text>
           </View>
+          {data.level ? (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Nivel</Text>
+              <Text style={[styles.infoValue, styles.levelValue]}>{data.level}</Text>
+            </View>
+          ) : null}
           {data.venueAddress ? (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Dirección</Text>
@@ -118,7 +124,7 @@ export default function MatchDetailScreen() {
             }
           }}
           disabled={isRefetching || data.viewer?.hasJoined}
-          style={{ marginTop: 12, marginBottom: 32 }}
+          style={styles.ctaButton}
         />
       </ScrollView>
     </Screen>
@@ -127,55 +133,70 @@ export default function MatchDetailScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 16,
-    gap: 16,
+    padding: 20,
+    gap: 20,
   },
   header: {
     gap: 8,
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   subtitle: {
     color: colors.textSecondary,
   },
   cover: {
     width: '100%',
-    height: 220,
-    borderRadius: 18,
+    height: 240,
+    borderRadius: 24,
+    marginTop: 12,
   },
   infoCard: {
     backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
     borderColor: colors.border,
     gap: 12,
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 24,
+    elevation: 3,
   },
   sectionTitle: {
     color: colors.textPrimary,
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   infoLabel: {
-    color: colors.textSecondary,
-    fontWeight: '600',
+    color: colors.textMuted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   infoValue: {
     color: colors.textPrimary,
+  },
+  levelValue: {
+    color: colors.primary,
+    fontWeight: '600',
   },
   playerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingBottom: 8,
+    paddingBottom: 12,
+    paddingTop: 4,
   },
   playerName: {
     color: colors.textPrimary,
@@ -183,5 +204,9 @@ const styles = StyleSheet.create({
   },
   playerMeta: {
     color: colors.textSecondary,
+  },
+  ctaButton: {
+    marginTop: 12,
+    marginBottom: 40,
   },
 });
