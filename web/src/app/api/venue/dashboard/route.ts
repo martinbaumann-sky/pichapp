@@ -88,6 +88,16 @@ export async function GET() {
               profile: { select: { name: true } },
             },
           },
+          payout: {
+            select: {
+              status: true,
+              method: true,
+              netAmountCLP: true,
+              platformFeeCLP: true,
+              providerFeeCLP: true,
+              destination: true,
+            },
+          },
         },
       }),
     ]);
@@ -141,11 +151,21 @@ export async function GET() {
         playerId: payment.user?.id ?? null,
         playerName,
         playerEmail: payment.user?.email ?? null,
+        netAmountCLP: payment.payout?.netAmountCLP ?? null,
+        platformFeeCLP: payment.payout?.platformFeeCLP ?? null,
+        providerFeeCLP: payment.payout?.providerFeeCLP ?? null,
+        payoutStatus: payment.payout?.status ?? null,
+        payoutMethod: payment.payout?.method ?? null,
+        payoutDestination: payment.payout?.destination ?? null,
       };
     });
 
     const approvedPayments = formattedPayments.filter((p) => p.status === "APPROVED");
     const totalRevenue = approvedPayments.reduce((sum, payment) => sum + payment.amountCLP, 0);
+    const totalNetRevenue = approvedPayments.reduce(
+      (sum, payment) => sum + (payment.netAmountCLP ?? 0),
+      0,
+    );
 
     const totalSpots = matches.reduce((sum, m) => sum + m.totalSpots, 0);
     const totalPaidSpots = matches.reduce(
@@ -169,9 +189,14 @@ export async function GET() {
         plan: venue.plan,
         verified: venue.verified,
         payoutEmail: venue.payoutEmail,
+        payoutMethod: venue.payoutMethod,
         taxId: venue.taxId,
         phone: venue.phone,
         accountHolder: venue.accountHolder,
+        bankName: venue.bankName,
+        bankAccountType: venue.bankAccountType,
+        bankAccountNumber: venue.bankAccountNumber,
+        bankAccountRut: venue.bankAccountRut,
         mpCollectorId: venue.mpCollectorId,
         mpAccountType: venue.mpAccountType,
         paymentProvider: venue.paymentProvider,
@@ -203,6 +228,7 @@ export async function GET() {
       payments: formattedPayments,
       metrics: {
         totalRevenue,
+        netRevenue: totalNetRevenue,
         totalMatches: matches.length,
         totalPaidSpots,
         fillRate,

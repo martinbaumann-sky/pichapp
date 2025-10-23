@@ -7,6 +7,7 @@ import { encryptSecret } from "@/lib/encryption";
 import { hasModelField } from "@/lib/prismaCompat";
 
 type PaymentProviderOption = "MP" | "FLOW";
+type PayoutMethodOption = "MP_WALLET" | "FLOW" | "BANK_TRANSFER";
 
 function parseFields(raw: unknown): string[] | null {
   if (Array.isArray(raw)) {
@@ -32,6 +33,14 @@ function normalizeProvider(raw: unknown, fallback: PaymentProviderOption): Payme
     return normalized;
   }
   return fallback;
+}
+
+function normalizePayoutMethod(raw: unknown, fallback: PayoutMethodOption): PayoutMethodOption {
+  if (typeof raw !== "string") return fallback;
+  const normalized = raw.trim().toUpperCase();
+  if (normalized === "BANK_TRANSFER") return "BANK_TRANSFER";
+  if (normalized === "FLOW") return "FLOW";
+  return "MP_WALLET";
 }
 
 function normalizeFlowEnv(raw: unknown, fallback: string | null | undefined): "PROD" | "SANDBOX" {
@@ -64,7 +73,12 @@ export async function GET() {
         lng: venue.lng,
         phone: venue.phone,
         payoutEmail: venue.payoutEmail,
+        payoutMethod: venue.payoutMethod,
         accountHolder: venue.accountHolder,
+        bankName: venue.bankName,
+        bankAccountType: venue.bankAccountType,
+        bankAccountNumber: venue.bankAccountNumber,
+        bankAccountRut: venue.bankAccountRut,
         mpCollectorId: venue.mpCollectorId,
         mpAccountType: venue.mpAccountType,
         paymentProvider: venue.paymentProvider,
@@ -110,11 +124,39 @@ export async function PATCH(req: NextRequest) {
     const supportsFlowEnv = hasModelField(venue, "flowEnv");
     const supportsFlowApiKeyHash = hasModelField(venue, "flowApiKeyHash");
     const supportsMpAccountType = hasModelField(venue, "mpAccountType");
+    const supportsPayoutMethod = hasModelField(venue, "payoutMethod");
+    const supportsBankName = hasModelField(venue, "bankName");
+    const supportsBankAccountType = hasModelField(venue, "bankAccountType");
+    const supportsBankAccountNumber = hasModelField(venue, "bankAccountNumber");
+    const supportsBankAccountRut = hasModelField(venue, "bankAccountRut");
 
     let paymentProvider = supportsPaymentProvider
       ? normalizeProvider(payload?.paymentProvider, (venue.paymentProvider as PaymentProviderOption) ?? "MP")
       : "MP";
     const flowEnv = supportsFlowEnv ? normalizeFlowEnv(payload?.flowEnv, venue.flowEnv) : "SANDBOX";
+    const payoutMethod = supportsPayoutMethod
+      ? normalizePayoutMethod(payload?.payoutMethod, (venue.payoutMethod as PayoutMethodOption) ?? "MP_WALLET")
+      : "MP_WALLET";
+    const bankName = supportsBankName
+      ? typeof payload?.bankName === "string"
+        ? payload.bankName.trim()
+        : venue.bankName ?? ""
+      : "";
+    const bankAccountType = supportsBankAccountType
+      ? typeof payload?.bankAccountType === "string"
+        ? payload.bankAccountType.trim()
+        : venue.bankAccountType ?? ""
+      : "";
+    const bankAccountNumber = supportsBankAccountNumber
+      ? typeof payload?.bankAccountNumber === "string"
+        ? payload.bankAccountNumber.trim()
+        : venue.bankAccountNumber ?? ""
+      : "";
+    const bankAccountRut = supportsBankAccountRut
+      ? typeof payload?.bankAccountRut === "string"
+        ? payload.bankAccountRut.trim()
+        : venue.bankAccountRut ?? ""
+      : "";
     const flowApiKeyRaw =
       supportsFlowApiKey && typeof payload?.flowApiKey === "string" ? payload.flowApiKey.trim() : undefined;
     const flowSecretKeyRaw =
@@ -172,6 +214,21 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    if (payoutMethod === "BANK_TRANSFER") {
+      if (!bankName || !bankAccountType || !bankAccountNumber || !bankAccountRut) {
+        return NextResponse.json(
+          { error: "Completa los datos bancarios para poder transferir tus liquidaciones." },
+          { status: 400 },
+        );
+      }
+      if (bankAccountNumber.length < 5) {
+        return NextResponse.json({ error: "Ingresa un número de cuenta válido." }, { status: 400 });
+      }
+      if (bankAccountRut.length < 7) {
+        return NextResponse.json({ error: "Ingresa un RUT válido para el titular de la cuenta." }, { status: 400 });
+      }
+    }
+
     const updates: Record<string, unknown> = {
       name,
       address,
@@ -187,6 +244,21 @@ export async function PATCH(req: NextRequest) {
     }
     if (supportsFlowEnv) {
       updates.flowEnv = flowEnv;
+    }
+    if (supportsPayoutMethod) {
+      updates.payoutMethod = payoutMethod;
+    }
+    if (supportsBankName) {
+      updates.bankName = payoutMethod === "BANK_TRANSFER" ? bankName : null;
+    }
+    if (supportsBankAccountType) {
+      updates.bankAccountType = payoutMethod === "BANK_TRANSFER" ? bankAccountType : null;
+    }
+    if (supportsBankAccountNumber) {
+      updates.bankAccountNumber = payoutMethod === "BANK_TRANSFER" ? bankAccountNumber : null;
+    }
+    if (supportsBankAccountRut) {
+      updates.bankAccountRut = payoutMethod === "BANK_TRANSFER" ? bankAccountRut : null;
     }
 
     if (paymentProvider === "MP") {
@@ -277,7 +349,12 @@ export async function PATCH(req: NextRequest) {
             lng: fresh.lng,
             phone: fresh.phone,
             payoutEmail: fresh.payoutEmail,
+            payoutMethod: fresh.payoutMethod,
             accountHolder: fresh.accountHolder,
+            bankName: fresh.bankName,
+            bankAccountType: fresh.bankAccountType,
+            bankAccountNumber: fresh.bankAccountNumber,
+            bankAccountRut: fresh.bankAccountRut,
             plan: fresh.plan,
             verified: fresh.verified,
             fields: fresh.fields,

@@ -64,6 +64,12 @@ type PanelPayment = {
   playerId?: string | null;
   playerName: string;
   playerEmail?: string | null;
+  netAmountCLP?: number | null;
+  platformFeeCLP?: number | null;
+  providerFeeCLP?: number | null;
+  payoutStatus?: string | null;
+  payoutMethod?: string | null;
+  payoutDestination?: string | null;
 };
 
 type VenueSubscriptionSummary = {
@@ -89,9 +95,14 @@ type PanelData = {
     plan: string;
     verified: boolean;
     payoutEmail: string;
+    payoutMethod?: string | null;
     taxId: string;
     phone: string | null;
     accountHolder: string;
+    bankName?: string | null;
+    bankAccountType?: string | null;
+    bankAccountNumber?: string | null;
+    bankAccountRut?: string | null;
     mpCollectorId: string | null;
     mpAccountType: string | null;
     paymentProvider: string | null;
@@ -110,6 +121,7 @@ type PanelData = {
   payments: PanelPayment[];
   metrics: {
     totalRevenue: number;
+    netRevenue: number;
     totalMatches: number;
     totalPaidSpots: number;
     fillRate: number;
@@ -131,6 +143,7 @@ type TabId = (typeof tabs)[number]["id"];
 
 type PaymentProviderChoice = "MP" | "FLOW";
 type FlowEnvChoice = "PROD" | "SANDBOX";
+type PayoutMethodChoice = "MP_WALLET" | "FLOW" | "BANK_TRANSFER";
 
 export default function VenueDashboardPage() {
   const router = useRouter();
@@ -638,27 +651,64 @@ function PaymentsTab({ loading, payments }: { loading: boolean; payments: PanelP
 
   return (
     <div className="space-y-4">
-      {payments.map((payment) => (
-        <div
-          key={payment.id}
-          className="rounded-3xl border border-white/70 bg-white/80 p-5 shadow-lg backdrop-blur flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <p className="text-sm font-semibold text-gray-900">
-              {formatCurrency(payment.amountCLP)} · {payment.matchTitle}
-            </p>
-            <p className="text-xs text-gray-500">
-              {payment.playerName} · {formatDateTime(payment.createdAt)}
-            </p>
+      {payments.map((payment) => {
+        const payoutStatusLabel = payment.payoutStatus
+          ? payment.payoutStatus === "PAID"
+            ? "Transferido"
+            : payment.payoutStatus === "PENDING"
+            ? "Pendiente"
+            : payment.payoutStatus
+          : null;
+        const payoutMethodLabel = payment.payoutMethod === "BANK_TRANSFER"
+          ? "Transferencia"
+          : payment.payoutMethod === "FLOW"
+          ? "Flow"
+          : payment.payoutMethod === "MP_WALLET"
+          ? "Mercado Pago"
+          : null;
+        return (
+          <div
+            key={payment.id}
+            className="rounded-3xl border border-white/70 bg-white/80 p-5 shadow-lg backdrop-blur flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {formatCurrency(payment.amountCLP)} · {payment.matchTitle}
+              </p>
+              <p className="text-xs text-gray-500">
+                {payment.playerName} · {formatDateTime(payment.createdAt)}
+              </p>
+              {payment.netAmountCLP != null ? (
+                <p className="mt-1 text-[11px] text-emerald-700">
+                  Recibes {formatCurrency(payment.netAmountCLP)} · PichangApp {formatCurrency(payment.platformFeeCLP ?? 0)} ·
+                  Mercado Pago {formatCurrency(payment.providerFeeCLP ?? 0)}
+                </p>
+              ) : null}
+              {payment.payoutDestination ? (
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Destino: {payment.payoutDestination}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-col items-end gap-2 text-xs text-emerald-700 sm:flex-row sm:items-center sm:gap-3">
+              <span className="rounded-full border border-emerald-200 bg-white/70 px-2 py-1 uppercase tracking-wide">
+                {payment.provider}
+              </span>
+              <StatusBadge status={payment.status} />
+              {payoutStatusLabel ? (
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
+                  {payoutStatusLabel}
+                </span>
+              ) : null}
+              {payoutMethodLabel ? (
+                <span className="rounded-full border border-emerald-200 bg-white/70 px-2 py-1 text-[11px] uppercase tracking-wide">
+                  {payoutMethodLabel}
+                </span>
+              ) : null}
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-xs text-emerald-700">
-            <span className="rounded-full border border-emerald-200 bg-white/70 px-2 py-1 uppercase tracking-wide">
-              {payment.provider}
-            </span>
-            <StatusBadge status={payment.status} />
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -958,7 +1008,11 @@ function ReportsTab({ loading, data }: { loading: boolean; data: PanelData | nul
           value={data.metrics.totalPaidSpots.toString()}
           subtitle={`${Math.round(data.metrics.fillRate * 100)}% ocupación`}
         />
-        <MetricCard title="Ingresos" value={formatCurrency(data.metrics.totalRevenue)} subtitle="Pagos aprobados" />
+        <MetricCard
+          title="Ingresos"
+          value={formatCurrency(data.metrics.totalRevenue)}
+          subtitle={`Pagos aprobados · Neto ${formatCurrency(data.metrics.netRevenue)}`}
+        />
         <MetricCard
           title="Plan"
           value={data.venue.plan === "pro" ? "Pro" : "Gratis"}
@@ -984,9 +1038,14 @@ function SettingsTab({
     address: "",
     comuna: "",
     payoutEmail: "",
+    payoutMethod: "MP_WALLET" as PayoutMethodChoice,
     accountHolder: "",
     phone: "",
     fields: "",
+    bankName: "",
+    bankAccountType: "",
+    bankAccountNumber: "",
+    bankAccountRut: "",
     paymentProvider: "MP" as PaymentProviderChoice,
     flowEnv: "SANDBOX" as FlowEnvChoice,
     flowApiKey: "",
@@ -1008,6 +1067,25 @@ function SettingsTab({
     [],
   );
 
+  const payoutMethodOptions = useMemo(
+    () => [
+      { value: "MP_WALLET" as PayoutMethodChoice, label: "Mercado Pago conectado" },
+      { value: "BANK_TRANSFER" as PayoutMethodChoice, label: "Transferencia bancaria" },
+      { value: "FLOW" as PayoutMethodChoice, label: "Flow (cuenta bancaria)" },
+    ],
+    [],
+  );
+
+  const bankAccountTypeOptions = useMemo(
+    () => [
+      { value: "Cuenta corriente", label: "Cuenta corriente" },
+      { value: "Cuenta vista", label: "Cuenta vista" },
+      { value: "Cuenta de ahorro", label: "Cuenta de ahorro" },
+      { value: "Cuenta RUT", label: "Cuenta RUT" },
+    ],
+    [],
+  );
+
   const flowEnvOptions = useMemo(
     () => [
       { value: "SANDBOX" as FlowEnvChoice, label: "Sandbox (pruebas)" },
@@ -1020,15 +1098,26 @@ function SettingsTab({
     if (!data?.venue) return;
     const provider = data.venue.paymentProvider === "FLOW" ? "FLOW" : "MP";
     const env = data.venue.flowConnection?.env === "PROD" ? "PROD" : "SANDBOX";
+    const payoutMethod: PayoutMethodChoice =
+      data.venue.payoutMethod === "BANK_TRANSFER"
+        ? "BANK_TRANSFER"
+        : data.venue.payoutMethod === "FLOW"
+        ? "FLOW"
+        : "MP_WALLET";
     setForm({
       name: data.venue.name ?? "",
       taxId: data.venue.taxId ?? "",
       address: data.venue.address ?? "",
       comuna: data.venue.comuna ?? "",
       payoutEmail: data.venue.payoutEmail ?? "",
+      payoutMethod,
       accountHolder: data.venue.accountHolder ?? "",
       phone: data.venue.phone ?? "",
       fields: data.venue.fields.map((field) => field.name).join("\n"),
+      bankName: data.venue.bankName ?? "",
+      bankAccountType: data.venue.bankAccountType ?? "",
+      bankAccountNumber: data.venue.bankAccountNumber ?? "",
+      bankAccountRut: data.venue.bankAccountRut ?? "",
       paymentProvider: provider,
       flowEnv: env,
       flowApiKey: "",
@@ -1236,9 +1325,14 @@ function SettingsTab({
         address: form.address,
         comuna: form.comuna,
         payoutEmail: form.payoutEmail,
+        payoutMethod: form.payoutMethod,
         accountHolder: form.accountHolder,
         phone: form.phone,
         fields: form.fields,
+        bankName: form.bankName,
+        bankAccountType: form.bankAccountType,
+        bankAccountNumber: form.bankAccountNumber,
+        bankAccountRut: form.bankAccountRut,
         paymentProvider: form.paymentProvider,
         flowEnv: form.flowEnv,
       };
@@ -1266,12 +1360,26 @@ function SettingsTab({
       if (updatedVenue) {
         const provider = updatedVenue.paymentProvider === "FLOW" ? "FLOW" : "MP";
         const env = updatedVenue.flowEnv === "PROD" ? "PROD" : "SANDBOX";
+        const nextPayoutMethod: PayoutMethodChoice =
+          updatedVenue.payoutMethod === "BANK_TRANSFER"
+            ? "BANK_TRANSFER"
+            : updatedVenue.payoutMethod === "FLOW"
+            ? "FLOW"
+            : "MP_WALLET";
         setForm((prev) => ({
           ...prev,
           paymentProvider: provider,
           flowEnv: env,
           flowApiKey: "",
           flowSecretKey: "",
+          payoutMethod: nextPayoutMethod,
+          bankName: updatedVenue.bankName ?? "",
+          bankAccountType: updatedVenue.bankAccountType ?? "",
+          bankAccountNumber: updatedVenue.bankAccountNumber ?? "",
+          bankAccountRut: updatedVenue.bankAccountRut ?? "",
+          payoutEmail: updatedVenue.payoutEmail ?? prev.payoutEmail,
+          accountHolder: updatedVenue.accountHolder ?? prev.accountHolder,
+          phone: updatedVenue.phone ?? prev.phone,
         }));
         const configured = "flowConnection" in updatedVenue
           ? (updatedVenue as any).flowConnection?.configured
@@ -1356,6 +1464,28 @@ function SettingsTab({
             />
           </label>
           <label className="flex flex-col text-sm text-gray-600">
+            Método de liquidación
+            <select
+              value={form.payoutMethod}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  payoutMethod: (event.target.value as PayoutMethodChoice) ?? "MP_WALLET",
+                }))
+              }
+              className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+            >
+              {payoutMethodOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 text-xs text-gray-400">
+              Define dónde transferiremos tus ingresos una vez confirmados los partidos.
+            </span>
+          </label>
+          <label className="flex flex-col text-sm text-gray-600">
             Titular de la cuenta
             <input
               value={form.accountHolder}
@@ -1393,6 +1523,82 @@ function SettingsTab({
                   La integración OAuth sincroniza automáticamente tu Collector ID y tipo de cuenta. Mientras no esté conectada, los partidos pagados permanecerán bloqueados.
                 </p>
               </div>
+            </div>
+          ) : null}
+          {form.payoutMethod === "MP_WALLET" && !mpConnected ? (
+            <div className="md:col-span-2 flex items-start gap-2 rounded-2xl border border-amber-200/60 bg-amber-50/60 px-4 py-3 text-xs text-amber-900">
+              <ShieldAlert className="h-4 w-4 flex-shrink-0" />
+              <div>
+                <p className="font-semibold">Conecta Mercado Pago para depositar automáticamente tus cobros.</p>
+                <p className="mt-1 text-amber-900/80">Los pagos confirmados se liquidarán en el saldo de tu cuenta conectada.</p>
+              </div>
+            </div>
+          ) : null}
+          {form.payoutMethod === "FLOW" ? (
+            <div className="md:col-span-2 flex items-start gap-2 rounded-2xl border border-sky-200/60 bg-sky-50/60 px-4 py-3 text-xs text-sky-900">
+              <ShieldAlert className="h-4 w-4 flex-shrink-0" />
+              <div>
+                <p className="font-semibold">Flow depositará directo a tu cuenta registrada en su panel.</p>
+                <p className="mt-1 text-sky-900/80">Ingresa tus credenciales más abajo para habilitar la liquidación automática.</p>
+              </div>
+            </div>
+          ) : null}
+          {form.payoutMethod === "BANK_TRANSFER" ? (
+            <div className="md:col-span-2 space-y-4 rounded-2xl border border-emerald-200/60 bg-emerald-50/60 p-4">
+              <p className="text-sm font-semibold text-emerald-900">Datos bancarios para transferencias</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col text-xs text-emerald-900/80">
+                  Banco
+                  <input
+                    value={form.bankName}
+                    onChange={(event) => setForm((prev) => ({ ...prev, bankName: event.target.value }))}
+                    className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    placeholder="Banco Estado"
+                    required
+                  />
+                </label>
+                <label className="flex flex-col text-xs text-emerald-900/80">
+                  Tipo de cuenta
+                  <select
+                    value={form.bankAccountType}
+                    onChange={(event) => setForm((prev) => ({ ...prev, bankAccountType: event.target.value }))}
+                    className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    required
+                  >
+                    <option value="" disabled>
+                      Selecciona tipo
+                    </option>
+                    {bankAccountTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col text-xs text-emerald-900/80">
+                  Número de cuenta
+                  <input
+                    value={form.bankAccountNumber}
+                    onChange={(event) => setForm((prev) => ({ ...prev, bankAccountNumber: event.target.value }))}
+                    className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    placeholder="123456789"
+                    required
+                  />
+                </label>
+                <label className="flex flex-col text-xs text-emerald-900/80">
+                  RUT del titular
+                  <input
+                    value={form.bankAccountRut}
+                    onChange={(event) => setForm((prev) => ({ ...prev, bankAccountRut: event.target.value }))}
+                    className="mt-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    placeholder="12.345.678-9"
+                    required
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-emerald-900/70">
+                Transferiremos el monto neto a esta cuenta una vez confirmado cada partido.
+              </p>
             </div>
           ) : null}
           <label className="flex flex-col text-sm text-gray-600">
