@@ -1278,6 +1278,37 @@ function SettingsTab({
     }
   };
 
+  const handleTestMpConnection = async () => {
+    try {
+      if (!data?.venue?.id) {
+        throw new Error("No encontramos tu cancha.");
+      }
+
+      setMpError(null);
+      setMpMessage("Probando conexión con Mercado Pago...");
+
+      const res = await fetch("/api/venue/mp/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ venueId: data.venue.id }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        setMpMessage(`Conexión exitosa. Usuario: ${result.details?.email || 'N/A'}`);
+        setMpError(null);
+      } else {
+        setMpMessage(null);
+        setMpError(result.error || "Error al probar la conexión");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error al probar la conexión";
+      setMpMessage(null);
+      setMpError(message);
+    }
+  };
+
   const handleDisconnectMp = async () => {
     try {
       if (!data?.venue?.id) {
@@ -1921,6 +1952,15 @@ function MpConnectionSection({
         >
           {connectIcon} {connectLabel}
         </button>
+        {mpConnected && (
+          <button
+            type="button"
+            onClick={handleTestMpConnection}
+            className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-5 py-2 text-xs font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50"
+          >
+            <RefreshCw className="h-4 w-4" /> Probar Conexión
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onDisconnect()}
