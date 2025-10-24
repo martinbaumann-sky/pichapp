@@ -7,6 +7,7 @@ import {
   PROFILE_PLACEHOLDER_PHONE,
   isProfileIncomplete,
 } from "@/lib/profileCompletion";
+import { buildEmailLookupWhere } from "@/lib/email-normalization";
 
 const GOOGLE_AUTH_COOKIE = "google_oauth_state";
 
@@ -122,14 +123,18 @@ export async function GET(req: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       const hasOAuthAccount = typeof (tx as any).oAuthAccount !== "undefined";
 
-      const emailWhere = { email: { equals: email, mode: "insensitive" } } as const;
+      const emailWhere = buildEmailLookupWhere(email);
       const resolveCanonicalUser = async () =>
         (await tx.user.findFirst({
           where: {
-            ...emailWhere,
-            OR: [
-              { passwordHash: { not: null } },
-              { localPassword: { isNot: null } },
+            AND: [
+              emailWhere,
+              {
+                OR: [
+                  { passwordHash: { not: null } },
+                  { localPassword: { isNot: null } },
+                ],
+              },
             ],
           },
           select: userSelect,

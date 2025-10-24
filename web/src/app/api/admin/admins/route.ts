@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { buildEmailLookupWhere } from "@/lib/email-normalization";
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     const user = await prisma.user.findFirst({
-      where: { email: { equals: email, mode: "insensitive" } },
+      where: buildEmailLookupWhere(email),
       select: { id: true },
     });
 

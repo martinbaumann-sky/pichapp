@@ -6,6 +6,7 @@ import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 import { normalizeForStorage } from "@/lib/phone";
 import { PROFILE_PLACEHOLDER_PHONE } from "@/lib/profileCompletion";
 import { createVerificationCode, sendVerificationEmail, isEmailVerificationEnabled } from "@/lib/email-verification";
+import { buildEmailLookupWhere } from "@/lib/email-normalization";
 
 const rl = createRateLimiter({ name: "auth_signup", limit: 5, windowSec: 300 });
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const emailFilter = { email: { equals: email, mode: "insensitive" } } as const;
+    const emailFilter = buildEmailLookupWhere(email);
     const exists = await prisma.user.findFirst({ where: emailFilter, select: { id: true } });
     if (exists) {
       return NextResponse.json(

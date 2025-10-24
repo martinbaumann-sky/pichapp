@@ -6,6 +6,7 @@ import { getPasswordHash, setPasswordHash } from "@/lib/auth-password";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 import { createVerificationCode, sendVerificationEmail, isEmailVerificationEnabled } from "@/lib/email-verification";
+import { buildEmailLookupWhere } from "@/lib/email-normalization";
 import { toAuthUser } from "@/lib/auth-user";
 import { verifySupabasePassword } from "@/lib/supabase-admin";
 
@@ -136,13 +137,17 @@ export async function POST(req: NextRequest) {
       return res;
     }
 
-    const emailWhere = { email: { equals: email, mode: "insensitive" } } as const;
+    const emailWhere = buildEmailLookupWhere(email);
     const primaryUser = await prisma.user.findFirst({
       where: {
-        ...emailWhere,
-        OR: [
-          { passwordHash: { not: null } },
-          { localPassword: { isNot: null } },
+        AND: [
+          emailWhere,
+          {
+            OR: [
+              { passwordHash: { not: null } },
+              { localPassword: { isNot: null } },
+            ],
+          },
         ],
       },
       select: AUTH_USER_SELECT,
