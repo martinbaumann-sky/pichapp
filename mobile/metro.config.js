@@ -26,6 +26,14 @@ const shimMap = new Map(
   [
     ['react-native/Libraries/Utilities/LoadingView', 'LoadingView.js'],
     [
+      'react-native/src/private/specs/modules/NativePlatformConstantsIOS',
+      'NativePlatformConstantsIOS.js',
+    ],
+    [
+      'react-native/src/private/specs/modules/NativePlatformConstantsAndroid',
+      'NativePlatformConstantsAndroid.js',
+    ],
+    [
       'react-native/src/private/webapis/performance/specs/NativePerformance',
       'NativePerformance.js',
     ],
