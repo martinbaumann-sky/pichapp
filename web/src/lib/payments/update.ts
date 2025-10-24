@@ -2,6 +2,7 @@ import type { PaymentStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { captureAuthorizedPayment } from "@/lib/mp/marketplace";
+import { summarizeBankDetails } from "@/lib/payments/bank";
 import { getVenuePlan } from "@/lib/venuePlans";
 
 export type ApprovePaymentResult = {
@@ -38,13 +39,6 @@ function extractProviderFee(raw: unknown): number | null {
   return null;
 }
 
-function maskAccountNumber(account: string | null | undefined): string {
-  if (!account) return "Cuenta registrada";
-  const trimmed = String(account).replace(/\s+/g, "");
-  if (trimmed.length <= 4) return trimmed;
-  return `••••${trimmed.slice(-4)}`;
-}
-
 export async function approvePayment(
   paymentId: string,
   providerRef?: string,
@@ -75,6 +69,7 @@ export async function approvePayment(
                 plan: true,
                 payoutMethod: true,
                 payoutEmail: true,
+                accountHolder: true,
                 bankName: true,
                 bankAccountType: true,
                 bankAccountNumber: true,
@@ -162,15 +157,26 @@ export async function approvePayment(
       const netAmount = Math.max(0, payment.amountCLP - platformFee - providerFee);
       const payoutMethod = (venueInfo.payoutMethod as string) ?? "MP_WALLET";
       let destination: string | null = null;
+      let payoutNotes: string | null = null;
       if (payoutMethod === "BANK_TRANSFER") {
-        const parts = [venueInfo.bankName ?? "Banco"];
-        if (venueInfo.bankAccountType) {
-          parts.push(String(venueInfo.bankAccountType));
+        const bankSummary = summarizeBankDetails({
+          bankName: venueInfo.bankName,
+          bankAccountType: venueInfo.bankAccountType,
+          bankAccountNumber: venueInfo.bankAccountNumber,
+          bankAccountRut: venueInfo.bankAccountRut,
+          accountHolder: venueInfo.accountHolder,
+        });
+        destination = bankSummary.destination;
+        payoutNotes = bankSummary.notes;
+        if (!bankSummary.ready) {
+          console.warn("[payments] Bank transfer payout missing fields", {
+            venueId: venueInfo.id,
+            missing: bankSummary.missingFields,
+          });
         }
-        const label = parts.filter(Boolean).join(" · ");
-        destination = `${label} ${maskAccountNumber(venueInfo.bankAccountNumber ?? null)}`.trim();
       } else {
         destination = venueInfo.payoutEmail ?? null;
+        payoutNotes = null;
       }
 
       await tx.venuePayout.upsert({
@@ -182,6 +188,7 @@ export async function approvePayment(
           providerFeeCLP: providerFee,
           netAmountCLP: netAmount,
           destination,
+          notes: payoutNotes,
           status: payment.match.status === "CONFIRMED" ? "PAID" : "PENDING",
           processedAt: payment.match.status === "CONFIRMED" ? new Date() : payment.payout?.processedAt ?? null,
         },
@@ -195,6 +202,7 @@ export async function approvePayment(
           providerFeeCLP: providerFee,
           netAmountCLP: netAmount,
           destination,
+          notes: payoutNotes,
           status: payment.match.status === "CONFIRMED" ? "PAID" : "PENDING",
           processedAt: payment.match.status === "CONFIRMED" ? new Date() : null,
         },

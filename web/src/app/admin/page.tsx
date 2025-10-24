@@ -161,6 +161,19 @@ type AdminOverviewResponse = {
         active: number;
         upcoming: number;
       };
+      payout: {
+        method: string | null;
+        email: string | null;
+        destination: string | null;
+        notes: string | null;
+        ready: boolean;
+        bankName: string | null;
+        bankAccountType: string | null;
+        bankAccountNumberMasked: string | null;
+        bankAccountRut: string | null;
+        accountHolder: string | null;
+        missingFields: string[];
+      };
       subscriptions: Array<{
         id: string;
         plan: string;
@@ -211,6 +224,25 @@ type AdminOverviewResponse = {
     }>;
   };
 };
+
+const payoutMethodLabels: Record<string, string> = {
+  MP_WALLET: "Mercado Pago conectado",
+  FLOW: "Flow (cuenta bancaria)",
+  BANK_TRANSFER: "Transferencia bancaria manual",
+};
+
+const payoutMissingFieldLabels: Record<string, string> = {
+  bankName: "Banco",
+  bankAccountType: "Tipo de cuenta",
+  bankAccountNumber: "Número de cuenta",
+  accountHolder: "Titular",
+  bankAccountRut: "RUT",
+};
+
+function formatPayoutMethodLabel(method: string | null | undefined) {
+  const key = method ? method.toUpperCase() : "";
+  return payoutMethodLabels[key] ?? payoutMethodLabels.MP_WALLET;
+}
 
 type AdminMatchDetail = {
   id: string;
@@ -1338,6 +1370,9 @@ function VenuesTab({
                       <div className="text-xs text-gray-500">
                         {isVerified ? "Verificada" : "Pendiente"}
                       </div>
+                      <div className="text-[11px] text-gray-500">
+                        {venue.payout.ready ? "Pagos listos" : "Configurar pagos"}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-gray-600">
                       <div className="text-sm font-semibold text-gray-900">{formatCurrencyCLP(venue.revenueApproved)}</div>
@@ -1436,6 +1471,68 @@ function VenuesTab({
               <DetailRow label="Partidos activos" value={`${selectedVenue.matchStats.active}`} />
               <DetailRow label="Creada" value={formatDate(selectedVenue.createdAt)} />
             </dl>
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <p className="text-xs uppercase tracking-wider text-gray-500">Pagos y liquidación</p>
+              <div className="mt-2 space-y-1 text-xs text-gray-600">
+                <p className="text-sm font-semibold text-gray-900">
+                  {formatPayoutMethodLabel(selectedVenue.payout.method)}
+                </p>
+                {selectedVenue.payout.method === "BANK_TRANSFER" ? (
+                  <div className="space-y-1">
+                    <p>
+                      <span className="font-medium text-gray-700">Banco:</span> {selectedVenue.payout.bankName ?? "Sin banco"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-700">Tipo:</span> {selectedVenue.payout.bankAccountType ?? "Sin tipo"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-700">Cuenta:</span>
+                      {" "}
+                      {selectedVenue.payout.bankAccountNumberMasked ?? "Sin cuenta"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-700">Titular:</span> {selectedVenue.payout.accountHolder ?? "Sin titular"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-700">RUT:</span> {selectedVenue.payout.bankAccountRut ?? "Sin RUT"}
+                    </p>
+                  </div>
+                ) : (
+                  <p>
+                    <span className="font-medium text-gray-700">Correo de liquidación:</span>
+                    {" "}
+                    {selectedVenue.payout.email ?? "Sin correo configurado"}
+                  </p>
+                )}
+                {selectedVenue.payout.method === "BANK_TRANSFER" && selectedVenue.payout.notes ? (
+                  <p className="text-[11px] text-gray-500">{selectedVenue.payout.notes}</p>
+                ) : null}
+                {selectedVenue.payout.method !== "BANK_TRANSFER" &&
+                selectedVenue.payout.destination &&
+                selectedVenue.payout.destination !== selectedVenue.payout.email ? (
+                  <p className="text-[11px] text-gray-500">Destino: {selectedVenue.payout.destination}</p>
+                ) : null}
+              </div>
+              {selectedVenue.payout.ready ? (
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                  <Check className="h-3.5 w-3.5" />
+                  <span>Pagos listos para liquidar.</span>
+                </div>
+              ) : (
+                <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                  <span>
+                    {selectedVenue.payout.method === "BANK_TRANSFER"
+                      ? `Completa: ${
+                          selectedVenue.payout.missingFields
+                            .map((field) => payoutMissingFieldLabels[field] ?? field)
+                            .join(", ") || "datos bancarios"
+                        }`
+                      : "Configura un correo de liquidación válido para liberar los pagos."}
+                  </span>
+                </div>
+              )}
+            </div>
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-wider text-gray-500">Suscripciones recientes</p>
               {selectedVenue.subscriptions.length === 0 ? (
@@ -1711,7 +1808,7 @@ function MatchDetailPanel({
     if (!match) return;
     setScheduledAt(formatDateTimeInput(match.startsAt));
     setDuration(String(match.durationMins));
-  }, [match, formatDateTimeInput]);
+  }, [match]);
 
   const disabled = updatingMatchId === match?.id;
 
