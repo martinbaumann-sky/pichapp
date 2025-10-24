@@ -26,6 +26,10 @@ const shimMap = new Map(
   [
     ['react-native/Libraries/Utilities/LoadingView', 'LoadingView.js'],
     [
+      'react-native/Libraries/TurboModule/TurboModuleRegistry',
+      'TurboModuleRegistry.js',
+    ],
+    [
       'react-native/src/private/specs/modules/NativePlatformConstantsIOS',
       'NativePlatformConstantsIOS.js',
     ],
