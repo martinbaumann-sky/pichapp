@@ -7,7 +7,9 @@
 
 const invariant = require('invariant');
 const NativeModules = require('react-native/Libraries/BatchedBridge/NativeModules');
-const Platform = require('react-native/Libraries/Utilities/Platform');
+const { getExpoConstants } = require('./expoConstants');
+
+const runtimeGlobal = typeof globalThis !== 'undefined' ? globalThis : global;
 
 const moduleLoadHistory = {
   NativeModules: [],
@@ -46,12 +48,119 @@ function getFallbackTurboModule(name) {
   return instance;
 }
 
-registerFallbackTurboModule('PlatformConstants', () => {
-  const constantsModule =
-    Platform.OS === 'android'
-      ? require('./NativePlatformConstantsAndroid')
-      : require('./NativePlatformConstantsIOS');
+function readPlatformFromGlobals() {
+  const platform = runtimeGlobal?.RN$Platform;
+  const os = platform?.OS;
+  if (typeof os === 'string' && os.length > 0) {
+    return os;
+  }
 
+  const osOverride = runtimeGlobal?.expoPlatform;
+  if (typeof osOverride === 'string' && osOverride.length > 0) {
+    return osOverride;
+  }
+
+  return null;
+}
+
+function inferRuntimePlatform() {
+  if (inferRuntimePlatform.cached) {
+    return inferRuntimePlatform.cached;
+  }
+
+  const globalPlatform = readPlatformFromGlobals();
+  if (globalPlatform) {
+    inferRuntimePlatform.cached = globalPlatform;
+    return globalPlatform;
+  }
+
+  const expoConstants = getExpoConstants();
+  if (expoConstants) {
+    const platformInfo = expoConstants.platform;
+    if (platformInfo && typeof platformInfo === 'object') {
+      if (platformInfo.android) {
+        inferRuntimePlatform.cached = 'android';
+        return inferRuntimePlatform.cached;
+      }
+
+      if (platformInfo.ios) {
+        inferRuntimePlatform.cached = 'ios';
+        return inferRuntimePlatform.cached;
+      }
+    }
+
+    const systemName =
+      expoConstants.systemName ??
+      expoConstants.osName ??
+      expoConstants.platform?.osName ??
+      expoConstants.platform?.web?.platform ??
+      expoConstants.platform?.web?.osName;
+    if (typeof systemName === 'string' && systemName.length > 0) {
+      const normalized = systemName.toLowerCase();
+      if (normalized.includes('android')) {
+        inferRuntimePlatform.cached = 'android';
+        return inferRuntimePlatform.cached;
+      }
+      if (normalized.includes('ios') || normalized.includes('mac')) {
+        inferRuntimePlatform.cached = 'ios';
+        return inferRuntimePlatform.cached;
+      }
+    }
+  }
+
+  const navigatorObject = typeof navigator !== 'undefined' ? navigator : undefined;
+  if (navigatorObject) {
+    const userAgent = navigatorObject.userAgent;
+    if (typeof userAgent === 'string' && userAgent.length > 0) {
+      const normalizedUA = userAgent.toLowerCase();
+      if (normalizedUA.includes('android')) {
+        inferRuntimePlatform.cached = 'android';
+        return inferRuntimePlatform.cached;
+      }
+      if (
+        normalizedUA.includes('iphone') ||
+        normalizedUA.includes('ipad') ||
+        normalizedUA.includes('ios')
+      ) {
+        inferRuntimePlatform.cached = 'ios';
+        return inferRuntimePlatform.cached;
+      }
+    }
+
+    const product = navigatorObject.product;
+    if (typeof product === 'string' && product.length > 0) {
+      const normalizedProduct = product.toLowerCase();
+      if (normalizedProduct.includes('android')) {
+        inferRuntimePlatform.cached = 'android';
+        return inferRuntimePlatform.cached;
+      }
+      if (normalizedProduct.includes('iphone') || normalizedProduct.includes('ipad')) {
+        inferRuntimePlatform.cached = 'ios';
+        return inferRuntimePlatform.cached;
+      }
+    }
+  }
+
+  inferRuntimePlatform.cached = 'ios';
+  return inferRuntimePlatform.cached;
+}
+
+registerFallbackTurboModule('PlatformConstants', () => {
+  const runtimePlatform = inferRuntimePlatform();
+
+  if (runtimePlatform === 'android') {
+    const constantsModule = require('./NativePlatformConstantsAndroid');
+    return {
+      getConstants() {
+        return constantsModule.getConstants();
+      },
+      getAndroidID() {
+        return constantsModule.getAndroidID();
+      },
+    };
+  }
+
+  const constantsModule = require('./NativePlatformConstantsIOS');
   return {
     getConstants() {
       return constantsModule.getConstants();
