@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { summarizeBankDetails } from "@/lib/payments/bank";
 import { VENUE_PLANS } from "@/lib/venuePlans";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -361,6 +362,14 @@ export async function GET() {
         approved30d: 0,
       };
       const matchStats = venueMatchMap.get(venue.id) ?? { active: 0, upcoming: 0 };
+      const payoutMethod = (venue.payoutMethod as string | null) ?? null;
+      const bankSummary = summarizeBankDetails({
+        bankName: venue.bankName,
+        bankAccountType: venue.bankAccountType,
+        bankAccountNumber: venue.bankAccountNumber,
+        bankAccountRut: venue.bankAccountRut,
+        accountHolder: venue.accountHolder,
+      });
       return {
         id: venue.id,
         name: venue.name,
@@ -377,6 +386,25 @@ export async function GET() {
         revenueApproved30d: stats.approved30d,
         pendingPayments: stats.pending,
         matchStats,
+        payout: {
+          method: payoutMethod,
+          email: venue.payoutEmail ?? null,
+          destination:
+            payoutMethod === "BANK_TRANSFER"
+              ? bankSummary.destination
+              : venue.payoutEmail ?? null,
+          notes: bankSummary.notes,
+          ready:
+            payoutMethod === "BANK_TRANSFER"
+              ? bankSummary.ready
+              : Boolean(venue.payoutEmail),
+          bankName: venue.bankName ?? null,
+          bankAccountType: venue.bankAccountType ?? null,
+          bankAccountNumberMasked: bankSummary.maskedAccountNumber,
+          bankAccountRut: venue.bankAccountRut ?? null,
+          accountHolder: venue.accountHolder ?? null,
+          missingFields: bankSummary.missingFields,
+        },
         subscriptions: venue.subscriptions.map((subscription) => ({
           id: subscription.id,
           plan: subscription.plan,
