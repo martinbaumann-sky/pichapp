@@ -71,6 +71,18 @@ enum PaymentProvider {
   MP_QR
 }
 
+enum VenuePayoutMethod {
+  MP_WALLET
+  FLOW
+  BANK_TRANSFER
+}
+
+enum VenuePayoutStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 enum PaymentStatus {
   PENDING
   AUTHORIZED
@@ -178,12 +190,18 @@ model Venue {
   flowApiKeyHash   String?
   flowSecretKey    String?
   flowEnv          String?         @default("SANDBOX")
+  payoutMethod     VenuePayoutMethod @default(MP_WALLET)
+  bankName         String?
+  bankAccountType  String?
+  bankAccountNumber String?
+  bankAccountRut   String?
   createdAt        DateTime        @default(now())
 
   owner         User                @relation("VenueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   fields        Field[]
   matches       Match[]
   subscriptions VenueSubscription[]
+  payouts       VenuePayout[]
 
   @@index([flowApiKeyHash])
 }
@@ -413,8 +431,33 @@ model Payment {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
   spot  Spot? @relation("SpotPayment", fields: [spotId], references: [id], onDelete: SetNull)
+  payout VenuePayout?
 
   @@index([providerRef])
+}
+
+model VenuePayout {
+  id              String             @id @default(uuid())
+  venueId         String
+  matchId         String
+  paymentId       String             @unique
+  status          VenuePayoutStatus  @default(PENDING)
+  method          VenuePayoutMethod
+  amountCLP       Int
+  platformFeeCLP  Int
+  providerFeeCLP  Int
+  netAmountCLP    Int
+  destination     String?
+  notes           String?
+  createdAt       DateTime           @default(now())
+  processedAt     DateTime?
+
+  venue   Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  match   Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, status])
+  @@index([matchId])
 }
 
 model VenueSubscription {

@@ -257,7 +257,12 @@ export async function ensureVenueAccessToken(venueId: string): Promise<VenueCred
   }
   const now = Date.now();
   if (creds.expiresAt && creds.expiresAt.getTime() - now < 5 * 60 * 1000 && creds.refreshToken) {
-    return refreshMpAccessToken(venueId, creds.refreshToken);
+    try {
+      return await refreshMpAccessToken(venueId, creds.refreshToken);
+    } catch (error) {
+      console.error(`[ensureVenueAccessToken] Error refreshing token for venue ${venueId}:`, error);
+      throw new Error("El token de Mercado Pago expiró y no se pudo renovar. La cancha debe reconectar su cuenta.");
+    }
   }
   return creds;
 }
@@ -290,8 +295,9 @@ export async function createMarketplacePreference({
       const creds = await ensureVenueAccessToken(venueId);
       accessToken = creds.accessToken;
     } catch (e) {
+      console.error(`[createMarketplacePreference] Error getting venue credentials for ${venueId}:`, e);
       throw new Error(
-        "La cancha debe conectar su cuenta de Mercado Pago para recibir los pagos de sus partidos.",
+        "La cancha debe conectar su cuenta de Mercado Pago para recibir los pagos de sus partidos. Ve al panel de cancha y autoriza tu cuenta de Mercado Pago.",
       );
     }
   }
@@ -498,4 +504,42 @@ export function verifyMpSignature({
   const payload = `id:${parts.id};request-id:${requestId};ts:${parts.ts}`;
   const expected = createHmac("sha256", secret).update(payload).digest("hex");
   return expected === parts.signature;
+}
+
+export async function testMpConnection(venueId: string): Promise<{
+  success: boolean;
+  error?: string;
+  details?: any;
+}> {
+  try {
+    const creds = await ensureVenueAccessToken(venueId);
+    
+    // Intentar hacer una llamada simple a la API de Mercado Pago
+    const res = await fetch(`${MP_API_BASE}/users/me`, {
+      headers: { Authorization: `Bearer ${creds.accessToken}` },
+    });
+    
+    if (!res.ok) {
+      return {
+        success: false,
+        error: `Error de API: ${res.status} ${res.statusText}`,
+      };
+    }
+    
+    const profile = await res.json();
+    return {
+      success: true,
+      details: {
+        userId: profile.id,
+        email: profile.email,
+        accountType: profile.user_type,
+      },
+    };
+  } catch (error) {
+    console.error(`[testMpConnection] Error testing connection for venue ${venueId}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    };
+  }
 }

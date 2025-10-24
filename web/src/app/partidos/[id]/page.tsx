@@ -231,7 +231,16 @@ export default function MatchDetailPage() {
   const totalSpots = Math.max(match?.totalSpots ?? 1, 1);
   const minSpotsToConfirm = Math.max(match?.minSpotsToConfirm ?? totalSpots, 1);
   const paidCount = match?.paid ?? 0;
-  const availableSpots = match?.available ?? 0;
+  const availableSpots = useMemo(() => {
+    if (!match) return 0;
+    const direct = typeof match.available === "number" ? match.available : null;
+    if (direct !== null) {
+      return Math.max(0, direct);
+    }
+    const total = typeof match.totalSpots === "number" ? match.totalSpots : 0;
+    const paid = typeof match.paid === "number" ? match.paid : 0;
+    return Math.max(0, total - paid);
+  }, [match]);
   const progressPercent = Math.min(100, (paidCount / totalSpots) * 100);
   const minMarkerPercent = Math.min(100, (minSpotsToConfirm / totalSpots) * 100);
   const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
