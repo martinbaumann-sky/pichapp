@@ -1,8 +1,8 @@
 # Node/Next
 node_modules/
-web/node_modules/
+apps/*/node_modules/
 .next/
-web/.next/
+apps/web/.next/
 .out/
 .vercel/
 .turbo/
@@ -14,8 +14,9 @@ build/
 **/.env
 .env
 .env.*
-web/.env
-web/prisma/dev.db
+apps/web/.env
+apps/mobile/.env
+apps/web/prisma/dev.db
 *.log
 logs/
 
