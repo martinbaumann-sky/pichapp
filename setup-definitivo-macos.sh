@@ -34,3 +34,4 @@ printf '\nInstalando dependencias con npm install...\n'
 printf '\nDependencias instaladas correctamente.\n'
 printf 'Ya puedes ejecutar start-definitivo-macos.sh para iniciar el entorno de desarrollo.\n'
 printf '\n'
+ 
