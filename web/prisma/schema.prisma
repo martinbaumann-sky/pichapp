@@ -245,6 +245,7 @@ model Match {
   spots            Spot[]
   waitlist         WaitlistEntry[]
   payments         Payment[]
+  venuePayouts     VenuePayout[]
   guestInvites     GuestInvite[]
   organizerRatings OrganizerRating[]
   playerRatings    PlayerRating[]
