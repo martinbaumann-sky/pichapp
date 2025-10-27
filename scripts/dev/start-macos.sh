@@ -14,7 +14,7 @@ printf '     PICHANGAPP - ARRANQUE DESARROLLO\n'
 printf '========================================\n\n'
 printf 'Este script abrira dos ventanas de Terminal:\n'
 printf ' - Next.js : npm run dev (incluye API backend)\n'
-printf ' - Expo    : npm exec --workspace mobile expo start -- --tunnel\n\n'
+printf ' - Expo    : npm exec --workspace mobile expo start (LAN/local)\n\n'
 
 printf 'Verificando dependencias...\n'
 if ! command -v node >/dev/null 2>&1; then
@@ -80,7 +80,16 @@ fi
 
 printf '\nAbriendo ventanas de Terminal...\n'
 NEXT_COMMAND=$(printf 'cd %q && npm run dev' "$PROJECT_ROOT")
-MOBILE_COMMAND=$(printf 'cd %q && export EXPO_PUBLIC_API_BASE_URL=%q && npm exec --workspace mobile expo start -- --tunnel' "$PROJECT_ROOT" "$EXPO_API_URL")
+
+# Elegir modo de host para Expo: LAN si hay IP local privada, de lo contrario localhost.
+if [ -n "$LOCAL_IP" ]; then
+  HOST_FLAG="--lan"
+else
+  HOST_FLAG="--localhost"
+fi
+
+# No abrir tuneles nunca
+MOBILE_COMMAND=$(printf 'cd %q && export EXPO_NO_TUNNEL=1 EXPO_PUBLIC_API_BASE_URL=%q && npm exec --workspace mobile expo start -- %s' "$PROJECT_ROOT" "$EXPO_API_URL" "$HOST_FLAG")
 osascript <<APPLESCRIPT
 tell application "Terminal"
   activate

@@ -9,7 +9,7 @@ echo ========================================
 echo.
 echo Este script abrira dos consolas:
 echo  - Next.js : npm run dev (incluye API backend)
-echo  - Expo    : npm exec --workspace mobile expo start -- --tunnel
+echo  - Expo    : npm exec --workspace mobile expo start (LAN/local)
 echo.
 
 echo Verificando dependencias...
@@ -37,10 +37,12 @@ for /f "usebackq tokens=*" %%I in (`powershell -NoProfile -Command "Get-NetIPAdd
 
 if defined LOCAL_IP (
   set "EXPO_API_URL=http://%LOCAL_IP%:3000"
+  set "EXPO_HOST_FLAG=--lan"
   echo   IP detectada: %LOCAL_IP%
   echo   Expo apuntara a %EXPO_API_URL%
 ) else (
   set "EXPO_API_URL=http://localhost:3000"
+  set "EXPO_HOST_FLAG=--localhost"
   echo   ADVERTENCIA: No se detecto IP privada.
   echo   Expo usara %EXPO_API_URL%. Si abres desde otro dispositivo, cambia manualmente.
 )
@@ -50,7 +52,7 @@ echo Abriendo consolas...
 rem Ventana Next.js dev (incluye API)
 start "PichangApp - Next.js Dev" cmd /k "npm run dev"
 rem Ventana Expo (mobile)
-start "PichangApp - Expo (Mobile)" cmd /k "set EXPO_PUBLIC_API_BASE_URL=%EXPO_API_URL% && npm exec --workspace mobile expo start -- --tunnel"
+start "PichangApp - Expo (Mobile)" cmd /k "set EXPO_NO_TUNNEL=1 && set EXPO_PUBLIC_API_BASE_URL=%EXPO_API_URL% && npm exec --workspace mobile expo start -- %EXPO_HOST_FLAG%"
 
 echo.
 echo Listo. Se abrieron las consolas de Next.js y Expo.
