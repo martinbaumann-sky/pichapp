@@ -22,13 +22,21 @@ Aplicación móvil desarrollada con [Expo](https://expo.dev/) y [Expo Router](ht
 
 La app utiliza la variable `EXPO_PUBLIC_API_BASE_URL` para conectarse a la API.
 
-Crea un archivo `apps/mobile/.env` (opcional) o exporta la variable antes de correr Expo:
+Opciones:
+
+1) Crear `apps/mobile/.env` a partir de `apps/mobile/.env.example` (recomendado):
+
+```bash
+cp apps/mobile/.env.example apps/mobile/.env
+```
+
+2) O exportar la variable antes de correr Expo:
 
 ```bash
 export EXPO_PUBLIC_API_BASE_URL="http://localhost:3000"
 ```
 
-En producción puedes apuntar a la URL pública desplegada en Vercel.
+En producción apunta a la URL pública desplegada (por ejemplo, la de Vercel).
 
 ## Scripts disponibles
 

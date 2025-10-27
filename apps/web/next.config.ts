@@ -3,7 +3,7 @@ import path from "path";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-loadEnvConfig(path.resolve(__dirname, ".."), process.env.NODE_ENV !== "production");
+loadEnvConfig(path.resolve(__dirname), process.env.NODE_ENV !== "production");
 
 const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: false },

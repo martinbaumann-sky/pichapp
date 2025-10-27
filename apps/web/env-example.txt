@@ -8,7 +8,9 @@ DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB?sslmode=prefer"
 DIRECT_URL="postgresql://USER:PASSWORD@HOST:PORT/DB"
 
 # Base URL publica
+# Desarrollo:
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+# Producción: NEXT_PUBLIC_BASE_URL="https://tu-dominio.com"
 
 # Sesiones
 AUTH_SECRET="cambia-esta-clave-en-produccion"
@@ -33,15 +35,21 @@ SENTRY_PROFILES_SAMPLE_RATE="0.1"
 # SENTRY_PROJECT=""
 LOG_LEVEL="debug"
 
-# Pagos
+# Pagos - Mercado Pago
 MP_CLIENT_ID=""
 MP_CLIENT_SECRET=""
-MP_REDIRECT_URI="https://tu-app.com/api/mp/oauth/callback"
+# Desarrollo:
+MP_REDIRECT_URI="http://localhost:3000/api/mp/oauth/callback"
+# Producción: MP_REDIRECT_URI="https://tu-dominio.com/api/mp/oauth/callback"
 MP_POPUP_SUCCESS_URL="/panel/cancha/mp/complete"
 MP_POPUP_ERROR_URL="/panel/cancha/mp/complete"
-MP_WEBHOOK_URL="https://tu-app.com/api/mp/webhook"
+# Desarrollo:
+MP_WEBHOOK_URL="http://localhost:3000/api/mp/webhook"
+# Producción: MP_WEBHOOK_URL="https://tu-dominio.com/api/mp/webhook"
 MP_WEBHOOK_SIGNATURE_SECRET=""
-MP_WEBHOOK_JOB_URL="https://tu-app.com/api/jobs/process-mp-webhook"
+# Desarrollo:
+MP_WEBHOOK_JOB_URL="http://localhost:3000/api/jobs/process-mp-webhook"
+# Producción: MP_WEBHOOK_JOB_URL="https://tu-dominio.com/api/jobs/process-mp-webhook"
 MP_FEE_BPS="300"
 MP_USE_SANDBOX="true"
 MP_QR_USER_ID=""
@@ -69,7 +77,9 @@ QSTASH_CURRENT_SIGNING_KEY=""
 QSTASH_NEXT_SIGNING_KEY=""
 
 # URL interna opcional cuando la publica difiere (por ejemplo, SSR en Vercel)
+# Desarrollo:
 WEB_APP_BASE_URL="http://localhost:3000"
+# Producción: WEB_APP_BASE_URL="https://tu-dominio.com"
 
 # Configuracion admin inicial
 # Actualiza estos valores con las credenciales reales en tu entorno local o de despliegue.
