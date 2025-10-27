@@ -23,14 +23,17 @@ Consulta [README-ENV.md](./README-ENV.md) para la lista completa de variables, s
 ## Pasos rapidos en un PC nuevo
 1. Clonar el repo: `git clone <URL> && cd pichapp`.
 2. Instalar Node 20 LTS y PostgreSQL (o levantar el contenedor anterior).
-3. Instalar dependencias: `npm install`.
-4. Copiar plantilla: `copy web\env-example.txt web\.env` (Windows) o `cp web/env-example.txt web/.env` (Unix).
+3. Ejecutar el script de setup segun tu sistema:
+   - macOS / Linux: `./setup-macos.sh`
+   - Windows: `setup-windows.bat`
+   Estos scripts corren `npm install` y copian `web/env-example.txt` a `web/.env` si aun no existe.
+4. Si prefieres hacerlo manual: `npm install` y copia la plantilla (`copy web\env-example.txt web\.env` en Windows / `cp web/env-example.txt web/.env` en Unix).
 5. Editar `web/.env` con al menos `DATABASE_URL`, `DIRECT_URL` (si aplica), `NEXT_PUBLIC_BASE_URL`, `AUTH_SECRET` y los proveedores que se usaran.
 6. Ejecutar Prisma desde la raiz:
    - `npm run prisma:generate`
    - `npm run prisma:migrate`
    - `npm run seed` (opcional, popula partidos de ejemplo).
-7. Levantar entorno dev: `npm run dev` y navegar a http://localhost:3000.
+7. Levantar entorno dev: `npm run dev` (o `./start-macos.sh` / `start-windows.bat` para abrir Next + Expo) y navegar a http://localhost:3000.
 8. Opcional: `npm run test` para validar con Vitest.
 
 ## Scripts utiles

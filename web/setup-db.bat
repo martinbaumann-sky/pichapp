@@ -102,9 +102,8 @@ echo ========================================
 echo     CONFIGURACION COMPLETADA
 echo ========================================
 echo.
-echo Para desarrollo, ejecuta: start-definitivo.bat
+echo Para desarrollo, ejecuta: ..\start-windows.bat
 echo.
 pause
 endlocal
 exit /b
-

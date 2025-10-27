@@ -7,13 +7,23 @@ echo ========================================
 echo      PICHANGAPP - ARRANQUE DESARROLLO
 echo ========================================
 echo.
-echo Este script abrira UNA ventana para el servidor de desarrollo:
+echo Este script abrira dos consolas:
 echo  - Next.js : npm run dev (incluye API backend)
+echo  - Expo    : npm exec --workspace mobile expo start -- --tunnel
 echo.
 
 echo Verificando dependencias...
 where node >nul 2>&1 || (echo ERROR: Node.js no esta en PATH. Instala Node 20 LTS. & goto :END)
 where npm  >nul 2>&1 || (echo ERROR: npm no esta en PATH. Reinstala Node. & goto :END)
+if not exist "node_modules" (
+  echo.
+  echo ERROR: No se encontraron dependencias. Ejecuta primero setup-windows.bat.
+  goto :END
+)
+if not exist "web\.env" (
+  echo.
+  echo ADVERTENCIA: web\.env no existe. Copia web\env-example.txt y actualiza las variables.
+)
 
 echo Ejecutando setup de la app mobile...
 call scripts\mobile\setup-mobile.bat
@@ -43,7 +53,7 @@ rem Ventana Expo (mobile)
 start "PichangApp - Expo (Mobile)" cmd /k "set EXPO_PUBLIC_API_BASE_URL=%EXPO_API_URL% && npm exec --workspace mobile expo start -- --tunnel"
 
 echo.
-echo Listo. Se abrio la ventana del servidor de desarrollo.
+echo Listo. Se abrieron las consolas de Next.js y Expo.
 echo Esta ventana se cerrara automaticamente.
 echo.
 

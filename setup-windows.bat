@@ -7,13 +7,17 @@ echo ========================================
 echo     PICHANGAPP - PREPARAR ENTORNO DEV
 echo ========================================
 echo.
-echo Este script instalara las dependencias del proyecto.
+echo Este script instalara las dependencias base y dejara listo el entorno.
 echo Asegurate de haber clonado el repo antes de continuar.
 echo.
 
 echo Verificando dependencias...
 where node >nul 2>&1 || (echo ERROR: Node.js no esta en PATH. Instala Node 20 LTS. & goto :END)
 where npm  >nul 2>&1 || (echo ERROR: npm no esta en PATH. Reinstala Node. & goto :END)
+for /f "usebackq tokens=* delims=" %%V in (`node -v`) do set "NODE_VERSION=%%V"
+for /f "usebackq tokens=* delims=" %%V in (`npm -v`) do set "NPM_VERSION=%%V"
+echo   Node: %NODE_VERSION%
+echo   npm : %NPM_VERSION%
 
 echo.
 echo Instalando dependencias con npm install...
@@ -24,9 +28,20 @@ if errorlevel 1 (
   goto :END
 )
 
+if exist "web\env-example.txt" if not exist "web\.env" (
+  echo.
+  echo Copiando web\env-example.txt a web\.env como base...
+  copy "web\env-example.txt" "web\.env" >nul
+  if errorlevel 1 (
+    echo ADVERTENCIA: No se pudo copiar web\env-example.txt. Hazlo manualmente.
+  ) else (
+    echo Recuerda actualizar web\.env con tus credenciales reales.
+  )
+)
+
 echo.
 echo Dependencias instaladas correctamente.
-echo Ya puedes ejecutar start-definitivo.bat para iniciar el entorno de desarrollo.
+echo Ya puedes ejecutar start-windows.bat para iniciar el entorno de desarrollo.
 echo.
 
 :END
