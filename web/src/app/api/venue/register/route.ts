@@ -25,6 +25,8 @@ interface VenueRegistrationPayload {
   placeId?: string;
   accountHolder?: string;
   payoutEmail?: string;
+  mpCollectorId?: string;
+  mpAccountType?: string;
   acceptTerms?: boolean | string;
 }
 
@@ -80,6 +82,11 @@ export async function POST(request: NextRequest) {
     const fieldsRaw = typeof payload.fields === "string" ? payload.fields : "";
     const accountHolder = String(payload.accountHolder ?? "").trim();
     const payoutEmail = String(payload.payoutEmail ?? "").trim().toLowerCase();
+    const mpCollectorId = String(payload.mpCollectorId ?? "").trim();
+    const mpAccountType = String(payload.mpAccountType ?? "").trim();
+    const cleanedMpCollectorId = mpCollectorId.replace(/\D+/g, "");
+    const normalizedMpCollectorId = cleanedMpCollectorId.length > 0 ? cleanedMpCollectorId : null;
+    const normalizedMpAccountType = mpAccountType.length > 0 ? mpAccountType : null;
     const placeId = payload.placeId ? String(payload.placeId).trim() : undefined;
     const latValue = typeof payload.lat === "string" ? Number(payload.lat) : payload.lat;
     const lngValue = typeof payload.lng === "string" ? Number(payload.lng) : payload.lng;
@@ -217,6 +224,8 @@ export async function POST(request: NextRequest) {
             plan: "gratis",
             verified: false,
             mpAccountId: null,
+            mpCollectorId: normalizedMpCollectorId,
+            mpAccountType: normalizedMpAccountType,
             placeId: placeId ?? null,
           },
           select: {
@@ -232,6 +241,8 @@ export async function POST(request: NextRequest) {
             phone: true,
             payoutEmail: true,
             accountHolder: true,
+            mpCollectorId: true,
+            mpAccountType: true,
           },
         });
 
@@ -281,6 +292,8 @@ export async function POST(request: NextRequest) {
             plan: "gratis",
             verified: false,
             mpAccountId: null,
+            mpCollectorId: normalizedMpCollectorId,
+            mpAccountType: normalizedMpAccountType,
             placeId: placeId ?? null,
           },
           select: {
@@ -296,6 +309,8 @@ export async function POST(request: NextRequest) {
             phone: true,
             payoutEmail: true,
             accountHolder: true,
+            mpCollectorId: true,
+            mpAccountType: true,
           },
         });
 
@@ -346,6 +361,8 @@ export async function POST(request: NextRequest) {
         phone: normalizedPhone ?? null,
         payoutEmail,
         accountHolder,
+        mpCollectorId,
+        mpAccountType,
         lat,
         lng,
         fields: fieldNames.map((name) => ({ name })),

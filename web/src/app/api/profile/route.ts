@@ -25,7 +25,15 @@ export async function PUT(req: NextRequest) {
     const name = String(body.name || "").trim();
     const phoneInput = String(body.phone || "").trim();
     const comuna = String(body.comuna || "").trim();
-    const position = body.position ? String(body.position) : null;
+    const positionRaw = body.position ? String(body.position).toUpperCase() : null;
+    const skillLevelRaw = body.skillLevel ? String(body.skillLevel).toUpperCase() : null;
+    const bioInput = typeof body.bio === "string" ? body.bio : "";
+
+    const allowedPositions = new Set(["ARQUERO", "DEFENSA", "LATERAL", "VOLANTE", "DELANTERO"]);
+    const allowedSkillLevels = new Set(["BEGINNER", "INTERMEDIATE", "ADVANCED"]);
+    const position = positionRaw && allowedPositions.has(positionRaw) ? positionRaw : null;
+    const skillLevel = skillLevelRaw && allowedSkillLevels.has(skillLevelRaw) ? skillLevelRaw : null;
+    const bio = bioInput.trim().slice(0, 400);
 
     if (!name || !comuna) {
       return NextResponse.json({ error: "Nombre y comuna son obligatorios" }, { status: 400 });
@@ -36,7 +44,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Celular invalido (+56 9 XXXXXXXX)" }, { status: 400 });
     }
 
-    const data: any = { name, phone: normalizedPhone, comuna, position };
+    const data: any = {
+      name,
+      phone: normalizedPhone,
+      comuna,
+      position,
+      skillLevel,
+      bio: bio ? bio : null,
+    };
     const profile = await prisma.profile.upsert({
       where: { userId },
       update: data,

@@ -1,5 +1,5 @@
-﻿import { createHmac } from "crypto";
-import { getMpPreferenceClient } from "@/lib/mp";
+import { createHmac } from "crypto";
+import { createMarketplacePreference } from "@/lib/mp/marketplace";
 import { createTbTransaction } from "@/lib/tb_sandbox";
 
 export type ProviderKey = "MP" | "MP_QR" | "WEBPAY" | "KHIPU" | "FINTOC" | "FLOW";
@@ -13,23 +13,28 @@ export type PaymentInitResult = {
   extra?: Record<string, unknown>;
 };
 
+type FlowOverride = { apiKey: string; secret: string; env?: "PROD" | "SANDBOX" };
+
 export type InitPaymentArgs = {
   provider: ProviderKey;
-  payment: { id: string; amountCLP: number };
-  match: { id: string; title?: string | null; comuna?: string | null };
+  payment: { id: string; amountCLP: number; spotId: string };
+  match: { id: string; title?: string | null; comuna?: string | null; venueId?: string | null };
   baseUrl: string;
   user: { email: string | null; name?: string | null };
+  venue?: { id?: string | null; flow?: FlowOverride };
 };
 
 export function getEnabledProviders() {
-  const mpToken = !!process.env.MP_ACCESS_TOKEN;
+  const mpOauthReady = !!process.env.MP_CLIENT_ID && !!process.env.MP_CLIENT_SECRET && !!process.env.MP_REDIRECT_URI;
+  const mpTokenReady = !!process.env.MP_ACCESS_TOKEN;
+  const mpConnected = mpOauthReady || mpTokenReady;
   const tbEnabled = true;
   const khipuReady = !!process.env.KHIPU_RECEIVER_ID && !!process.env.KHIPU_SECRET_KEY;
   const flowReady = !!process.env.FLOW_API_KEY && !!process.env.FLOW_SECRET_KEY;
   const fintocReady = !!process.env.FINTOC_SECRET_KEY;
-  const mpQrReady = mpToken && !!process.env.MP_QR_USER_ID && !!process.env.MP_QR_POS_ID;
+  const mpQrReady = !!process.env.MP_QR_USER_ID && !!process.env.MP_QR_POS_ID;
   return {
-    MP: mpToken,
+    MP: mpConnected,
     MP_QR: mpQrReady,
     WEBPAY: tbEnabled,
     KHIPU: khipuReady,
@@ -38,18 +43,18 @@ export function getEnabledProviders() {
   };
 }
 
-export async function initPaymentSession({ provider, payment, match, baseUrl, user }: InitPaymentArgs): Promise<PaymentInitResult> {
+export async function initPaymentSession({ provider, payment, match, baseUrl, user, venue }: InitPaymentArgs): Promise<PaymentInitResult> {
   switch (provider) {
     case "MP":
-      return initMercadoPago({ payment, match, baseUrl });
+      return initMercadoPago({ payment, match, baseUrl, user, venueId: venue?.id ?? match.venueId ?? null });
     case "MP_QR":
-      return initMercadoPagoQr({ payment, match, baseUrl });
+      return initMercadoPagoQr({ payment, match, baseUrl, user });
     case "WEBPAY":
       return initWebpay({ payment, match, baseUrl });
     case "KHIPU":
       return initKhipu({ payment, match, baseUrl, user });
     case "FLOW":
-      return initFlow({ payment, match, baseUrl, user });
+      return initFlow({ payment, match, baseUrl, user, credentials: venue?.flow });
     case "FINTOC":
       return initFintoc({ payment, match, baseUrl, user });
     default:
@@ -57,39 +62,42 @@ export async function initPaymentSession({ provider, payment, match, baseUrl, us
   }
 }
 
-async function initMercadoPago({ payment, match, baseUrl }: { payment: { id: string; amountCLP: number }; match: { id: string; title?: string | null }; baseUrl: string; }): Promise<PaymentInitResult> {
-  const client = getMpPreferenceClient();
-  const pref = await client.create({
-    body: {
-      items: [
-        {
-          id: payment.id,
-          title: match.title || "Cupo PichangApp",
-          quantity: 1,
-          currency_id: "CLP",
-          unit_price: payment.amountCLP,
-        },
-      ],
-      notification_url: `${baseUrl}/api/mp/webhook`,
-      back_urls: {
-        success: `${baseUrl}/match/${match.id}/chat?paid=1`,
-        failure: `${baseUrl}/match/${match.id}?paid=0`,
-        pending: `${baseUrl}/match/${match.id}?paid=0`,
-      },
-      metadata: { paymentId: payment.id, matchId: match.id },
-      statement_descriptor: "PICHANGA CUPOS",
-    },
+async function initMercadoPago({
+  payment,
+  match,
+  baseUrl,
+  user,
+  venueId,
+}: {
+  payment: { id: string; amountCLP: number; spotId: string };
+  match: { id: string; title?: string | null; venueId?: string | null };
+  baseUrl: string;
+  user: { email: string | null; name?: string | null };
+  venueId: string | null;
+}): Promise<PaymentInitResult> {
+  const title = match.title || "Cupo PichangApp";
+  const externalReference = `${match.id}:${payment.spotId}`;
+  const preference = await createMarketplacePreference({
+    venueId,
+    title,
+    priceCLP: payment.amountCLP,
+    externalReference,
+    baseUrl,
+    payer: user,
   });
-  const prefId = (pref as any).id ?? (pref as any).response?.id;
-  const redirectUrl = (pref as any).init_point ?? (pref as any).sandbox_init_point ?? (pref as any).response?.init_point;
-  if (!redirectUrl) {
-    throw new Error("Mercado Pago no entrego URL de pago");
-  }
-  return { type: "redirect", providerRef: String(prefId || payment.id), url: redirectUrl };
+  return { type: "redirect", providerRef: preference.id, url: preference.initPoint };
 }
 
-async function initMercadoPagoQr(args: { payment: { id: string; amountCLP: number }; match: { id: string; title?: string | null }; baseUrl: string; }): Promise<PaymentInitResult> {
-  const result = await initMercadoPago(args);
+async function initMercadoPagoQr(args: {
+  payment: { id: string; amountCLP: number; spotId: string };
+  match: { id: string; title?: string | null; venueId?: string | null };
+  baseUrl: string;
+  user: { email: string | null; name?: string | null };
+}): Promise<PaymentInitResult> {
+  const result = await initMercadoPago({
+    ...args,
+    venueId: args.match.venueId ?? null,
+  });
   const encoded = encodeURIComponent(result.url!);
   const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=320x320&chl=${encoded}`;
   return { ...result, type: "qr", qrUrl };
@@ -141,13 +149,26 @@ async function initKhipu({ payment, match, baseUrl, user }: { payment: { id: str
   return { type: "redirect", providerRef: String(data.payment_id || data.id || payment.id), url: data.payment_url || data.url };
 }
 
-async function initFlow({ payment, match, baseUrl, user }: { payment: { id: string; amountCLP: number }; match: { id: string; title?: string | null }; baseUrl: string; user: { email: string | null } }): Promise<PaymentInitResult> {
-  const apiKey = process.env.FLOW_API_KEY;
-  const secret = process.env.FLOW_SECRET_KEY;
+async function initFlow({
+  payment,
+  match,
+  baseUrl,
+  user,
+  credentials,
+}: {
+  payment: { id: string; amountCLP: number };
+  match: { id: string; title?: string | null };
+  baseUrl: string;
+  user: { email: string | null };
+  credentials?: FlowOverride;
+}): Promise<PaymentInitResult> {
+  const apiKey = credentials?.apiKey ?? process.env.FLOW_API_KEY;
+  const secret = credentials?.secret ?? process.env.FLOW_SECRET_KEY;
   if (!apiKey || !secret) {
-    throw new Error("Configura FLOW_API_KEY y FLOW_SECRET_KEY");
+    throw new Error("Configura las credenciales de Flow");
   }
-  const env = process.env.FLOW_ENV === "PROD" ? "https://www.flow.cl/api" : "https://sandbox.flow.cl/api";
+  const envSetting = credentials?.env ?? process.env.FLOW_ENV;
+  const env = envSetting === "PROD" ? "https://www.flow.cl/api" : "https://sandbox.flow.cl/api";
   const params: Record<string, string> = {
     apiKey,
     commerceOrder: payment.id,
@@ -198,9 +219,6 @@ async function initFintoc({ payment, match, baseUrl, user }: { payment: { id: st
       subject: `Pago partido ${match.id}`,
       customer_email: user.email || undefined,
       callback_url: `${baseUrl}/api/fintoc/webhook`,
-      success_url: `${baseUrl}/match/${match.id}/chat?paid=1`,
-      cancel_url: `${baseUrl}/match/${match.id}?paid=0`,
-      reference_id: payment.id,
     }),
   });
   if (!res.ok) {
@@ -208,9 +226,5 @@ async function initFintoc({ payment, match, baseUrl, user }: { payment: { id: st
     throw new Error(text || "No se pudo crear pago en Fintoc");
   }
   const data = await res.json();
-  const url = data.url || data.link_url;
-  if (!url) {
-    throw new Error("Fintoc no entrego URL de pago");
-  }
-  return { type: "redirect", providerRef: String(data.id || payment.id), url };
+  return { type: "redirect", providerRef: String(data.id || payment.id), url: data.link || data.url };
 }

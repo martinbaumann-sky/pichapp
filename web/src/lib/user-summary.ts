@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { resolveFriendship, FriendshipSnapshot } from "@/lib/friendship";
+import { normalizeForDisplay } from "@/lib/phone";
 
 type MatchSummary = {
   id: string;
@@ -18,7 +19,16 @@ type PublicStats = {
 };
 
 export type PublicUserSummary = {
-  user: { id: string; name: string };
+  user: {
+    id: string;
+    name: string;
+    comuna: string | null;
+    position: string | null;
+    skillLevel: string | null;
+    bio: string | null;
+    avatarUrl: string | null;
+    phoneDisplay: string | null;
+  };
   stats: PublicStats;
   recentOrganized: MatchSummary[];
   recentPlayed: MatchSummary[];
@@ -30,7 +40,15 @@ export async function getPublicUserSummary(userId: string, viewerId: string | nu
 
   const profile = await prisma.profile.findUnique({
     where: { userId },
-    select: { name: true },
+    select: {
+      name: true,
+      comuna: true,
+      position: true,
+      skillLevel: true,
+      bio: true,
+      avatarUrl: true,
+      phone: true,
+    },
   });
 
   if (!profile) return null;
@@ -100,9 +118,20 @@ export async function getPublicUserSummary(userId: string, viewerId: string | nu
     : null;
 
   const friendship = resolveFriendship(viewerId, userId, friendRecord);
+  const canSeePhone = friendship.status === "SELF" || friendship.status === "FRIENDS";
+  const phoneDisplay = canSeePhone && profile.phone ? normalizeForDisplay(profile.phone) : null;
 
   return {
-    user: { id: userId, name: profile.name },
+    user: {
+      id: userId,
+      name: profile.name,
+      comuna: profile.comuna ?? null,
+      position: profile.position ?? null,
+      skillLevel: profile.skillLevel ?? null,
+      bio: profile.bio ?? null,
+      avatarUrl: profile.avatarUrl ?? null,
+      phoneDisplay,
+    },
     stats: {
       matchesOrganized: organizedCount,
       matchesUpcoming: upcomingCount,

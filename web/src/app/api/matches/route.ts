@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { PaymentProvider } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createMatchSchema, listMatchesSchema } from "@/lib/validator";
 import { requireUserId } from "@/lib/auth";
+import { getSessionUserId } from "@/lib/auth-core";
 import { streetViewUrl, searchPlace, extractComunaFromText } from "@/lib/places";
 import { buildStaticMapUrl } from "@/lib/maps";
 import { normalizeForStorage } from "@/lib/phone";
+import { hasModelField } from "@/lib/prismaCompat";
 
 export const runtime = 'nodejs';
 
@@ -22,7 +25,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const venue = await prisma.venue.findFirst({ where: { ownerId: organizerId }, select: { id: true, name: true, address: true, comuna: true } });
+    // Usamos findFirst sin `select` para soportar instalaciones que todavía ejecutan un Prisma Client antiguo sin
+    // las columnas nuevas de pago. Los campos ausentes quedarán como undefined y usan los fallback más abajo.
+    const venue = await prisma.venue.findFirst({
+      where: { ownerId: organizerId },
+    });
 
     // Defaults defensivos para evitar "invalid input"
     const payloadComuna = typeof json?.comuna === "string" ? json.comuna.trim() : "";
@@ -114,6 +121,65 @@ export async function POST(req: NextRequest) {
           .join(",");
         coverImageUrl = `https://source.unsplash.com/800x400/?${parts}`;
       } catch {}
+    }
+
+    if (safePrice > 0) {
+      if (!venue) {
+        return NextResponse.json(
+          {
+            error: "Necesitas registrar tu cancha antes de crear partidos pagados.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!venue.payoutEmail || !venue.accountHolder) {
+        return NextResponse.json(
+          {
+            error: "Completa los datos de contacto y liquidación de tu cancha antes de publicar partidos pagados.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const paymentProvider: PaymentProvider =
+        hasModelField(venue, "paymentProvider") && typeof venue.paymentProvider === "string"
+          ? (venue.paymentProvider as PaymentProvider)
+          : "MP";
+      if (paymentProvider === "MP") {
+        if (!venue.mpAccessToken) {
+          return NextResponse.json(
+            {
+              error: "Conecta Mercado Pago desde el panel de tu cancha para recibir los pagos directamente.",
+            },
+            { status: 400 },
+          );
+        }
+        if (!venue.mpCollectorId || !venue.mpAccountType) {
+          return NextResponse.json(
+            {
+              error: "Completa el Collector ID y el tipo de cuenta de Mercado Pago antes de publicar partidos pagados.",
+            },
+            { status: 400 },
+          );
+        }
+      } else if (paymentProvider === "FLOW") {
+        if (!venue.flowApiKey || !venue.flowSecretKey) {
+          return NextResponse.json(
+            {
+              error: "Ingresa las credenciales de Flow en el perfil de la cancha antes de publicar partidos pagados.",
+            },
+            { status: 400 },
+          );
+        }
+      } else {
+        return NextResponse.json(
+          {
+            error: "El proveedor de cobros configurado en tu cancha no es compatible para publicar partidos pagados.",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const match = await prisma.$transaction(async (tx: any) => {
@@ -235,12 +301,13 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
-    const { comuna, from, level } = parsed.data as any;
+    const { comuna, from, to, level } = parsed.data as any;
     const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
     const pageSize = Math.min(24, Math.max(1, Number(searchParams.get("pageSize") ?? "24")));
 
     const now = new Date();
     let effectiveFrom: Date;
+    let effectiveTo: Date | null = null;
     if (from) {
       const fromDate = new Date(from);
       if (isNaN(fromDate.getTime())) {
@@ -254,13 +321,50 @@ export async function GET(req: NextRequest) {
       effectiveFrom = now;
     }
 
+    if (to) {
+      const toDate = new Date(to);
+      if (isNaN(toDate.getTime())) {
+        return NextResponse.json(
+          { error: "Fecha inválida", details: "El parámetro 'to' debe ser una fecha ISO válida" },
+          { status: 400 },
+        );
+      }
+      effectiveTo = toDate <= effectiveFrom ? new Date(effectiveFrom.getTime() + 24 * 60 * 60 * 1000) : toDate;
+    }
+
     const where: any = {
       public: true,
       status: { in: ["PUBLISHED", "FULL"] },
-      startsAt: { gte: effectiveFrom },
+      startsAt: { gte: effectiveFrom, ...(effectiveTo ? { lt: effectiveTo } : {}) },
       ...(comuna ? { comuna } : {}),
       ...(level ? { level } : {}),
     };
+
+    const viewerId = await getSessionUserId().catch(() => null);
+    let friendIds = new Set<string>();
+    if (viewerId) {
+      const friendships = await prisma.friend
+        .findMany({
+          where: {
+            status: "ACCEPTED",
+            OR: [
+              { requesterId: viewerId },
+              { addresseeId: viewerId },
+            ],
+          },
+          select: { requesterId: true, addresseeId: true },
+        })
+        .catch(() => []);
+      friendIds = new Set<string>();
+      for (const friend of friendships) {
+        if (friend.requesterId && friend.requesterId !== viewerId) {
+          friendIds.add(friend.requesterId);
+        }
+        if (friend.addresseeId && friend.addresseeId !== viewerId) {
+          friendIds.add(friend.addresseeId);
+        }
+      }
+    }
 
     let matches: any[] | null = null;
     try {
@@ -283,7 +387,7 @@ export async function GET(req: NextRequest) {
           venueAddress: true,
           lat: true,
           lng: true,
-          spots: { select: { status: true } },
+          spots: { select: { status: true, userId: true, user: { select: { profile: { select: { name: true } } } } } },
         },
       });
     } catch {
@@ -305,7 +409,7 @@ export async function GET(req: NextRequest) {
           venueAddress: true,
           lat: true,
           lng: true,
-          spots: { select: { status: true } },
+          spots: { select: { status: true, userId: true, user: { select: { profile: { select: { name: true } } } } } },
         },
       }).catch(() => null);
     }
@@ -314,6 +418,22 @@ export async function GET(req: NextRequest) {
     const items = await Promise.all((matches ?? []).map(async (m: any) => {
       const paid = m.spots.filter((s: any) => s.status === "PAID").length;
       const available = m.spots.filter((s: any) => s.status === "AVAILABLE").length;
+      const friendEntries =
+        friendIds.size > 0
+          ? m.spots
+              .filter((s: any) => s.status === "PAID" && s.userId && friendIds.has(s.userId))
+              .map((s: any) => ({
+                userId: s.userId,
+                name:
+                  typeof s.user?.profile?.name === "string" ? (s.user.profile.name as string) : null,
+              }))
+          : [];
+      const friendNames = friendEntries
+        .map((entry: any) => {
+          const raw = entry.name;
+          return typeof raw === "string" ? raw.trim() : "";
+        })
+        .filter((name: string) => name.length > 0);
 
       // Si no tenemos lat/lng en DB, intentar geocodificar desde venueAddress/venueName (con fail-safe)
       let lat = typeof m.lat === "number" ? m.lat : null;
@@ -374,6 +494,8 @@ export async function GET(req: NextRequest) {
         confirmed: paid >= minRequired,
         paid,
         available,
+        friendCount: friendEntries.length,
+        friendNames: friendNames.slice(0, 3),
         coverImageUrl: coverImageUrl ?? null,
         lat: typeof lat === "number" ? lat : null,
         lng: typeof lng === "number" ? lng : null,

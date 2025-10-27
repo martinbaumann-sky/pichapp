@@ -201,41 +201,44 @@ export function JoinFormationDialogSteps({
           </div>
         ))}
       </div>
-
-      {errorMessage ? (
-        <div className="rounded-full bg-red-100 px-4 py-2 text-center text-xs font-semibold text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
     </div>
   );
 
   const renderFriendsStep = () => (
     <div className="space-y-6">
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-slate-800">¿Quieres invitar amigos?</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Puedes invitar hasta {maxFriends} amigos además de tu cupo.
+      <div className="text-center space-y-1">
+        <h3 className="text-lg font-semibold text-slate-800">Invita a tus amigos</h3>
+        <p className="text-sm text-slate-600">
+          {maxFriends === 0
+            ? "No quedan cupos extra disponibles para invitar en este partido."
+            : `Puedes sumar hasta ${maxFriends} amigo${maxFriends === 1 ? "" : "s"} además de tu cupo.`}
         </p>
+        {maxFriends > 0 ? (
+          <p className="text-xs text-emerald-600">
+            Al confirmar pagarás el valor de cada invitado que agregues.
+          </p>
+        ) : null}
       </div>
 
       {canAdjustFriends && (
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-5">
           <button
             onClick={() => onFriendCountChange?.(Math.max(0, friendCount - 1))}
-            className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+            className="h-11 w-11 rounded-full border border-slate-300 bg-white text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
             aria-label="Disminuir"
+            disabled={friendCount <= 0}
           >
-            -
+            −
           </button>
           <div className="text-center">
-            <div className="text-2xl font-bold text-slate-800">{friendCount}</div>
-            <div className="text-xs text-slate-500">amigos</div>
+            <div className="text-3xl font-bold text-slate-800">{friendCount}</div>
+            <div className="text-xs uppercase tracking-wide text-slate-500">amigo{friendCount === 1 ? "" : "s"}</div>
           </div>
           <button
             onClick={() => onFriendCountChange?.(Math.min(maxFriends, friendCount + 1))}
-            className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+            className="h-11 w-11 rounded-full border border-slate-300 bg-white text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
             aria-label="Aumentar"
+            disabled={friendCount >= maxFriends}
           >
             +
           </button>
@@ -244,41 +247,47 @@ export function JoinFormationDialogSteps({
 
       {friendCount > 0 && (
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-slate-700">Datos de tus amigos</h4>
+          <h4 className="text-sm font-semibold text-slate-700">Completa los datos de cada invitado</h4>
           {friends.slice(0, friendCount).map((friend, index) => (
-            <div key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
-                <h5 className="font-medium text-slate-800">Amigo {index + 1}</h5>
+                <h5 className="text-sm font-semibold text-slate-800">Invitado {index + 1}</h5>
+                <span className="text-xs text-slate-400">Pagas su cupo al confirmar</span>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-slate-600 mb-1">Nombre</label>
                   <input
                     type="text"
                     value={friend.name}
                     onChange={(e) => onUpdateFriend?.(index, { ...friend, name: e.target.value })}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
                     placeholder="Nombre completo"
+                    required
                   />
                 </div>
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
                   <input
                     type="email"
                     value={friend.email}
                     onChange={(e) => onUpdateFriend?.(index, { ...friend, email: e.target.value })}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
                     placeholder="correo@ejemplo.com"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Equipo</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Equipo preferido</label>
                   <select
                     value={friend.team}
                     onChange={(e) => onUpdateFriend?.(index, { ...friend, team: e.target.value as TeamKey })}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                    required
                   >
-                    <option value="">Sin preferencia</option>
+                    <option value="" disabled>
+                      Selecciona equipo
+                    </option>
                     {TEAM_KEYS.map((key) => (
                       <option key={key} value={key}>
                         {TEAM_LABELS[key]}
@@ -291,9 +300,12 @@ export function JoinFormationDialogSteps({
                   <select
                     value={friend.position}
                     onChange={(e) => onUpdateFriend?.(index, { ...friend, position: e.target.value as PositionKey })}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+                    required
                   >
-                    <option value="">Sin preferencia</option>
+                    <option value="" disabled>
+                      Selecciona posición
+                    </option>
                     {POSITION_KEYS.map((key) => (
                       <option key={key} value={key}>
                         {posicionES[key]}
@@ -497,6 +509,12 @@ export function JoinFormationDialogSteps({
                   </div>
 
                   {renderCurrentStep()}
+
+                  {errorMessage ? (
+                    <div className="mt-6 rounded-full bg-red-100 px-4 py-2 text-center text-xs font-semibold text-red-700">
+                      {errorMessage}
+                    </div>
+                  ) : null}
 
                   <div className="mt-8 flex items-center justify-between">
                     <button

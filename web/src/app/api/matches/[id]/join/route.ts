@@ -4,6 +4,7 @@ import { confirmFreeSpot } from "@/lib/freeReservations";
 import { prisma } from "@/lib/db";
 import { normalizeTeam } from "@/lib/teams";
 import { sanitizePosition } from "@/lib/teamAssignment";
+import { isProfileIncomplete, PROFILE_COMPLETION_REQUIRED_MESSAGE } from "@/lib/profileCompletion";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -19,7 +20,13 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
     const team = body?.team ?? null;
     const position = body?.position ?? null;
     const rawFriends = Array.isArray(body?.friends) ? body.friends : [];
-    const trimmedFriends = rawFriends.slice(0, 6);
+    if (rawFriends.length > 4) {
+      return NextResponse.json(
+        { error: "Solo puedes invitar hasta 4 amigos por reserva." },
+        { status: 400 },
+      );
+    }
+    const trimmedFriends = rawFriends.slice(0, 4);
 
     const sanitizedFriends: Array<{
       name: string;
@@ -53,6 +60,20 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } } | {
         team: normalizedTeam,
         position: normalizedPosition,
       });
+    }
+
+    const viewerProfile = await prisma.profile.findUnique({
+      where: { userId },
+      select: { phone: true, comuna: true },
+    });
+    if (isProfileIncomplete(viewerProfile)) {
+      return NextResponse.json(
+        {
+          error: PROFILE_COMPLETION_REQUIRED_MESSAGE,
+          requiresProfile: true,
+        },
+        { status: 409 },
+      );
     }
 
     const result = await confirmFreeSpot({ matchId, userId, team, position });

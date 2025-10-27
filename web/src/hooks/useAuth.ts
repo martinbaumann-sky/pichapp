@@ -14,6 +14,10 @@ export interface User {
   phone?: string | null;
   phoneDisplay?: string | null;
   role?: UserRole | null;
+  emailVerified?: boolean;
+  avatarUrl?: string | null;
+  skillLevel?: string | null;
+  bio?: string | null;
 }
 
 export function resolveUserRole(user: User | null | undefined): UserRole | null {

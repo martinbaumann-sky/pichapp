@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
+import { toAuthUser } from "@/lib/auth-user";
 
 const rl = createRateLimiter({ name: "auth_verify_email", limit: 5, windowSec: 300 });
 
@@ -32,6 +33,9 @@ export async function POST(req: NextRequest) {
         id: true,
         email: true,
         isAdmin: true,
+        role: true,
+        emailVerifiedAt: true,
+        disabledAt: true,
         profile: { select: { name: true, comuna: true, position: true } },
       },
     });
@@ -77,18 +81,28 @@ export async function POST(req: NextRequest) {
 
       return tx.user.update({
         where: { id: user.id },
-        data: {},
+        data: { emailVerifiedAt: now },
         select: {
           id: true,
           email: true,
           isAdmin: true,
+          role: true,
+          emailVerifiedAt: true,
+          disabledAt: true,
           profile: { select: { name: true, comuna: true, position: true } },
         },
       });
     });
 
+    if (updatedUser.disabledAt) {
+      return NextResponse.json(
+        { ok: false, error: "Tu cuenta esta bloqueada." },
+        { status: 403 }
+      );
+    }
+
     const token = await createSession(updatedUser.id);
-    const res = NextResponse.json({ ok: true, user: sanitizeUser(updatedUser) });
+    const res = NextResponse.json({ ok: true, user: toAuthUser(updatedUser) });
     attachSessionCookie(res, token);
     return res;
   } catch (err: any) {
@@ -104,16 +118,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function sanitizeUser(u: any) {
-  return {
-    id: u.id,
-    email: u.email,
-    emailVerified: !!u.emailVerifiedAt,
-    isAdmin: !!u.isAdmin,
-    name: u.profile?.name || null,
-    comuna: u.profile?.comuna || null,
-    position: u.profile?.position || null,
-  };
 }

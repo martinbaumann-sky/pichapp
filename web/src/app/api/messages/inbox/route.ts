@@ -10,7 +10,7 @@ export async function GET() {
     const spots = await prisma.spot.findMany({
       where: {
         userId,
-        status: { in: ["PAID", "RESERVED"] },
+        status: "PAID",
       },
       include: {
         match: {

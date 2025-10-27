@@ -340,6 +340,8 @@ const statusStyles: Record<string, { label: string; className: string }> = {
   pending: { label: "Pendiente", className: "bg-amber-100 text-amber-700" },
   canceled: { label: "Cancelado", className: "bg-red-100 text-red-700" },
   finished: { label: "Finalizado", className: "bg-gray-200 text-gray-700" },
+  confirmed: { label: "Confirmado", className: "bg-emerald-50 text-emerald-700" },
+  canceled_minimum: { label: "Cancelado mínimo", className: "bg-red-50 text-red-600" },
   default: { label: "En curso", className: "bg-gray-100 text-gray-700" },
 };
 

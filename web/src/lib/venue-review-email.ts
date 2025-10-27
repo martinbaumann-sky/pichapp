@@ -11,11 +11,13 @@ interface VenueReviewEmailOptions {
     address: string;
     comuna: string;
     phone?: string | null;
-    payoutEmail: string;
-    accountHolder: string;
-    lat?: number | null;
-    lng?: number | null;
-    fields?: Array<{ name: string }>;
+  payoutEmail: string;
+  accountHolder: string;
+  mpCollectorId?: string;
+  mpAccountType?: string;
+  lat?: number | null;
+  lng?: number | null;
+  fields?: Array<{ name: string }>;
   };
   owner: {
     id: string;
@@ -82,6 +84,14 @@ export async function sendVenueReviewEmail(opts: VenueReviewEmailOptions) {
               <td style="padding: 6px 8px;">${opts.venue.accountHolder}</td>
             </tr>
             <tr>
+              <td style="padding: 6px 8px; font-weight: 600;">Tipo cuenta MP</td>
+              <td style="padding: 6px 8px;">${opts.venue.mpAccountType || "Sin información"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 8px; font-weight: 600;">Collector ID</td>
+              <td style="padding: 6px 8px;">${opts.venue.mpCollectorId || "Sin información"}</td>
+            </tr>
+            <tr>
               <td style="padding: 6px 8px; font-weight: 600;">Tipos de cancha</td>
               <td style="padding: 6px 8px;">${fieldList}</td>
             </tr>
@@ -107,6 +117,8 @@ export async function sendVenueReviewEmail(opts: VenueReviewEmailOptions) {
       `Teléfono: ${opts.venue.phone || "Sin información"}`,
       `Correo pagos: ${opts.venue.payoutEmail}`,
       `Titular: ${opts.venue.accountHolder}`,
+      `Tipo cuenta MP: ${opts.venue.mpAccountType || "Sin información"}`,
+      `Collector ID: ${opts.venue.mpCollectorId || "Sin información"}`,
       `Tipos de cancha: ${fieldList}`,
       `Usuario: ${opts.owner.email}${ownerName}`,
       "",

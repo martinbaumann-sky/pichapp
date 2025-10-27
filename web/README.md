@@ -3,13 +3,8 @@ PichangApp ??? MVP
 Configuraci??n r??pida
 
 1) Variables de entorno
-   - Copia `.env.example` a `.env` y completa:
-     - `DATABASE_URL`
-     - `MP_ACCESS_TOKEN`
-     - `NEXT_PUBLIC_BASE_URL` (ej: http://localhost:3000)
-     - `RESEND_API_KEY`
-     - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-     - `NEXT_PUBLIC_MAPBOX_TOKEN` (opcional para im??genes con pin)
+   - Copia `.env.example` a `.env` y completa los valores necesarios.
+   - Consulta [README-ENV.md](../README-ENV.md) para ver qu?? variables son obligatorias y qu?? servicios habilita cada una.
 
 2) Base de datos y Prisma
    - `npm run prisma:migrate` (crea tablas)

@@ -1,10 +1,12 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { setPasswordHash } from "@/lib/auth-password";
-import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";
 import { normalizeForStorage } from "@/lib/phone";
+import { PROFILE_PLACEHOLDER_PHONE } from "@/lib/profileCompletion";
+import { createVerificationCode, sendVerificationEmail, isEmailVerificationEnabled } from "@/lib/email-verification";
+import { buildEmailLookupWhere } from "@/lib/email-normalization";
 
 const rl = createRateLimiter({ name: "auth_signup", limit: 5, windowSec: 300 });
 
@@ -26,7 +28,7 @@ export async function POST(req: NextRequest) {
     const lastName = body?.lastName ? String(body.lastName) : null;
     const comuna = String(body?.comuna || "");
     const rawPhone = body?.phone ? String(body.phone) : "";
-    const defaultPhone = normalizeForStorage("+56 9 1234 5678") ?? "56900000000";
+    const defaultPhone = PROFILE_PLACEHOLDER_PHONE;
     const phone = normalizeForStorage(rawPhone) ?? defaultPhone;
 
     if (!email || !password || !name || !comuna) {
@@ -36,7 +38,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const exists = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const emailFilter = buildEmailLookupWhere(email);
+    const exists = await prisma.user.findFirst({ where: emailFilter, select: { id: true } });
     if (exists) {
       return NextResponse.json(
         { ok: false, error: "Este correo ya esta registrado" },
@@ -47,8 +50,6 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 10);
     const fullName = [name, lastName].filter(Boolean).join(" ");
 
-    // Crear usuario y marcar email como verificado inmediatamente para evitar el
-    // flujo de verificación por ahora.
     const user = await prisma.user.create({
       data: {
         email,
@@ -63,27 +64,53 @@ export async function POST(req: NextRequest) {
           },
         },
       },
-      select: { id: true, email: true, profile: { select: { name: true, comuna: true, position: true } } },
+      select: {
+        id: true,
+        email: true,
+        profile: { select: { name: true } },
+      },
     });
 
     try {
       await setPasswordHash(user.id, passwordHash);
     } catch {}
 
-    const token = await createSession(user.id);
-    const responseBody = {
+    const verificationEnabled = isEmailVerificationEnabled();
+    if (!verificationEnabled) {
+      try {
+        const verifiedAt = new Date();
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerifiedAt: verifiedAt },
+        });
+      } catch (err) {
+        console.warn("[auth/signup] Failed to auto-verify user during signup", err);
+      }
+      return NextResponse.json({ ok: true, requiresVerification: false, email });
+    }
+
+    let verification;
+    try {
+      verification = await createVerificationCode(user.id);
+      if (!user.email) {
+        throw new Error("No se pudo determinar el correo del usuario");
+      }
+      await sendVerificationEmail(user.email, verification.code, { name: user.profile?.name ?? name });
+    } catch (err) {
+      await prisma.user.delete({ where: { id: user.id } }).catch(() => {});
+      const message = err instanceof Error ? err.message : err?.message;
+      return NextResponse.json(
+        { ok: false, error: message || "No se pudo enviar el correo de verificacion" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
       ok: true,
-      requiresVerification: false,
+      requiresVerification: true,
       email,
-      user: sanitizeUser({
-        id: user.id,
-        email: user.email,
-        profile: user.profile,
-      }),
-    };
-    const res = NextResponse.json(responseBody);
-    attachSessionCookie(res, token);
-    return res;
+      expiresAt: verification.expiresAt.toISOString(),
+    });
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message || "No se pudo crear la cuenta" },
@@ -92,17 +119,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function sanitizeUser(
-  u: { id: string; email: string; profile?: { name: string | null; comuna: string | null; position: string | null } | null },
-) {
-  return {
-    id: u.id,
-    email: u.email,
-    emailVerified: false,
-    isAdmin: false,
-    role: "player",
-    name: u.profile?.name ?? null,
-    comuna: u.profile?.comuna ?? null,
-    position: u.profile?.position ?? null,
-  };
-}

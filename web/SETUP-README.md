@@ -38,8 +38,8 @@ MP_ACCESS_TOKEN=tu-mp-token
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=tu-google-key
 
 # ADMIN (OPCIONAL)
-ADMIN_EMAIL=admin@pichanga.com
-ADMIN_PASSWORD=admin123
+ADMIN_EMAIL=contacto.pichapp@gmail.com
+ADMIN_PASSWORD=Babolat3008
 ```
 
 ### 3. CONFIGURAR SUPABASE

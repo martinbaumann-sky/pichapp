@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   User as UserIcon,
   Users,
@@ -11,17 +11,35 @@ import {
   Bell,
   RefreshCw,
   CalendarDays,
+  CalendarCheck,
+  Compass,
+  LayoutDashboard,
   MessageSquare,
   MapPin,
   MoreVertical,
+  PlusCircle,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
-import { cn } from "../utils/cn";
-import AuthDialog from "./AuthDialog";
+import { ADMIN_EMAILS } from "@/constants/admin";
 import { useAuth } from "@/hooks/useAuth";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNotifications } from "@/hooks/useNotifications";
+import { AnimatedDockMenu } from "./ui/animated-dock";
+import { cn } from "../utils/cn";
+import AuthDialog from "./AuthDialog";
+
+const pathMatchScore = (currentPath: string | null | undefined, targetPath: string) => {
+  if (!currentPath || !targetPath) return 0;
+  if (currentPath === targetPath) return targetPath.length + 1;
+  if (!currentPath.startsWith(targetPath)) return 0;
+  const nextChar = currentPath.charAt(targetPath.length);
+  if (nextChar === "/" || nextChar === "?" || nextChar === "#" || nextChar === "") {
+    return targetPath.length;
+  }
+  return 0;
+};
 
 type NavItem =
   | { type: "link"; href: string; label: string; variant?: "primary" }
@@ -29,11 +47,15 @@ type NavItem =
 
 export default function Header() {
   const pathname = usePathname();
+  // Avoid SSR/CSR hydration mismatches by deferring pathname-based UI until mount
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const { user, loading, signOut } = useAuth();
   const userRole =
     (user?.role as "player" | "venue_admin" | "superadmin" | undefined) ??
     (user?.isAdmin ? "superadmin" : undefined);
-  const canAccessVenuePanel = userRole === "venue_admin" || userRole === "superadmin";
+  const isAdminPanelView = pathname?.startsWith("/admin") ?? false;
+  const canAccessVenuePanel = userRole === "venue_admin" && !isAdminPanelView;
   const isVenueAdmin = userRole === "venue_admin";
   const isVenueMarketingView = pathname?.startsWith("/cancha") ?? false;
   const [authOpen, setAuthOpen] = useState(false);
@@ -51,13 +73,18 @@ export default function Header() {
     markAsSeen,
   } = useNotifications(Boolean(user) && !isVenueAdmin);
   const showNotifications = Boolean(user) && !isVenueAdmin;
+  const normalizedUserEmail = user?.email?.toLowerCase();
+  const adminEmail = normalizedUserEmail
+    ? ADMIN_EMAILS.some((email) => email.toLowerCase() === normalizedUserEmail)
+    : false;
+  const isSuperAdmin = adminEmail || userRole === "superadmin";
 
-  const openLoginDialog = () => {
+  const openLoginDialog = useCallback(() => {
     if (loading) return;
     setAuthNext(undefined);
     setAuthInitialTab("login");
     setAuthOpen(true);
-  };
+  }, [loading]);
 
   const formatNotificationDate = (value: string) => {
     const date = new Date(value);
@@ -70,174 +97,282 @@ export default function Header() {
     }).format(date);
   };
 
-  const navLink = (item: Extract<NavItem, { type: "link" }>) => {
-    const { href, label, variant } = item;
-    const active = pathname === href || pathname.startsWith(`${href}/`);
-    const isPrimary = variant === "primary";
-    return (
-      <Link
-        href={href}
-        className={cn(
-          "relative rounded-full text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30",
-          isPrimary ? "px-4 py-2.5 bg-gradient-to-r from-brand to-accent text-white shadow-lg hover:from-brand-600 hover:to-accent-600 hover:shadow-xl"
-          : [
-              "px-3 py-2",
-              active
-                ? "text-black"
-                : "text-gray-700 hover:bg-gray-100 hover:-translate-y-0.5",
-            ],
-        )}
-      >
-        {!isPrimary && active && (
-          <motion.span
-            layoutId="navActiveBg"
-            className="absolute inset-0 rounded-full bg-gray-100 shadow-sm"
-            transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.2 }}
-          />
-        )}
-        <span className="relative z-10">{label}</span>
-      </Link>
-    );
+  const mainNavItems: NavItem[] = useMemo(() => {
+    if (isVenueMarketingView) return [];
+    if (canAccessVenuePanel) {
+      const base: NavItem[] = [
+        { type: "link", href: "/panel/cancha", label: "Mi Panel" },
+        { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido", variant: "primary" },
+        { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
+      ];
+      if (isSuperAdmin) {
+        base.unshift({ type: "link", href: "/admin", label: "Admin" });
+      }
+      return base;
+    }
+
+    if (user) {
+      if (isSuperAdmin) {
+        return [
+          { type: "link", href: "/admin", label: "Admin" },
+          { type: "link", href: "/mensajes", label: "Mensajes" },
+        ];
+      }
+      return [
+        { type: "link", href: "/explorar", label: "Explorar" },
+        { type: "link", href: "/reservas", label: "Reservas" },
+        { type: "link", href: "/amigos", label: "Amigos" },
+        { type: "link", href: "/mensajes", label: "Mensajes" },
+      ];
+    }
+
+    return [
+      { type: "link", href: "/explorar", label: "Explorar" },
+      { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
+    ];
+  }, [canAccessVenuePanel, isSuperAdmin, isVenueMarketingView, openLoginDialog, user]);
+
+  const dockItems = useMemo(() => {
+    const computed = mainNavItems.map((item) => {
+      if (item.type === "link") {
+        let icon = <Compass className="h-5 w-5" />;
+        if (item.href.startsWith("/reservas")) icon = <CalendarDays className="h-5 w-5" />;
+        if (item.href.startsWith("/amigos")) icon = <Users className="h-5 w-5" />;
+        if (item.href.startsWith("/mensajes")) icon = <MessageSquare className="h-5 w-5" />;
+        if (item.href.startsWith("/panel/cancha/partidos/nuevo")) icon = <PlusCircle className="h-5 w-5" />;
+        if (item.href.startsWith("/panel/cancha/partidos")) icon = <CalendarCheck className="h-5 w-5" />;
+        if (item.href === "/admin") icon = <ShieldCheck className="h-5 w-5" />;
+        if (item.href === "/panel/cancha") icon = <LayoutDashboard className="h-5 w-5" />;
+
+        const score = mounted ? pathMatchScore(pathname, item.href) : 0;
+
+        return {
+          id: item.href,
+          label: item.label,
+          icon,
+          href: item.href,
+          variant: item.variant === "primary" ? "primary" : "default",
+          score,
+        };
+      }
+
+      return {
+        id: `action-${item.label}`,
+        label: item.label,
+        icon: <UserIcon className="h-5 w-5" />,
+        onClick: item.onClick,
+        variant: "primary" as const,
+      };
+    });
+
+    const activeId = computed
+      .filter((item): item is typeof computed[number] & { href: string; score: number } =>
+        "href" in item,
+      )
+      .reduce<{ id: string | null; score: number }>(
+        (best, item) => {
+          if ((item.score ?? 0) > best.score) {
+            return { id: item.id, score: item.score ?? 0 };
+          }
+          return best;
+        },
+        { id: null, score: 0 },
+      ).id;
+
+    return computed.map((item) => {
+      if ("href" in item) {
+        const { score: _score, ...rest } = item;
+        return { ...rest, active: activeId === item.id };
+      }
+      return item;
+    });
+  }, [mainNavItems, mounted, pathname]);
+
+  const dropdownContentVariants = {
+    hidden: { opacity: 0, y: 14, scale: 0.94 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 380,
+        damping: 32,
+        mass: 0.7,
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: 12,
+      scale: 0.96,
+      transition: { duration: 0.18, ease: [0.4, 0, 0.2, 1] },
+    },
   };
 
-  const navButton = (label: string, onClick: () => void) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className="relative px-3 py-2 rounded-full text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-100 hover:-translate-y-0.5"
-    >
-      <span className="relative z-10">{label}</span>
-    </button>
-  );
+  const dropdownListVariants = {
+    hidden: {
+      transition: { staggerChildren: 0.04, staggerDirection: -1 },
+    },
+    visible: {
+      transition: { staggerChildren: 0.05, delayChildren: 0.05 },
+    },
+    exit: {
+      transition: { staggerChildren: 0.035, staggerDirection: -1 },
+    },
+  };
 
-  const mainNavItems: NavItem[] = isVenueMarketingView
-    ? []
-    : canAccessVenuePanel
+  const dropdownItemVariants = {
+    hidden: { opacity: 0, y: 10, scale: 0.97 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 500,
+        damping: 34,
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: 8,
+      scale: 0.95,
+      transition: { duration: 0.12 },
+    },
+  };
+
+  const renderMenuContent = () => {
+    const primaryLinks = canAccessVenuePanel
       ? [
-          { type: "link", href: "/panel/cancha", label: "Mi Panel" },
-          { type: "link", href: "/panel/cancha/partidos/nuevo", label: "Crear partido", variant: "primary" },
-          { type: "link", href: "/panel/cancha/partidos", label: "Mis partidos" },
+          {
+            key: "panel-settings",
+            href: "/panel/cancha?tab=settings",
+            icon: <Settings className="w-4 h-4 text-gray-600" />,
+            label: "Datos de la cancha",
+          },
+          {
+            key: "panel-partidos",
+            href: "/panel/cancha/partidos",
+            icon: <CalendarDays className="w-4 h-4 text-gray-600" />,
+            label: "Mis partidos",
+          },
         ]
-      : user
-        ? [
-            { type: "link", href: "/explorar", label: "Explorar" },
-            { type: "link", href: "/reservas", label: "Reservas" },
-            { type: "link", href: "/amigos", label: "Amigos" },
-            { type: "link", href: "/mensajes", label: "Mensajes" },
-          ]
-        : [
-            { type: "link", href: "/explorar", label: "Explorar" },
-            { type: "action", label: "Iniciar sesión", onClick: openLoginDialog },
-          ];
+      : [
+          {
+            key: "perfil",
+            href: "/perfil",
+            icon: <UserCircle className="w-4 h-4 text-gray-600" />,
+            label: "Perfil",
+          },
+        ];
 
-  const renderMenuContent = () => (
-    <DropdownMenu.Portal>
-      <DropdownMenu.Content
-        sideOffset={10}
-        align="end"
-        className="dropdown-content z-50 min-w-56 rounded-2xl border bg-white/95 backdrop-blur-xl shadow-lg p-2 focus:outline-none transform origin-[var(--radix-dropdown-menu-content-transform-origin)]"
-      >
-        <div className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border">
-          <div className="text-xs text-gray-500">Sesión</div>
-          <div className="font-medium text-black truncate">{user.name}</div>
-        </div>
-        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
+    const marketingLink = !canAccessVenuePanel
+      ? {
+          key: "cancha",
+          href: "/cancha",
+          icon: <MapPin className="w-4 h-4" />,
+          label: "¿Tienes una cancha?",
+        }
+      : null;
 
-        {canAccessVenuePanel ? (
-          <>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/panel/cancha?tab=settings"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
+    return (
+      <DropdownMenu.Portal forceMount>
+        <AnimatePresence>
+          {menuOpen ? (
+            <DropdownMenu.Content
+              forceMount
+              sideOffset={12}
+              align="end"
+              asChild
+            >
+              <motion.div
+                variants={dropdownContentVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="dropdown-content z-50 min-w-56 rounded-2xl border border-gray-100/80 bg-white/95 p-2 shadow-xl backdrop-blur-xl focus:outline-none origin-[var(--radix-dropdown-menu-content-transform-origin)]"
               >
-                <Settings className="w-4 h-4 text-gray-600" />
-                <span>Datos de la cancha</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/panel/cancha/partidos"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <CalendarDays className="w-4 h-4 text-gray-600" />
-                <span>Mis partidos</span>
-              </Link>
-            </DropdownMenu.Item>
-          </>
-        ) : (
-          <>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/reservas"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <CalendarDays className="w-4 h-4 text-gray-600" />
-                <span>Reservas</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/amigos"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <Users className="w-4 h-4 text-gray-600" />
-                <span>Amigos</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/mensajes"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <MessageSquare className="w-4 h-4 text-gray-600" />
-                <span>Mensajes</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/perfil"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 focus:bg-gray-100 cursor-pointer"
-              >
-                <UserCircle className="w-4 h-4 text-gray-600" />
-                <span>Perfil</span>
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-            <DropdownMenu.Item asChild>
-              <Link
-                href="/cancha"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 focus:bg-gray-100 cursor-pointer text-gray-600"
-              >
-                <MapPin className="w-4 h-4" />
-                <span>¿Tienes una cancha?</span>
-              </Link>
-            </DropdownMenu.Item>
-          </>
-        )}
+                <motion.div
+                  variants={dropdownItemVariants}
+                  className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white border"
+                >
+                  <div className="text-xs text-gray-500">Sesión</div>
+                  <div className="font-medium text-black truncate">{user.name}</div>
+                </motion.div>
 
-        <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
-        <DropdownMenu.Item asChild>
-          <button
-            onClick={async () => {
-              await signOut();
-              setMenuOpen(false);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-red-50 focus:bg-red-50 text-red-600 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Cerrar sesión</span>
-          </button>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Portal>
-  );
+                <motion.div variants={dropdownItemVariants} className="my-2 h-px bg-gray-200" />
+
+                <motion.div className="flex flex-col gap-1" variants={dropdownListVariants}>
+                  {primaryLinks.map((item) => (
+                    <motion.div
+                      key={item.key}
+                      variants={dropdownItemVariants}
+                      whileHover={{ x: 6, scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          href={item.href}
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-700 transition-colors hover:bg-gray-100 focus:bg-gray-100"
+                        >
+                          {item.icon}
+                          <span>{item.label}</span>
+                        </Link>
+                      </DropdownMenu.Item>
+                    </motion.div>
+                  ))}
+                </motion.div>
+
+                {marketingLink ? (
+                  <>
+                    <motion.div variants={dropdownItemVariants} className="my-2 h-px bg-gray-200" />
+                    <motion.div
+                      variants={dropdownItemVariants}
+                      whileHover={{ x: 6, scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          href={marketingLink.href}
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-600 transition-colors hover:bg-gray-100 focus:bg-gray-100"
+                        >
+                          {marketingLink.icon}
+                          <span>{marketingLink.label}</span>
+                        </Link>
+                      </DropdownMenu.Item>
+                    </motion.div>
+                  </>
+                ) : null}
+
+                <motion.div variants={dropdownItemVariants} className="my-2 h-px bg-gray-200" />
+
+                <motion.div
+                  variants={dropdownItemVariants}
+                  whileHover={{ x: 6, scale: 1.01 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <DropdownMenu.Item asChild>
+                    <button
+                      onClick={async () => {
+                        await signOut();
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-red-600 transition-colors hover:bg-red-50 focus:bg-red-50"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Cerrar sesión</span>
+                    </button>
+                  </DropdownMenu.Item>
+                </motion.div>
+              </motion.div>
+            </DropdownMenu.Content>
+          ) : null}
+        </AnimatePresence>
+      </DropdownMenu.Portal>
+    );
+  };
   // Cerrar menús al cambiar de ruta
   useEffect(() => {
     setMenuOpen(false);
@@ -272,12 +407,10 @@ export default function Header() {
           </Link>
         </div>
 
-        <nav className="hidden md:flex items-center gap-2 lg:gap-4">
-          {mainNavItems.map((item) => (
-            <div key={item.type === "link" ? item.href : `action-${item.label}`}>
-              {item.type === "link" ? navLink(item) : navButton(item.label, item.onClick)}
-            </div>
-          ))}
+        <nav className="hidden md:flex items-center">
+          {dockItems.length > 0 ? (
+            <AnimatedDockMenu items={dockItems} />
+          ) : null}
         </nav>
 
         {/* Perfil / Auth */}
@@ -390,7 +523,12 @@ export default function Header() {
                 <DropdownMenu.Trigger asChild>
                   <button
                     onClick={() => setMenuOpen(true)}
-                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 transition-colors touch-target"
+                    className={cn(
+                      "p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black/10 touch-target",
+                      menuOpen
+                        ? "bg-[rgba(11,143,61,0.12)] text-[var(--brand-2)] shadow-[0_8px_24px_-16px_rgba(11,143,61,0.45)]"
+                        : "hover:bg-gray-100",
+                    )}
                     aria-label={isVenueAdmin ? "acciones de la cuenta" : "perfil"}
                   >
                     {isVenueAdmin ? <MoreVertical className="w-5 h-5" /> : <UserIcon className="w-5 h-5" />}

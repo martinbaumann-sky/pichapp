@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
@@ -17,7 +18,13 @@ export async function GET() {
 
     const venue = await prisma.venue.findFirst({
       where: { ownerId: userId },
-      include: { fields: { select: { id: true, name: true } } },
+      include: {
+        fields: { select: { id: true, name: true } },
+        subscriptions: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+        },
+      },
     });
 
     if (!venue) {
@@ -64,26 +71,7 @@ export async function GET() {
           },
         },
       }),
-      prisma.payment.findMany({
-        where: { match: { organizerId: userId } },
-        orderBy: { createdAt: "desc" },
-        take: 100,
-        select: {
-          id: true,
-          amountCLP: true,
-          status: true,
-          provider: true,
-          createdAt: true,
-          match: { select: { id: true, title: true } },
-          user: {
-            select: {
-              id: true,
-              email: true,
-              profile: { select: { name: true } },
-            },
-          },
-        },
-      }),
+      fetchPaymentsWithPayouts(userId),
     ]);
 
     const now = new Date();
@@ -135,11 +123,21 @@ export async function GET() {
         playerId: payment.user?.id ?? null,
         playerName,
         playerEmail: payment.user?.email ?? null,
+        netAmountCLP: payment.payout?.netAmountCLP ?? null,
+        platformFeeCLP: payment.payout?.platformFeeCLP ?? null,
+        providerFeeCLP: payment.payout?.providerFeeCLP ?? null,
+        payoutStatus: payment.payout?.status ?? null,
+        payoutMethod: payment.payout?.method ?? null,
+        payoutDestination: payment.payout?.destination ?? null,
       };
     });
 
     const approvedPayments = formattedPayments.filter((p) => p.status === "APPROVED");
     const totalRevenue = approvedPayments.reduce((sum, payment) => sum + payment.amountCLP, 0);
+    const totalNetRevenue = approvedPayments.reduce(
+      (sum, payment) => sum + (payment.netAmountCLP ?? 0),
+      0,
+    );
 
     const totalSpots = matches.reduce((sum, m) => sum + m.totalSpots, 0);
     const totalPaidSpots = matches.reduce(
@@ -163,16 +161,46 @@ export async function GET() {
         plan: venue.plan,
         verified: venue.verified,
         payoutEmail: venue.payoutEmail,
+        payoutMethod: venue.payoutMethod,
         taxId: venue.taxId,
         phone: venue.phone,
         accountHolder: venue.accountHolder,
+        bankName: venue.bankName,
+        bankAccountType: venue.bankAccountType,
+        bankAccountNumber: venue.bankAccountNumber,
+        bankAccountRut: venue.bankAccountRut,
+        mpCollectorId: venue.mpCollectorId,
+        mpAccountType: venue.mpAccountType,
+        paymentProvider: venue.paymentProvider,
+        flowEnv: venue.flowEnv ?? "SANDBOX",
+        flowConnection: {
+          configured: Boolean(venue.flowApiKey && venue.flowSecretKey),
+          env: venue.flowEnv ?? "SANDBOX",
+        },
+        mpConnection: {
+          connected: Boolean(venue.mpAccessToken),
+          mpUserId: venue.mpUserId,
+          expiresAt: venue.mpTokenExpiresAt ? toISO(venue.mpTokenExpiresAt) : null,
+        },
         fields: venue.fields,
+        subscriptions: venue.subscriptions.map((sub) => ({
+          id: sub.id,
+          plan: sub.plan,
+          status: sub.status,
+          createdAt: toISO(sub.createdAt),
+          activatedAt: sub.activatedAt ? toISO(sub.activatedAt) : null,
+          canceledAt: sub.canceledAt ? toISO(sub.canceledAt) : null,
+          nextChargeAt: sub.nextChargeAt ? toISO(sub.nextChargeAt) : null,
+          lastChargeAt: sub.lastChargeAt ? toISO(sub.lastChargeAt) : null,
+          mpPreapprovalId: sub.mpPreapprovalId,
+        })),
       },
       matches: formattedMatches,
       bookings: formattedBookings,
       payments: formattedPayments,
       metrics: {
         totalRevenue,
+        netRevenue: totalNetRevenue,
         totalMatches: matches.length,
         totalPaidSpots,
         fillRate,
@@ -185,5 +213,85 @@ export async function GET() {
     if (err instanceof Response) return err;
     console.error("[venue/dashboard]", err);
     return NextResponse.json({ error: "No se pudo cargar el panel" }, { status: 500 });
+  }
+}
+
+async function fetchPaymentsWithPayouts(userId: string) {
+  try {
+    return await prisma.payment.findMany({
+      where: { match: { organizerId: userId } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        amountCLP: true,
+        status: true,
+        provider: true,
+        createdAt: true,
+        match: { select: { id: true, title: true } },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: { select: { name: true } },
+          },
+        },
+        payout: {
+          select: {
+            status: true,
+            method: true,
+            netAmountCLP: true,
+            platformFeeCLP: true,
+            providerFeeCLP: true,
+            destination: true,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError ||
+      error instanceof Prisma.PrismaClientValidationError ||
+      error instanceof Prisma.PrismaClientUnknownRequestError
+    ) {
+      const message = String(error.message || "");
+      const code = (error as Prisma.PrismaClientKnownRequestError).code;
+      const isPayoutSchemaMissing =
+        message.includes("payout") ||
+        message.includes("VenuePayout") ||
+        message.includes("VenuePayoutMethod") ||
+        (code === "P2021" || code === "P2022" || code === "P2003");
+
+      if (isPayoutSchemaMissing) {
+        console.warn(
+          "[venue/dashboard] payout details unavailable, falling back to legacy payment query",
+          { code, message },
+        );
+        const fallback = await prisma.payment.findMany({
+          where: { match: { organizerId: userId } },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+          select: {
+            id: true,
+            amountCLP: true,
+            status: true,
+            provider: true,
+            createdAt: true,
+            match: { select: { id: true, title: true } },
+            user: {
+              select: {
+                id: true,
+                email: true,
+                profile: { select: { name: true } },
+              },
+            },
+          },
+        });
+
+        return fallback.map((payment) => ({ ...payment, payout: null }));
+      }
+    }
+
+    throw error;
   }
 }

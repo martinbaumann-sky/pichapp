@@ -11,7 +11,8 @@ export interface NotificationItem {
     | "match_starting_organizer"
     | "match_full_player"
     | "match_full_organizer"
-    | "waitlist_invite";
+    | "waitlist_invite"
+    | "profile_incomplete";
   title: string;
   description: string;
   href: string;

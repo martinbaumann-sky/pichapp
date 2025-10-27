@@ -2,7 +2,8 @@
   "name": "pichapp",
   "private": true,
   "workspaces": [
-    "web"
+    "web",
+    "mobile"
   ],
   "scripts": {
     "dev": "npm run dev --workspace web",

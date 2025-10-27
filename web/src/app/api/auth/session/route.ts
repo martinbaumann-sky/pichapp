@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db";
 import { clearSessionCookie, getSessionUserId } from "@/lib/auth-core";
 import { normalizeForDisplay } from "@/lib/phone";
+import { toAuthUser } from "@/lib/auth-user";
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
@@ -15,7 +16,18 @@ export async function GET() {
         email: true,
         isAdmin: true,
         role: true,
-        profile: { select: { name: true, comuna: true, position: true, phone: true } },
+        emailVerifiedAt: true,
+        profile: {
+          select: {
+            name: true,
+            comuna: true,
+            position: true,
+            phone: true,
+            skillLevel: true,
+            bio: true,
+            avatarUrl: true,
+          },
+        },
         disabledAt: true,
       },
     });
@@ -25,21 +37,18 @@ export async function GET() {
       clearSessionCookie(res);
       return res;
     }
+    const base = toAuthUser(user);
     return NextResponse.json({
       user: {
-        id: user.id,
-        email: user.email,
-        isAdmin: !!user.isAdmin,
-        emailVerified: false,
-        role: (user.role ?? "PLAYER").toLowerCase(),
-        name: user.profile?.name || null,
-        comuna: user.profile?.comuna || null,
-        position: user.profile?.position || null,
+        ...base,
         phone: user.profile?.phone || null,
         phoneDisplay: user.profile?.phone ? normalizeForDisplay(user.profile.phone) : null,
+        avatarUrl: user.profile?.avatarUrl || null,
+        skillLevel: user.profile?.skillLevel || null,
+        bio: user.profile?.bio || null,
       },
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ user: null });
   }
 }

@@ -3,17 +3,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AuthDialog from "@/components/AuthDialog";
-import type { FriendStatus } from "@/lib/friendship";
 import { useAuth, resolveUserRole } from "@/hooks/useAuth";
 import { useRoleGate } from "@/hooks/useRoleGate";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, AlertTriangle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Clock, AlertCircle, AlertTriangle, Share2, MessageSquare, Trash2, Timer, Pencil } from "lucide-react";
 import MatchHeroMap from "@/components/MatchHeroMap";
 import { nivelES, posicionES } from "@/lib/i18n";
 import { sampleMatches } from "@/lib/samples";
 import { FormationBoard, type FormationPlayer, type FormationSlotView } from "@/components/match/FormationBoard";
 import { JoinFormationDialogSteps, type JoinFormationTeam, type InviteFriendDraft } from "@/components/match/JoinFormationDialogSteps";
 import { assignPlayersToFormation, getFormationPreset } from "@/lib/formations";
+import { isProfileIncomplete, PROFILE_COMPLETION_REQUIRED_MESSAGE } from "@/lib/profileCompletion";
 import {
   computeTeamCapacities,
   normalizeTeam,
@@ -24,12 +24,14 @@ import {
   type TeamKey,
   type PositionKey,
 } from "@/lib/teams";
+import ProfilePreviewDialog from "@/components/profile/ProfilePreviewDialog";
 
 type NormalizedMatchPlayer = FormationPlayer & {
   team: TeamKey | null;
   status: string;
   invitedByViewer?: boolean;
   invitedByUserId?: string | null;
+  isFriend?: boolean;
 };
 
 type FormationTeamView = JoinFormationTeam & {
@@ -46,9 +48,12 @@ export default function MatchDetailPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"about" | "roster">("about");
-  const showAbout = activeTab === "about";
-  const showRoster = activeTab === "roster";
   const { user } = useAuth();
+  const requiresProfileCompletion = useMemo(
+    () => (user ? isProfileIncomplete({ phone: user.phone ?? null, comuna: user.comuna ?? null }) : false),
+    [user],
+  );
+  const profileCompletionMessage = PROFILE_COMPLETION_REQUIRED_MESSAGE;
   const router = useRouter();
   const { status } = useRoleGate({
     allow: ["player", "superadmin", "venue_admin"],
@@ -73,6 +78,16 @@ export default function MatchDetailPage() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteTempCount, setInviteTempCount] = useState(0);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("es-CL", {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0,
+      }),
+    [],
+  );
 
   const pricePerSpot = match?.pricePerSpot ?? 0;
   const isPaidMatch = pricePerSpot > 0;
@@ -99,7 +114,7 @@ export default function MatchDetailPage() {
           });
         }
       }
-    } catch (error) {
+    } catch {
       const fallback: any = sampleMatches().find((m: any) => m.id === id);
       if (fallback) {
         setMatch({
@@ -140,6 +155,7 @@ export default function MatchDetailPage() {
         status: player.status ?? "PAID",
         invitedByViewer: Boolean(player.invitedByViewer),
         invitedByUserId: player.invitedByUserId ?? null,
+        isFriend: Boolean(player.isFriend),
       };
     });
 
@@ -215,14 +231,23 @@ export default function MatchDetailPage() {
   const totalSpots = Math.max(match?.totalSpots ?? 1, 1);
   const minSpotsToConfirm = Math.max(match?.minSpotsToConfirm ?? totalSpots, 1);
   const paidCount = match?.paid ?? 0;
-  const availableSpots = match?.available ?? 0;
+  const availableSpots = useMemo(() => {
+    if (!match) return 0;
+    const direct = typeof match.available === "number" ? match.available : null;
+    if (direct !== null) {
+      return Math.max(0, direct);
+    }
+    const total = typeof match.totalSpots === "number" ? match.totalSpots : 0;
+    const paid = typeof match.paid === "number" ? match.paid : 0;
+    return Math.max(0, total - paid);
+  }, [match]);
   const progressPercent = Math.min(100, (paidCount / totalSpots) * 100);
   const minMarkerPercent = Math.min(100, (minSpotsToConfirm / totalSpots) * 100);
   const spotsMissingForConfirmation = Math.max(0, minSpotsToConfirm - paidCount);
   const isFull = availableSpots === 0;
   const isAlmostFull = availableSpots <= 2;
   const maxInvitableFriends = useMemo(
-    () => (isPaidMatch ? 0 : Math.max(0, availableSpots - 1)),
+    () => (isPaidMatch ? 0 : Math.min(4, Math.max(0, availableSpots - 1))),
     [availableSpots, isPaidMatch],
   );
 
@@ -256,16 +281,14 @@ export default function MatchDetailPage() {
       setAuthOpen(true);
       return;
     }
-    setInviteTempCount(0);
-    if (isPaidMatch) {
-      initializeJoinSelection();
-      setJoinFriendCount(0);
-      setJoinFriends([]);
-      setJoinDialogOpen(true);
+    if (requiresProfileCompletion) {
       return;
     }
+    setInviteTempCount(0);
+    setJoinFriendCount(0);
+    setJoinFriends([]);
     setInviteDialogOpen(true);
-  }, [user, isPaidMatch, initializeJoinSelection]);
+  }, [user, requiresProfileCompletion, isVenueViewer]);
 
   const proceedFromInvite = useCallback(() => {
     initializeJoinSelection();
@@ -281,15 +304,6 @@ export default function MatchDetailPage() {
     setInviteDialogOpen(false);
     setJoinDialogOpen(true);
   }, [initializeJoinSelection, inviteTempCount, maxInvitableFriends]);
-
-  useEffect(() => {
-    if (isPaidMatch) {
-      setJoinFriendCount(0);
-      setJoinFriends([]);
-      setInviteDialogOpen(false);
-    }
-  }, [isPaidMatch]);
-
 
   const closeJoinDialog = useCallback(() => {
     if (joining) return;
@@ -335,6 +349,10 @@ export default function MatchDetailPage() {
       setJoinError("Selecciona una posición disponible.");
       return;
     }
+    if (requiresProfileCompletion) {
+      setJoinError(profileCompletionMessage);
+      return;
+    }
     if (isPaidMatch && joinFriendCount > 0) {
       setJoinError("Cada jugador debe pagar su propio cupo en este partido.");
       return;
@@ -365,7 +383,12 @@ export default function MatchDetailPage() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data?.error || data?.message || "No se pudo iniciar el pago");
+          const message = data?.error || data?.message || "No se pudo iniciar el pago";
+          if (data?.requiresProfile) {
+            setJoinError(message);
+            return;
+          }
+          throw new Error(message);
         }
         if (data?.alreadyJoined) {
           const successMessage = data?.message || "Tu cupo ya estaba confirmado.";
@@ -440,7 +463,12 @@ export default function MatchDetailPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || data?.message || "No se pudo confirmar el cupo");
+        const message = data?.error || data?.message || "No se pudo confirmar el cupo";
+        if (data?.requiresProfile) {
+          setJoinError(message);
+          return;
+        }
+        throw new Error(message);
       }
       const successMessage =
         data?.message ||
@@ -468,6 +496,8 @@ export default function MatchDetailPage() {
     joinFriendCount,
     formationData,
     isPaidMatch,
+    requiresProfileCompletion,
+    profileCompletionMessage,
   ]);
 
   useEffect(() => {
@@ -644,7 +674,9 @@ export default function MatchDetailPage() {
     return friendEntries.every((friend) => {
       const nameOk = friend.name.trim().length > 1;
       const emailOk = emailRegex.test(friend.email.trim());
-      return nameOk && emailOk;
+      const teamOk = TEAM_KEYS.includes(friend.team as TeamKey);
+      const positionOk = POSITION_KEYS.includes(friend.position as PositionKey);
+      return nameOk && emailOk && teamOk && positionOk;
     });
   }, [friendEntries, joinFriendCount]);
 
@@ -654,6 +686,54 @@ export default function MatchDetailPage() {
       setJoinFriends((prev) => prev.slice(0, maxInvitableFriends));
     }
   }, [joinFriendCount, maxInvitableFriends]);
+
+  useEffect(() => {
+    setInviteTempCount((prev) => Math.min(prev, maxInvitableFriends));
+  }, [maxInvitableFriends]);
+
+  const friendsPlaying = useMemo(() => {
+    if (!match || !Array.isArray(match.players)) return [] as any[];
+    return (match.players as any[]).filter((player) => Boolean(player?.isFriend));
+  }, [match]);
+
+  const friendNames = useMemo(
+    () =>
+      friendsPlaying
+        .map((player: any) => {
+          if (player?.user?.name) return String(player.user.name);
+          if (typeof player?.displayName === "string") return player.displayName;
+          return "";
+        })
+        .map((name: string) => name.trim())
+        .filter((name: string) => name.length > 0),
+    [friendsPlaying],
+  );
+
+  const friendCount = friendsPlaying.length;
+
+  const friendHeadline = useMemo(() => {
+    if (friendCount === 0) return null;
+    return friendCount === 1 ? "Tu amigo ya está confirmado" : `${friendCount} amigos ya confirmaron su cupo`;
+  }, [friendCount]);
+
+  const friendDescription = useMemo(() => {
+    if (friendCount === 0) return "";
+    if (friendCount === 1) {
+      return friendNames[0] ? `${friendNames[0]} ya está inscrito en este partido.` : "Un amigo ya confirmó su cupo.";
+    }
+    if (friendNames.length >= 2) {
+      const extra = friendCount - 2;
+      const base = `${friendNames[0]} y ${friendNames[1]}`;
+      return extra > 0 ? `${base}, más ${extra} amigo${extra === 1 ? "" : "s"}.` : `${base}.`;
+    }
+    if (friendNames.length === 1) {
+      const extra = friendCount - 1;
+      return extra > 0 ? `${friendNames[0]} y ${extra} amigo${extra === 1 ? "" : "s"} más.` : `${friendNames[0]}.`;
+    }
+    return `${friendCount} amigos ya confirmaron.`;
+  }, [friendCount, friendNames]);
+
+  const showFriendDescription = Boolean(friendHeadline && friendDescription && friendDescription !== friendHeadline);
 
   if (!gateAllowed) {
     return (
@@ -694,8 +774,6 @@ export default function MatchDetailPage() {
   const viewer = match.viewer ?? null;
   const isOrganizer = viewer?.isOrganizer || (user && match && (user.id === (match.organizerId ?? match.organizer?.id)));
   const canOpenChat = !!(viewer?.hasJoined || isOrganizer);
-  const organizerFriendship = match.organizerFriendship ?? { status: "NONE", friendId: null };
-  const initialFriendStatus = (organizerFriendship.status ?? "NONE") as FriendStatus;
   const backHref = isVenueViewer ? "/panel/cancha/partidos" : "/explorar";
 
   const mapSectionId = "match-hero-map-section";
@@ -711,15 +789,25 @@ export default function MatchDetailPage() {
   const dateLabel = startAt ? capitalize(dateFormatter.format(startAt)) : "Fecha por confirmar";
   const timeLabel = startAt ? `${timeFormatter.format(startAt)}${estimatedEndAt ? ` - ${timeFormatter.format(estimatedEndAt)}` : ""}` : "Horario por confirmar";
   const durationLabel = `${match.durationMins ?? 90} minutos`;
-  const priceLabel = match.pricePerSpot > 0 ? new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(match.pricePerSpot) : "Gratis";
+  const priceLabel = pricePerSpot > 0 ? currencyFormatter.format(pricePerSpot) : "Gratis";
+  const totalPlayersSelected = Math.max(1, 1 + joinFriendCount);
+  const totalAmountLabel = pricePerSpot > 0 ? currencyFormatter.format(pricePerSpot * totalPlayersSelected) : "Gratis";
   const paymentConfirmNotice = isPaidMatch ? (
-    <div className="space-y-1">
-      <p className="text-base font-semibold text-slate-900">Total a pagar: {priceLabel}</p>
+    <div className="space-y-2">
+      <p className="text-base font-semibold text-slate-900">
+        Total a pagar por {totalPlayersSelected} jugador{totalPlayersSelected === 1 ? "" : "es"}: {totalAmountLabel}
+      </p>
+      <p className="text-xs text-slate-500">
+        Valor individual por jugador: {priceLabel}. Por cada invitado adicional pagarás su cupo en tu misma transacción.
+      </p>
       <p className="text-sm text-slate-600">
         Al confirmar abriremos Mercado Pago en una nueva pestaña para finalizar el pago de tu cupo.
       </p>
     </div>
   ) : null;
+  const invitePreviewPlayers = Math.max(1, 1 + inviteTempCount);
+  const invitePreviewTotalLabel =
+    pricePerSpot > 0 ? currencyFormatter.format(pricePerSpot * invitePreviewPlayers) : "Gratis";
   const paymentImportantNotice = isPaidMatch ? (
     <div className="flex items-start gap-3">
       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
@@ -740,8 +828,34 @@ export default function MatchDetailPage() {
     : spotsLeft <= 3
       ? `${spotsLeft} ${spotsLeft === 1 ? "cupo disponible" : "cupos disponibles"}`
       : `${spotsLeft} cupos disponibles`;
-  const matchStatusLabel = isFull ? "Partido completo" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "Partido confirmado" : "En confirmación";
   const chipPercent = isFull ? 100 : paidCount >= minSpotsToConfirm || match.isConfirmed ? Math.max(minMarkerPercent, progressPercent) : progressPercent;
+  const normalizedMatchStatus = (match.status ?? "").toString().toLowerCase();
+  const isCanceledMinimum = normalizedMatchStatus === "canceled_minimum";
+  const isConfirmedStatus = normalizedMatchStatus === "confirmed" || !!match.isConfirmed;
+  const statusDisplayLabel = isCanceledMinimum
+    ? "Cancelado y en reembolso"
+    : isConfirmedStatus
+      ? "Confirmado"
+      : `Faltan ${spotsMissingForConfirmation} para confirmar`;
+  const statusDisplayClass = isCanceledMinimum
+    ? "text-red-600"
+    : isConfirmedStatus
+      ? "text-emerald-700"
+      : "text-slate-500";
+  const matchStatusLabel = isCanceledMinimum
+    ? "Cancelado y en reembolso"
+    : isFull
+      ? "Partido completo"
+      : isConfirmedStatus
+        ? "Partido confirmado"
+        : "Pendiente de confirmar";
+  const matchStatusPillClass = isCanceledMinimum
+    ? "bg-red-50 text-red-700 border border-red-200"
+    : isFull
+      ? "bg-slate-100 text-slate-700 border border-slate-200"
+      : isConfirmedStatus
+        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+        : "bg-amber-50 text-amber-700 border border-amber-200";
   const description = (match.description ?? match.details ?? match.notes ?? "") as string;
   const addressLabel = match.venueAddress || match.venueName || match.comuna || "Ubicación por confirmar";
   const hasCoords = match.lat != null && match.lng != null && !isNaN(Number(match.lat)) && !isNaN(Number(match.lng));
@@ -755,11 +869,6 @@ export default function MatchDetailPage() {
     }
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`;
   })();
-  const statusSteps = [
-    { key: "scheduled", label: "Agendado", reached: true },
-    { key: "confirmed", label: "Confirmado", reached: paidCount >= minSpotsToConfirm || !!match.isConfirmed },
-    { key: "full", label: "Completo", reached: isFull },
-  ] as const;
   const overviewItems = [
     { icon: Calendar, label: "Fecha", value: dateLabel },
     { icon: Clock, label: "Horario", value: timeLabel },
@@ -897,17 +1006,46 @@ export default function MatchDetailPage() {
                       </div>
                     );
                   }
+                  const disabled = joining || requiresProfileCompletion;
                   return (
-                    <button
-                      onClick={startJoinFlow}
-                      disabled={joining}
-                      className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      Tomar cupo
-                    </button>
+                    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                      <button
+                        onClick={startJoinFlow}
+                        disabled={disabled}
+                        className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        Tomar cupo
+                      </button>
+                      {requiresProfileCompletion ? (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="hidden sm:inline">Completa tu perfil antes de reservar.</span>
+                          <span className="sm:hidden">Completa tu perfil.</span>
+                          <Link
+                            href="/perfil"
+                            className="underline underline-offset-2 decoration-amber-500 hover:text-amber-800"
+                          >
+                            Ir a mi perfil
+                          </Link>
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })()}
-              </div>
+              {friendCount > 0 && friendHeadline ? (
+                <div className="mt-4 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3">
+                  <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#06b6d4]/10 text-[#06b6d4]">
+                    <Users className="h-5 w-5" />
+                  </span>
+                  <div className="space-y-1 text-sm text-[#0f172a]">
+                    <p className="font-semibold text-[#06b6d4]">{friendHeadline}</p>
+                    {showFriendDescription ? (
+                      <p className="text-xs text-[#0f172a]/70">{friendDescription}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -933,7 +1071,7 @@ export default function MatchDetailPage() {
                       Cómo llegar
                     </a>
                   ) : null}
-                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${isFull ? "bg-slate-100 text-slate-700 border border-slate-200" : paidCount >= minSpotsToConfirm || match.isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
+                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${matchStatusPillClass}`}>
                     {matchStatusLabel}
                   </div>
                 </div>
@@ -980,9 +1118,7 @@ export default function MatchDetailPage() {
               <div className="mt-6">
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className={`font-medium ${isFull ? "text-slate-700" : isAlmostFull ? "text-amber-700" : "text-emerald-700"}`}>{spotsHeadline}</span>
-                  {spotsMissingForConfirmation > 0 && !match.isConfirmed ? (
-                    <span className="text-xs text-slate-500">Faltan {spotsMissingForConfirmation} para confirmar</span>
-                  ) : null}
+                  <span className={`text-xs font-medium ${statusDisplayClass}`}>{statusDisplayLabel}</span>
                 </div>
                 <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-100">
                   <div className="absolute left-0 top-0 h-full bg-emerald-500 transition-all" style={{ width: `${chipPercent}%` }} />
@@ -996,6 +1132,11 @@ export default function MatchDetailPage() {
                   <span>Confirmado</span>
                   <span>Completo</span>
                 </div>
+                {isPaidMatch ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                    Si no se cumple el mínimo hasta 1 h antes, se cancela y se reembolsa.
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -1052,15 +1193,31 @@ export default function MatchDetailPage() {
                       </span>
                     );
                   }
+                  const disabled = joining || requiresProfileCompletion;
                   return (
-                  <button
-                    onClick={startJoinFlow}
-                    disabled={joining}
-                    className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    <Pencil className="h-4 w-4" />
-                    {isPaidMatch ? "Reservar y pagar" : "Elegir mi posición"}
-                  </button>
+                    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                      <button
+                        onClick={startJoinFlow}
+                        disabled={disabled}
+                        className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        {isPaidMatch ? "Reservar y pagar" : "Elegir mi posición"}
+                      </button>
+                      {requiresProfileCompletion ? (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="hidden sm:inline">Completa tu perfil antes de reservar.</span>
+                          <span className="sm:hidden">Completa tu perfil.</span>
+                          <Link
+                            href="/perfil"
+                            className="underline underline-offset-2 decoration-amber-500 hover:text-amber-800"
+                          >
+                            Ir a mi perfil
+                          </Link>
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })()}
               </div>
@@ -1102,19 +1259,57 @@ export default function MatchDetailPage() {
                     const playerName = p.displayName ?? p.user?.name ?? `Jugador ${idx + 1}`;
                     const isGuest = Boolean(p.isGuest);
                     const isCurrentUser = user && (p.userId === user.id || p.user?.id === user.id);
-                    const nameLabel = (isGuest && !isCurrentUser) ? `${playerName} (invitado)` : playerName;
+                    const nameLabel = isGuest && !isCurrentUser ? `${playerName} (invitado)` : playerName;
                     const positionKey = (p.user?.position ?? p.position) as keyof typeof posicionES | undefined;
                     const normalizedTeam = normalizeTeam(p.team ?? p.user?.team ?? null);
+                    const skillLevelKey = p.user?.skillLevel as keyof typeof nivelES | undefined;
+                    let openProfile: (() => void) | null = null;
+                    const fallbackProfile = p.user
+                      ? {
+                          name: p.user.name,
+                          comuna: p.user.comuna ?? null,
+                          position: p.user.position ?? null,
+                          skillLevel: p.user.skillLevel ?? null,
+                          bio: p.user.bio ?? null,
+                          avatarUrl: p.user.avatarUrl ?? null,
+                        }
+                      : null;
+                    const nameNode = p.user && fallbackProfile ? (
+                      <ProfilePreviewDialog
+                        key={`player-${p.user.id}-dialog`}
+                        userId={p.user.id}
+                        fallback={fallbackProfile}
+                        trigger={({ open }) => {
+                          openProfile = open;
+                          return (
+                            <button
+                              type="button"
+                              onClick={open}
+                              className="font-semibold text-slate-900 underline-offset-4 hover:underline"
+                            >
+                              {nameLabel}
+                            </button>
+                          );
+                        }}
+                      />
+                    ) : (
+                      <span className="font-semibold">{nameLabel}</span>
+                    );
                     return (
                       <li
                         key={`${playerName}-${idx}`}
                         className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex flex-wrap items-center gap-3 text-slate-800">
-                          <span className="font-semibold">{nameLabel}</span>
+                          {nameNode}
                           {positionKey ? (
                             <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">
                               {posicionES[positionKey]}
+                            </span>
+                          ) : null}
+                          {skillLevelKey ? (
+                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
+                              {nivelES[skillLevelKey]}
                             </span>
                           ) : null}
                           {normalizedTeam ? (
@@ -1127,6 +1322,21 @@ export default function MatchDetailPage() {
                             >
                               {normalizedTeam === "CLARO" ? "Claro" : "Oscuro"}
                             </span>
+                          ) : null}
+                          {p.isFriend ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#06b6d4]/10 px-3 py-1 text-xs font-semibold text-[#06b6d4]">
+                              <Users className="h-3 w-3" />
+                              Tu amigo
+                            </span>
+                          ) : null}
+                          {openProfile ? (
+                            <button
+                              type="button"
+                              onClick={() => openProfile && openProfile()}
+                              className="text-xs font-medium text-emerald-600 underline-offset-4 hover:underline"
+                            >
+                              Ver carta
+                            </button>
                           ) : null}
                         </div>
                         <span className={`text-sm font-medium ${p.status === "PAID" ? "text-emerald-600" : "text-slate-500"}`}>
@@ -1162,9 +1372,9 @@ export default function MatchDetailPage() {
         }
         onSelectSlot={handleSelectSlot}
         onConfirm={handleConfirmJoin}
-        confirmDisabled={!joinSelectedSlot || joining || !friendsValid}
+        confirmDisabled={!joinSelectedSlot || joining || !friendsValid || requiresProfileCompletion}
         loading={joining}
-        errorMessage={joinError}
+        errorMessage={requiresProfileCompletion ? profileCompletionMessage : joinError}
         maxFriends={isPaidMatch ? 0 : maxInvitableFriends}
         friendCount={joinFriendCount}
         onFriendCountChange={handleFriendCountChange}
@@ -1181,50 +1391,88 @@ export default function MatchDetailPage() {
         importantNotice={paymentImportantNotice}
         flowVariant={isPaidMatch ? "paid" : "free"}
       />
-      {!isPaidMatch && inviteDialogOpen && (
+      {inviteDialogOpen && (
         <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setInviteDialogOpen(false)} />
-          <div className="relative z-[1001] w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-slate-800">¿Quieres invitar amigos?</h3>
-            <p className="mt-1 text-sm text-slate-600">Elige cuántos amigos traerás además de tu cupo.</p>
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                onClick={() => setInviteTempCount(Math.max(0, inviteTempCount - 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
-                aria-label="disminuir"
-              >
-                -
-              </button>
-              <input
-                type="number"
-                min={0}
-                max={maxInvitableFriends}
-                value={inviteTempCount}
-                onChange={(e) => setInviteTempCount(Math.max(0, Math.min(Number(e.target.value) || 0, maxInvitableFriends)))}
-                className="w-20 rounded-lg border border-slate-200 bg-white p-2 text-center text-slate-800"
-              />
-              <button
-                onClick={() => setInviteTempCount(Math.min(maxInvitableFriends, inviteTempCount + 1))}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-slate-50 text-slate-700"
-                aria-label="aumentar"
-              >
-                +
-              </button>
-              <span className="text-sm text-slate-500">máx. {maxInvitableFriends}</span>
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setInviteDialogOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={proceedFromInvite}
-                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
-              >
-                Continuar
-              </button>
+          <div className="relative z-[1001] w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white shadow-xl">
+            <div className="p-6 sm:p-8 space-y-6">
+              <div className="space-y-2 text-center">
+                <h3 className="text-xl font-semibold text-slate-900">¿Cuántos amigos te acompañarán?</h3>
+                <p className="text-sm text-slate-600">
+                  {maxInvitableFriends === 0
+                    ? "En este momento no hay cupos extra disponibles para invitar amigos."
+                    : `Puedes invitar hasta ${maxInvitableFriends} amigo${maxInvitableFriends === 1 ? "" : "s"} además de tu cupo.`}
+                </p>
+                {pricePerSpot > 0 ? (
+                  <p className="text-xs text-emerald-600">
+                    {maxInvitableFriends === 0
+                      ? "Si se abre un cupo extra, pagarás el mismo valor por cada invitado adicional."
+                      : `Por cada invitado pagarás ${priceLabel}. Total estimado para ${invitePreviewPlayers} jugador${invitePreviewPlayers === 1 ? "" : "es"}: ${invitePreviewTotalLabel}.`}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Reservas gratis: recuerda coordinar el pago de la cancha si corresponde.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-center gap-5">
+                <button
+                  onClick={() => setInviteTempCount(Math.max(0, inviteTempCount - 1))}
+                  className="h-11 w-11 rounded-full border border-slate-300 bg-white text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                  aria-label="Disminuir invitados"
+                  disabled={inviteTempCount <= 0}
+                >
+                  −
+                </button>
+                <div className="flex flex-col items-center">
+                  <span className="text-4xl font-bold text-slate-900">{inviteTempCount}</span>
+                  <span className="text-xs uppercase tracking-wide text-slate-500">amigo{inviteTempCount === 1 ? "" : "s"}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={maxInvitableFriends}
+                    value={inviteTempCount}
+                    onChange={(e) =>
+                      setInviteTempCount(Math.max(0, Math.min(Number(e.target.value) || 0, maxInvitableFriends)))
+                    }
+                    className="mt-2 w-24 rounded-xl border border-slate-200 bg-slate-50 py-1 text-center text-sm font-semibold text-slate-700 focus:border-emerald-400 focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={() => setInviteTempCount(Math.min(maxInvitableFriends, inviteTempCount + 1))}
+                  className="h-11 w-11 rounded-full border border-slate-300 bg-white text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                  aria-label="Aumentar invitados"
+                  disabled={inviteTempCount >= maxInvitableFriends}
+                >
+                  +
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center text-xs text-slate-500">
+                {maxInvitableFriends === 0 ? (
+                  <span>No quedan cupos disponibles para invitar en este partido.</span>
+                ) : (
+                  <span>
+                    Incluyendo tu cupo serán {invitePreviewPlayers} jugador{invitePreviewPlayers === 1 ? "" : "es"} listos para reservar.
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  onClick={() => setInviteDialogOpen(false)}
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={proceedFromInvite}
+                  className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow transition hover:bg-emerald-600"
+                >
+                  Continuar
+                </button>
+              </div>
             </div>
           </div>
         </div>
