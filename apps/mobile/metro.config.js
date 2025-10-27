@@ -1,6 +1,5 @@
 const path = require('path');
 const { getDefaultConfig } = require('expo/metro-config');
-const exclusionList = require('metro-config/src/defaults/exclusionList');
 const { resolve: metroResolve } = require('metro-resolver');
 
 const projectRoot = __dirname;
@@ -85,7 +84,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return fallbackResolveRequest(context, moduleName, platform);
 };
 
-// Ignorar artefactos de Next.js
-config.resolver.blockList = exclusionList([/web\/\.next\/.*/]);
+// Ignorar artefactos de Next.js (usamos RegExp directo porque metro-config ya no expone exclusionList)
+config.resolver.blockList = /web\/\.next\/.*/;
 
 module.exports = config;
