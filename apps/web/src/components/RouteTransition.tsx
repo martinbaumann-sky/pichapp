@@ -64,8 +64,8 @@ export default function RouteTransition({ children }: Props) {
   };
 
   const transition = {
-    duration: 0.65,
-    ease,
+    duration: 0.45,
+    ease: [0.32, 0.72, 0, 1],
   };
 
   return (

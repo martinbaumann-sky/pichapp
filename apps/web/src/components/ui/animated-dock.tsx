@@ -59,7 +59,7 @@ type AnimatedDockMenuItemProps = {
 
 function AnimatedDockMenuItem({ item, center, mouseX }: AnimatedDockMenuItemProps) {
   const distance = useTransform(mouseX, (value) => Math.abs(value - center));
-  const scaleTransform = useTransform(distance, [0, 120, 260], [1.12, 1.04, 1]);
+  const scaleTransform = useTransform(distance, [0, 120, 260], [1.25, 1.1, 1]);
   const underlineScaleTransform = useTransform(distance, [0, 140, 260], [1, 0.5, 0]);
   const underlineOpacityTransform = useTransform(distance, [0, 140, 260], [1, 0.6, 0]);
 

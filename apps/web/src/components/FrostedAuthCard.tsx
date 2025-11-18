@@ -3,6 +3,7 @@
 import React from "react";
 import { Mail, Eye, EyeOff, ChevronLeft, AlertTriangle } from "lucide-react";
 import { comunasRM } from "@/lib/comunas-rm";
+import { AnimatePresence, motion } from "framer-motion";
 
 type AuthPhase = "auth" | "verify" | "suspended";
 
@@ -86,7 +87,7 @@ export default function FrostedAuthCard({
         const length = input.value.length;
         input.setSelectionRange?.(length, length);
       }
-    } catch {}
+    } catch { }
     return document.activeElement === input;
   }, []);
 
@@ -492,9 +493,8 @@ export default function FrostedAuthCard({
                   setFormError(null);
                   setTab("signup");
                 }}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                  tab === "signup" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"
-                }`}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${tab === "signup" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"
+                  }`}
               >
                 Crear cuenta
               </button>
@@ -503,16 +503,15 @@ export default function FrostedAuthCard({
                   setFormError(null);
                   setTab("login");
                 }}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                  tab === "login" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"
-                }`}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${tab === "login" ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/5"
+                  }`}
               >
                 Iniciar sesión
               </button>
             </div>
           </div>
 
-              <h3 className="text-2xl font-semibold text-white mb-3">{tab === "signup" ? "Únete a PichangApp" : "Bienvenido"}</h3>
+          <h3 className="text-2xl font-semibold text-white mb-3">{tab === "signup" ? "Únete a PichangApp" : "Bienvenido"}</h3>
 
           {formError ? (
             <div className="mb-4 rounded-2xl border border-red-200/70 bg-red-50/90 px-4 py-3 text-sm font-medium text-red-700 shadow-sm">
@@ -524,11 +523,10 @@ export default function FrostedAuthCard({
             <button
               type="button"
               onClick={handleGoogleAuth}
-              className={`w-full inline-flex items-center justify-center gap-3 rounded-xl bg-white text-slate-900 px-4 py-3 font-medium shadow-lg shadow-emerald-900/20 hover:bg-white/90 transition ${
-                oauthHints?.includes("google")
-                  ? "ring-2 ring-cyan-300 ring-offset-2 ring-offset-slate-900"
-                  : ""
-              }`}
+              className={`w-full inline-flex items-center justify-center gap-3 rounded-xl bg-white text-slate-900 px-4 py-3 font-medium shadow-lg shadow-emerald-900/20 hover:bg-white/90 transition ${oauthHints?.includes("google")
+                ? "ring-2 ring-cyan-300 ring-offset-2 ring-offset-slate-900"
+                : ""
+                }`}
             >
               <GoogleIcon className="h-5 w-5" />
               Continuar con Google
@@ -543,160 +541,176 @@ export default function FrostedAuthCard({
               <span>o usa tu correo</span>
               <span className="flex-1 h-px bg-white/10" />
             </div>
-            {tab === "login" && (
-              <div className="space-y-3">
-                <label className="text-sm text-white/80">Correo</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="email"
-                    name="signup_email"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    readOnly
-                    onFocus={(e) => {
-                      e.currentTarget.readOnly = false;
-                    }}
-                    ref={loginEmailRef}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tu@correo.com"
-                    className="input-field pl-12 bg-white text-black input-mobile"
-                  />
-                </div>
-                <label className="text-sm text-white/80">Contraseña</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="new-password"
-                    autoComplete="new-password"
-                    readOnly
-                    onFocus={(e) => {
-                      e.currentTarget.readOnly = false;
-                    }}
-                    ref={loginPasswordRef}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="********"
-                    className="input-field pr-12 bg-white text-black input-mobile"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
+            <div className="relative overflow-hidden">
+              <AnimatePresence mode="wait" initial={false}>
+                {tab === "login" ? (
+                  <motion.div
+                    key="login"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-3"
                   >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-                <button
-                  disabled={localLoading || !email || !password}
-                  onClick={doLogin}
-                  className="btn-primary w-full"
-                >
-                  {localLoading ? "Procesando..." : "Iniciar sesión"}
-                </button>
-              </div>
-            )}
+                    <label className="text-sm text-white/80">Correo</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="email"
+                        name="signup_email"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        readOnly
+                        onFocus={(e) => {
+                          e.currentTarget.readOnly = false;
+                        }}
+                        ref={loginEmailRef}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="tu@correo.com"
+                        className="input-field pl-12 bg-white text-black input-mobile"
+                      />
+                    </div>
+                    <label className="text-sm text-white/80">Contraseña</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="new-password"
+                        autoComplete="new-password"
+                        readOnly
+                        onFocus={(e) => {
+                          e.currentTarget.readOnly = false;
+                        }}
+                        ref={loginPasswordRef}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="********"
+                        className="input-field pr-12 bg-white text-black input-mobile"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <button
+                      disabled={localLoading || !email || !password}
+                      onClick={doLogin}
+                      className="btn-primary w-full"
+                    >
+                      {localLoading ? "Procesando..." : "Iniciar sesión"}
+                    </button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="signup"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-3"
+                  >
+                    <label className="text-sm text-white/80">Nombre y Apellido</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input
+                        ref={signupNameRef}
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Nombre"
+                        className="input-field bg-white text-black input-mobile"
+                      />
+                      <input
+                        ref={signupLastNameRef}
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="Apellido"
+                        className="input-field bg-white text-black input-mobile"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-white/80">Comuna</label>
+                      <select
+                        value={comuna}
+                        onChange={(e) => setComuna(e.target.value)}
+                        className="input-field bg-white text-black input-mobile"
+                      >
+                        <option value="">Selecciona tu comuna</option>
+                        {comunasRM.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-            {tab === "signup" && (
-              <div className="space-y-3">
-                <label className="text-sm text-white/80">Nombre y Apellido</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <input
-                    ref={signupNameRef}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Nombre"
-                    className="input-field bg-white text-black input-mobile"
-                  />
-                  <input
-                    ref={signupLastNameRef}
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Apellido"
-                    className="input-field bg-white text-black input-mobile"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-white/80">Comuna</label>
-                  <select
-                    value={comuna}
-                    onChange={(e) => setComuna(e.target.value)}
-                    className="input-field bg-white text-black input-mobile"
-                  >
-                    <option value="">Selecciona tu comuna</option>
-                    {comunasRM.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="text-sm text-white/80">Celular</label>
-                  <input
-                    ref={signupPhoneRef}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+569..."
-                    className="input-field bg-white text-black input-mobile"
-                  />
-                </div>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="email"
-                    name="signup_email"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    readOnly
-                    onFocus={(e) => {
-                      e.currentTarget.readOnly = false;
-                    }}
-                    ref={signupEmailRef}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tu@correo.com"
-                    className="input-field pl-12 bg-white text-black input-mobile"
-                  />
-                </div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="new-password"
-                    autoComplete="new-password"
-                    readOnly
-                    onFocus={(e) => {
-                      e.currentTarget.readOnly = false;
-                    }}
-                    ref={signupPasswordRef}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Crea una contraseña"
-                    className="input-field pr-12 bg-white text-black input-mobile"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-                <button
-                  disabled={localLoading || !name || !comuna || !email || !password}
-                  onClick={doSignup}
-                  className="btn-primary w-full"
-                >
-                  {localLoading ? "Procesando..." : "Crear cuenta"}
-                </button>
-              </div>
-            )}
+                    <div>
+                      <label className="text-sm text-white/80">Celular</label>
+                      <input
+                        ref={signupPhoneRef}
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="+569..."
+                        className="input-field bg-white text-black input-mobile"
+                      />
+                    </div>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="email"
+                        name="signup_email"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        readOnly
+                        onFocus={(e) => {
+                          e.currentTarget.readOnly = false;
+                        }}
+                        ref={signupEmailRef}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="tu@correo.com"
+                        className="input-field pl-12 bg-white text-black input-mobile"
+                      />
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="new-password"
+                        autoComplete="new-password"
+                        readOnly
+                        onFocus={(e) => {
+                          e.currentTarget.readOnly = false;
+                        }}
+                        ref={signupPasswordRef}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Crea una contraseña"
+                        className="input-field pr-12 bg-white text-black input-mobile"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <button
+                      disabled={localLoading || !name || !comuna || !email || !password}
+                      onClick={doSignup}
+                      className="btn-primary w-full"
+                    >
+                      {localLoading ? "Procesando..." : "Crear cuenta"}
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
