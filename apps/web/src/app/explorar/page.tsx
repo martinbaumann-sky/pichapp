@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Calendar, CalendarCheck2, Gauge, MapPin, Search, Users } from "lucide-react";
 
 import { FluidFilterDropdown } from "@/components/explore/FluidFilterDropdown";
 import LevelBadge from "@/components/LevelBadge";
 import { Button } from "@/components/ui/button";
+import { MatchGridSkeleton } from "@/components/ui/skeleton";
+import { staggerContainer, staggerItem } from "@/components/ui/page-transition";
 import { comunasRM } from "@/lib/comunas-rm";
 import { nivelES } from "@/lib/i18n";
 import { useRoleGate } from "@/hooks/useRoleGate";
@@ -298,7 +300,7 @@ export default function ExplorePage() {
         label: pendingCustomDate ? `Desde ${new Date(`${pendingCustomDate}T00:00:00`).toLocaleDateString("es-CL")}` : "Elegir fecha",
         description: "Define una fecha específica",
         icon: Calendar,
-        renderContent: ({ close }) => (
+        renderContent: ({ close }: { close: () => void }) => (
           <div className="space-y-3 text-sm" onMouseDown={(event) => event.stopPropagation()}>
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fecha personalizada</p>
@@ -421,12 +423,15 @@ export default function ExplorePage() {
     setReloadToken((token) => token + 1);
   }, [setFilters, setReloadToken]);
 
-  if (!gateAllowed) {
+  // Unified loading state: Show skeleton if auth is pending OR initial data is loading
+  const showSkeleton = !gateAllowed || (loading && items.length === 0 && !fetchError);
+
+  if (!gateAllowed && status === "denied") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-center text-sm text-gray-600">
           <div className="h-10 w-10 rounded-full border-b-2 border-gray-800 animate-spin" />
-          <p>{status === "denied" ? "Cerrando sesión de cuenta de cancha…" : "Preparando tu experiencia..."}</p>
+          <p>Cerrando sesión de cuenta de cancha…</p>
         </div>
       </div>
     );
@@ -437,7 +442,7 @@ export default function ExplorePage() {
       className="bg-gray-50"
       initial={{ x: 60, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.28, ease: [0, 0, 0.2, 1] }}
+      transition={{ duration: 0.28, ease: "easeInOut" }}
     >
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-30">
@@ -560,142 +565,200 @@ export default function ExplorePage() {
           </div>
         ) : null}
 
-        {items.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 xl:gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((match) => {
-              const rawFriendCount =
-                typeof match?.friendCount === "number" ? match.friendCount : Number(match?.friendCount ?? 0);
-              const friendCount = Number.isFinite(rawFriendCount) ? rawFriendCount : 0;
-              const friendNames = Array.isArray(match?.friendNames)
-                ? (match.friendNames as string[])
+        {/* Unified Loading State - Skeleton */}
+        {showSkeleton && (
+          <MatchGridSkeleton count={8} />
+        )}
+
+        {/* Matches Grid with Staggered Animation */}
+        {!showSkeleton && items.length > 0 && (
+          <motion.div
+            className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 xl:gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+          >
+            <AnimatePresence mode="popLayout">
+              {items.map((match, index) => {
+                const rawFriendCount =
+                  typeof match?.friendCount === "number" ? match.friendCount : Number(match?.friendCount ?? 0);
+                const friendCount = Number.isFinite(rawFriendCount) ? rawFriendCount : 0;
+                const friendNames = Array.isArray(match?.friendNames)
+                  ? (match.friendNames as string[])
                     .map((name) => (typeof name === "string" ? name.trim() : ""))
                     .filter((name) => name.length > 0)
-                : [];
-              let friendHeadline = "";
-              let friendDescription = "";
-              if (friendCount > 0) {
-                friendHeadline =
-                  friendCount === 1 ? "Tu amigo ya confirmó su cupo" : `${friendCount} amigos ya confirmaron`;
-                if (friendCount === 1) {
-                  friendDescription = friendNames[0]
-                    ? `${friendNames[0]} ya está inscrito`
-                    : "Hay un amigo jugando este partido.";
-                } else if (friendNames.length >= 2) {
-                  const extra = friendCount - 2;
-                  friendDescription =
-                    extra > 0
-                      ? `${friendNames[0]}, ${friendNames[1]} y ${extra} amigo${extra === 1 ? "" : "s"} más`
-                      : `${friendNames[0]} y ${friendNames[1]}`;
-                } else if (friendNames.length === 1) {
-                  const remaining = friendCount - 1;
-                  friendDescription =
-                    remaining > 0
-                      ? `${friendNames[0]} y ${remaining} amigo${remaining === 1 ? "" : "s"} más`
-                      : friendNames[0];
-                } else {
-                  friendDescription = `${friendCount} amigo${friendCount === 1 ? "" : "s"} confirmado${friendCount === 1 ? "" : "s"}`;
+                  : [];
+                let friendHeadline = "";
+                let friendDescription = "";
+                if (friendCount > 0) {
+                  friendHeadline =
+                    friendCount === 1 ? "Tu amigo ya confirmó su cupo" : `${friendCount} amigos ya confirmaron`;
+                  if (friendCount === 1) {
+                    friendDescription = friendNames[0]
+                      ? `${friendNames[0]} ya está inscrito`
+                      : "Hay un amigo jugando este partido.";
+                  } else if (friendNames.length >= 2) {
+                    const extra = friendCount - 2;
+                    friendDescription =
+                      extra > 0
+                        ? `${friendNames[0]}, ${friendNames[1]} y ${extra} amigo${extra === 1 ? "" : "s"} más`
+                        : `${friendNames[0]} y ${friendNames[1]}`;
+                  } else if (friendNames.length === 1) {
+                    const remaining = friendCount - 1;
+                    friendDescription =
+                      remaining > 0
+                        ? `${friendNames[0]} y ${remaining} amigo${remaining === 1 ? "" : "s"} más`
+                        : friendNames[0];
+                  } else {
+                    friendDescription = `${friendCount} amigo${friendCount === 1 ? "" : "s"} confirmado${friendCount === 1 ? "" : "s"}`;
+                  }
+                  if (!friendDescription) {
+                    friendDescription = friendHeadline;
+                  }
                 }
-                if (!friendDescription) {
-                  friendDescription = friendHeadline;
-                }
-              }
 
-              const showFriendDetails =
-                friendCount > 0 && friendDescription && friendDescription !== friendHeadline;
+                const showFriendDetails =
+                  friendCount > 0 && friendDescription && friendDescription !== friendHeadline;
 
-              return (
-                <Link
-                  key={match.id}
-                  href={`/partidos/${match.id}`}
-                  className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                >
-                <div className="h-48 w-full">
-                  <MiniMap lat={match.lat} lng={match.lng} title={match.title} id={match.id} />
-                </div>
-
-                <div className="space-y-3 sm:space-y-4 lg:space-y-5 p-4 sm:p-6 lg:p-8">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-                      Oficial
-                    </span>
-                    <span className="font-medium normal-case text-gray-500">Cancha verificada</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-2 lg:gap-3">
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-black transition-colors duration-200 group-hover:text-gray-700 leading-tight">
-                      {match.venueName ? `${match.title} - ${match.venueName}` : match.title}
-                    </h3>
-                    <LevelBadge level={match.level as keyof typeof nivelES} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2 text-gray-600">
-                      <MapPin className="mt-0.5 h-4 w-4" />
-                      <div className="flex flex-col leading-tight">
-                        <span className="font-medium">{match.venueName || 'Cancha'}</span>
-                        <span className="text-sm text-gray-500">{match.comuna}</span>
+                return (
+                  <motion.div
+                    key={match.id}
+                    variants={staggerItem}
+                    layout
+                    initial="hidden"
+                    animate="show"
+                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                  >
+                    <Link
+                      href={`/partidos/${match.id}`}
+                      className="group relative overflow-hidden rounded-2xl border-2 border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:border-cyan-300 block"
+                    >
+                      {/* Map Section with Overlay */}
+                      <div className="relative h-48 w-full overflow-hidden">
+                        <MiniMap lat={match.lat} lng={match.lng} title={match.title} id={match.id} />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Calendar className="h-4 w-4" />
-                      <span>
-                        {new Intl.DateTimeFormat("es-CL", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "long",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(match.startsAt))}
-                      </span>
-                    </div>
+                      {/* Content Section */}
+                      <div className="relative space-y-4 p-5 sm:p-6">
+                        {/* Status Badge */}
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+                            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" aria-hidden />
+                            Oficial
+                          </span>
+                          <span className="text-xs font-medium text-gray-500">Cancha verificada</span>
+                        </div>
 
-                  <div className="text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span>
-                        {match.paid}/{match.totalSpots} cupos ocupados
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 pl-6">
-                      {match.confirmed ? 'Partido confirmado' : `Se confirma con ${match.minSpotsToConfirm} jugadores`}
-                    </p>
-                  </div>
-                </div>
+                        {/* Title and Level */}
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="flex-1 text-lg sm:text-xl font-bold text-gray-900 transition-colors duration-200 group-hover:text-cyan-600 leading-tight">
+                            {match.venueName ? `${match.title} - ${match.venueName}` : match.title}
+                          </h3>
+                          <LevelBadge level={match.level as keyof typeof nivelES} />
+                        </div>
 
-                {friendCount > 0 ? (
-                  <div className="mt-2 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3">
-                    <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#06b6d4]/10 text-[#06b6d4]">
-                      <Users className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-0.5 text-sm text-[#0f172a]">
-                      <p className="font-semibold text-[#06b6d4]">{friendHeadline}</p>
-                      {showFriendDetails ? (
-                        <p className="text-xs text-[#0f172a]/70">{friendDescription}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
+                        {/* Info Grid */}
+                        <div className="space-y-3">
+                          {/* Location */}
+                          <div className="flex items-start gap-2.5 text-gray-600">
+                            <MapPin className="mt-0.5 h-4 w-4 text-cyan-600 flex-shrink-0" />
+                            <div className="flex flex-col leading-tight">
+                              <span className="font-semibold text-gray-900">{match.venueName || 'Cancha'}</span>
+                              <span className="text-sm text-gray-500">{match.comuna}</span>
+                            </div>
+                          </div>
 
-                <div className="flex items-center justify-between border-t border-gray-100 pt-2">
-                  <div className="font-semibold text-green-600">
-                    <span>
-                        {match.pricePerSpot > 0
-                          ? new Intl.NumberFormat("es-CL", {
-                              style: "currency",
-                              currency: "CLP",
-                              maximumFractionDigits: 0,
-                            }).format(match.pricePerSpot)
-                          : "Gratis"}
-                      </span>
-                    </div>
-                    <span className="text-sm text-gray-500">{match.available} disponibles</span>
-                  </div>
-                </div>
-              </Link>
-              );
-            })}
-          </div>
+                          {/* Date & Time */}
+                          <div className="flex items-center gap-2.5 text-gray-600">
+                            <Calendar className="h-4 w-4 text-cyan-600 flex-shrink-0" />
+                            <span className="text-sm font-medium">
+                              {new Intl.DateTimeFormat("es-CL", {
+                                weekday: "long",
+                                day: "numeric",
+                                month: "long",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }).format(new Date(match.startsAt))}
+                            </span>
+                          </div>
+
+                          {/* Players */}
+                          <div className="flex items-center gap-2.5">
+                            <Users className="h-4 w-4 text-cyan-600 flex-shrink-0" />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-gray-900">
+                                  {match.paid}/{match.totalSpots} cupos
+                                </span>
+                                {/* Progress Bar */}
+                                <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                  <motion.div
+                                    className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(match.paid / match.totalSpots) * 100}%` }}
+                                    transition={{ duration: 0.8, delay: index * 0.05, ease: "easeOut" }}
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {match.confirmed ? '✓ Partido confirmado' : `Se confirma con ${match.minSpotsToConfirm} jugadores`}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Friends Section */}
+                        {friendCount > 0 ? (
+                          <motion.div
+                            className="flex items-start gap-3 rounded-xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-emerald-50 px-4 py-3"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                          >
+                            <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-600">
+                              <Users className="h-4 w-4" />
+                            </span>
+                            <div className="space-y-0.5 text-sm">
+                              <p className="font-bold text-cyan-700">{friendHeadline}</p>
+                              {showFriendDetails ? (
+                                <p className="text-xs text-gray-700">{friendDescription}</p>
+                              ) : null}
+                            </div>
+                          </motion.div>
+                        ) : null}
+
+                        {/* Price and Availability */}
+                        <div className="flex items-center justify-between border-t-2 border-gray-100 pt-4">
+                          <div className="flex flex-col">
+                            <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">Precio</span>
+                            <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-700 bg-clip-text text-transparent">
+                              {match.pricePerSpot > 0
+                                ? new Intl.NumberFormat("es-CL", {
+                                  style: "currency",
+                                  currency: "CLP",
+                                  maximumFractionDigits: 0,
+                                }).format(match.pricePerSpot)
+                                : "Gratis"}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              {match.available} disponibles
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Hover Glow Effect */}
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
         )}
 
         {items.length === 0 && !loading && !fetchError && (
@@ -738,10 +801,50 @@ export default function ExplorePage() {
           </div>
         )}
 
-        {loading && (
-          <div className="py-10 text-center text-gray-500">
-            {items.length > 0 ? "Cargando más partidos…" : "Cargando…"}
-          </div>
+        {/* Loading More Indicator - Subtle */}
+        {loading && items.length > 0 && (
+          <motion.div
+            className="py-8 flex justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <motion.div
+                className="flex gap-1"
+                initial="hidden"
+                animate="show"
+                variants={{
+                  hidden: {},
+                  show: {
+                    transition: {
+                      staggerChildren: 0.15,
+                      repeat: Infinity,
+                    },
+                  },
+                }}
+              >
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-2 h-2 bg-cyan-500 rounded-full"
+                    variants={{
+                      hidden: { opacity: 0.3, scale: 0.8 },
+                      show: {
+                        opacity: 1,
+                        scale: 1,
+                        transition: {
+                          duration: 0.5,
+                          ease: "easeInOut",
+                        },
+                      },
+                    }}
+                  />
+                ))}
+              </motion.div>
+              <span>Cargando más partidos</span>
+            </div>
+          </motion.div>
         )}
 
         <div ref={loadMoreRef} />
