@@ -70,6 +70,7 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const requestedTeam = normalizeTeam(body?.team ?? null);
     const requestedPosition = sanitizePosition(body?.position ?? null);
+    const mode = body?.mode; // "redirect" | "brick"
 
     const holdMinutes = Number(process.env.MATCH_PAYMENT_HOLD_MINUTES ?? DEFAULT_HOLD_MINUTES);
     const holdMs = Math.max(1, holdMinutes) * 60 * 1000;
@@ -162,7 +163,7 @@ export async function POST(
       let existingSpot = await tx.spot.findFirst({
         where: { matchId, userId },
         orderBy: { createdAt: "asc" },
-        select: { id: true, status: true },
+        select: { id: true, status: true, holdUntil: true },
       });
 
       if (existingSpot && existingSpot.status === "CANCELED") {
@@ -188,7 +189,7 @@ export async function POST(
             team: requestedTeam ?? null,
             position: requestedPosition ?? null,
           },
-          select: { id: true, holdUntil: true },
+          select: { id: true, holdUntil: true, status: true },
         });
       } else {
         reservedSpot = await tx.spot.update({
@@ -200,8 +201,12 @@ export async function POST(
             team: requestedTeam ?? null,
             position: requestedPosition ?? null,
           },
-          select: { id: true, holdUntil: true },
+          select: { id: true, holdUntil: true, status: true },
         });
+      }
+
+      if (!reservedSpot) {
+        throw new Response("Error al reservar el cupo", { status: 500 });
       }
 
       const payment = await tx.payment.upsert({
@@ -266,10 +271,20 @@ export async function POST(
       });
     }
 
+    if (mode === "brick") {
+      return NextResponse.json({
+        ok: true,
+        paymentId: txResult.payment.id,
+        spotId: txResult.payment.spotId,
+        amount: txResult.payment.amountCLP,
+        expiresAt: txResult.holdUntil?.toISOString?.() ?? null,
+      });
+    }
+
     const baseUrl = resolveBaseUrl(req);
     try {
       const initResult = await initPaymentSession({
-        provider: txResult.provider,
+        provider: txResult.provider as any,
         payment: { id: txResult.payment.id, amountCLP: txResult.payment.amountCLP, spotId: txResult.payment.spotId },
         match: {
           id: txResult.match.id,
@@ -281,11 +296,11 @@ export async function POST(
         user: { email: txResult.user.email, name: txResult.user.name ?? undefined },
         ...(txResult.useVenueMpCredentials || txResult.flowCredentials
           ? {
-              venue: {
-                id: txResult.useVenueMpCredentials ? txResult.match.venueId ?? null : null,
-                flow: txResult.flowCredentials ?? undefined,
-              },
-            }
+            venue: {
+              id: txResult.useVenueMpCredentials ? txResult.match.venueId ?? null : null,
+              flow: txResult.flowCredentials ?? undefined,
+            },
+          }
           : {}),
       });
 

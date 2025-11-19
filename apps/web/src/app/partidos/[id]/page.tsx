@@ -25,6 +25,9 @@ import {
   type PositionKey,
 } from "@/lib/teams";
 import ProfilePreviewDialog from "@/components/profile/ProfilePreviewDialog";
+import dynamic from "next/dynamic";
+
+const PaymentDialog = dynamic(() => import("@/components/payments/PaymentDialog"), { ssr: false });
 
 type NormalizedMatchPlayer = FormationPlayer & {
   team: TeamKey | null;
@@ -78,6 +81,9 @@ export default function MatchDetailPage() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteTempCount, setInviteTempCount] = useState(0);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [pendingPaymentData, setPendingPaymentData] = useState<{ spotId: string; amount: number } | null>(null);
 
   const currencyFormatter = useMemo(
     () =>
@@ -183,11 +189,11 @@ export default function MatchDetailPage() {
           position: slot.position,
           player: slot.player
             ? {
-                spotId: slot.player.spotId ?? null,
-                userId: slot.player.userId ?? null,
-                displayName: slot.player.displayName,
-                position: slot.player.position ?? null,
-              }
+              spotId: slot.player.spotId ?? null,
+              userId: slot.player.userId ?? null,
+              displayName: slot.player.displayName,
+              position: slot.player.position ?? null,
+            }
             : null,
           isAvailable: allowNewPlayers && index < capacity && !slot.player,
         }));
@@ -368,6 +374,7 @@ export default function MatchDetailPage() {
       setJoinError("Completa los datos de tus invitados antes de continuar.");
       return;
     }
+
     if (isPaidMatch) {
       setJoining(true);
       setJoinError(null);
@@ -379,6 +386,7 @@ export default function MatchDetailPage() {
           body: JSON.stringify({
             team: joinSelectedSlot.team,
             position: joinSelectedSlot.position,
+            mode: "brick",
           }),
         });
         const data = await res.json().catch(() => ({}));
@@ -399,17 +407,15 @@ export default function MatchDetailPage() {
           await loadMatch();
           return;
         }
-        if (data?.redirectUrl) {
+
+        if (data?.paymentId && data?.amount) {
+          setPendingPaymentData({ spotId: data.spotId, amount: data.amount });
+          setPaymentOpen(true);
           setJoinDialogOpen(false);
-          setJoinSelectedSlot(null);
-          const targetUrl = String(data.redirectUrl);
-          const newTab = window.open(targetUrl, "_blank", "noopener,noreferrer");
-          if (!newTab) {
-            window.location.href = targetUrl;
-          }
           return;
         }
-        throw new Error("No recibimos la URL de pago desde Mercado Pago.");
+
+        throw new Error("No recibimos los datos de pago.");
       } catch (e: any) {
         const msg = e?.message ?? "No se pudo iniciar el pago";
         setJoinError(msg);
@@ -418,6 +424,8 @@ export default function MatchDetailPage() {
       }
       return;
     }
+
+    // Free match logic
     const teamPositionPool = new Map<TeamKey, PositionKey[]>();
     formationData.teams.forEach((team) => {
       const availablePositions = team.slots.filter((slot) => slot.isAvailable).map((slot) => slot.position);
@@ -425,8 +433,10 @@ export default function MatchDetailPage() {
       const pool = availablePositions.length > 0 ? availablePositions : fallbackPositions;
       teamPositionPool.set(team.team, [...pool]);
     });
+
     const defaultTeam = joinSelectedSlot.team;
     const defaultPosition = joinSelectedSlot.position;
+
     const resolveRandomPosition = (preferredTeam: TeamKey | null): PositionKey => {
       const teamKey = preferredTeam && teamPositionPool.has(preferredTeam) ? preferredTeam : defaultTeam;
       const pool = teamPositionPool.get(teamKey) ?? [...POSITION_KEYS];
@@ -438,6 +448,7 @@ export default function MatchDetailPage() {
       teamPositionPool.set(teamKey, pool);
       return selected ?? defaultPosition;
     };
+
     setJoining(true);
     setJoinError(null);
     try {
@@ -567,7 +578,7 @@ export default function MatchDetailPage() {
     if (navigator.share) {
       try {
         await navigator.share({ title: match?.title ?? "PichangApp", url });
-      } catch {}
+      } catch { }
     } else {
       await navigator.clipboard.writeText(url);
       setToast("Link copiado");
@@ -641,7 +652,7 @@ export default function MatchDetailPage() {
     }
   }, [user, id, loadMatch]);
 
-  
+
 
   const handleFriendCountChange = useCallback(
     (next: number) => {
@@ -1032,20 +1043,20 @@ export default function MatchDetailPage() {
                     </div>
                   );
                 })()}
-              {friendCount > 0 && friendHeadline ? (
-                <div className="mt-4 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3">
-                  <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#06b6d4]/10 text-[#06b6d4]">
-                    <Users className="h-5 w-5" />
-                  </span>
-                  <div className="space-y-1 text-sm text-[#0f172a]">
-                    <p className="font-semibold text-[#06b6d4]">{friendHeadline}</p>
-                    {showFriendDescription ? (
-                      <p className="text-xs text-[#0f172a]/70">{friendDescription}</p>
-                    ) : null}
+                {friendCount > 0 && friendHeadline ? (
+                  <div className="mt-4 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3">
+                    <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#06b6d4]/10 text-[#06b6d4]">
+                      <Users className="h-5 w-5" />
+                    </span>
+                    <div className="space-y-1 text-sm text-[#0f172a]">
+                      <p className="font-semibold text-[#06b6d4]">{friendHeadline}</p>
+                      {showFriendDescription ? (
+                        <p className="text-xs text-[#0f172a]/70">{friendDescription}</p>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -1150,12 +1161,12 @@ export default function MatchDetailPage() {
         ) : (
           <section className="mt-8 space-y-6" id="jugadores">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-xl font-semibold text-slate-800">Formaciones</h3>
-                    <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
-                  </div>
-                  {(() => {
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-800">Formaciones</h3>
+                  <p className="text-sm text-slate-500">Visualiza los equipos claro y oscuro y elige tu posición disponible.</p>
+                </div>
+                {(() => {
                   if (isVenueViewer) {
                     return (
                       <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
@@ -1266,13 +1277,13 @@ export default function MatchDetailPage() {
                     let openProfile: (() => void) | null = null;
                     const fallbackProfile = p.user
                       ? {
-                          name: p.user.name,
-                          comuna: p.user.comuna ?? null,
-                          position: p.user.position ?? null,
-                          skillLevel: p.user.skillLevel ?? null,
-                          bio: p.user.bio ?? null,
-                          avatarUrl: p.user.avatarUrl ?? null,
-                        }
+                        name: p.user.name,
+                        comuna: p.user.comuna ?? null,
+                        position: p.user.position ?? null,
+                        skillLevel: p.user.skillLevel ?? null,
+                        bio: p.user.bio ?? null,
+                        avatarUrl: p.user.avatarUrl ?? null,
+                      }
                       : null;
                     const nameNode = p.user && fallbackProfile ? (
                       <ProfilePreviewDialog
@@ -1314,11 +1325,10 @@ export default function MatchDetailPage() {
                           ) : null}
                           {normalizedTeam ? (
                             <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                normalizedTeam === "CLARO"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-slate-200 text-slate-700"
-                              }`}
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${normalizedTeam === "CLARO"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-slate-200 text-slate-700"
+                                }`}
                             >
                               {normalizedTeam === "CLARO" ? "Claro" : "Oscuro"}
                             </span>
@@ -1501,11 +1511,53 @@ export default function MatchDetailPage() {
         </div>
       )}
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} initialTab="login" next={`/match/${id}`} />
+
+      {paymentOpen && pendingPaymentData && (
+        <PaymentDialog
+          open={paymentOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPaymentOpen(false);
+              setPendingPaymentData(null);
+              setJoinSelectedSlot(null);
+            }
+          }}
+          amount={pendingPaymentData.amount}
+          error={paymentError}
+          onSubmit={async (formData) => {
+            setPaymentError(null);
+            try {
+              const res = await fetch("/api/payments/process", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ...formData,
+                  matchId: id,
+                  spotId: pendingPaymentData.spotId,
+                  team: joinSelectedSlot?.team,
+                  position: joinSelectedSlot?.position,
+                }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                throw new Error(data.error || "Error al procesar el pago");
+              }
+
+              setPaymentOpen(false);
+              setPendingPaymentData(null);
+              setJoinSelectedSlot(null);
+              setToast("Pago autorizado exitosamente. Tu cupo está reservado.");
+              setTimeout(() => setToast(null), 4000);
+              await loadMatch();
+              setActiveTab("roster");
+            } catch (e: any) {
+              console.error(e);
+              setPaymentError(e.message || "Ocurrió un error al procesar el pago.");
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
-
-
-
-
 

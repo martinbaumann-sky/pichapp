@@ -12,6 +12,16 @@ const ensureDatabaseEnv = () => {
   const pickFirst = (...candidates: (string | undefined)[]) =>
     candidates.find((value) => typeof value === "string" && value.trim().length > 0);
 
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const logPath = path.join(process.cwd(), 'db-debug.log');
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] Checking env. DATABASE_URL present: ${!!process.env.DATABASE_URL}\n`);
+    if (process.env.DATABASE_URL) {
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] DATABASE_URL length: ${process.env.DATABASE_URL.length}\n`);
+    }
+  } catch (e) { }
+
   if (!process.env.DATABASE_URL) {
     const prismaDb = process.env.PRISMA_DATABASE_URL;
     const fallback = pickFirst(

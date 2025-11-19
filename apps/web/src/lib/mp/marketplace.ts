@@ -277,6 +277,29 @@ type PreferenceArgs = {
   payer?: { email?: string | null; name?: string | null } | null;
 };
 
+export async function getMarketplaceFee(venueId: string | null, amount: number): Promise<number> {
+  let commissionRate: number | null = null;
+  if (venueId) {
+    const venue = await prisma.venue.findUnique({
+      where: { id: venueId },
+      select: { plan: true },
+    });
+    if (venue) {
+      const plan = getVenuePlan(venue.plan);
+      if (plan) {
+        commissionRate = Math.max(plan.commissionRate, 0);
+      }
+    }
+  }
+
+  if (commissionRate === null) {
+    const feeBps = Number(process.env.MP_FEE_BPS ?? "0");
+    commissionRate = Math.max(feeBps, 0) / 10000;
+  }
+
+  return Math.round(amount * commissionRate);
+}
+
 export async function createMarketplacePreference({
   venueId,
   title,
@@ -309,28 +332,9 @@ export async function createMarketplacePreference({
     accessToken = envToken;
   }
 
-  let commissionRate: number | null = null;
-  if (venueId) {
-    const venue = await prisma.venue.findUnique({
-      where: { id: venueId },
-      select: { plan: true },
-    });
-    if (venue) {
-      const plan = getVenuePlan(venue.plan);
-      if (plan) {
-        commissionRate = Math.max(plan.commissionRate, 0);
-      }
-    }
-  }
-
-  if (commissionRate === null) {
-    const feeBps = Number(process.env.MP_FEE_BPS ?? "0");
-    commissionRate = Math.max(feeBps, 0) / 10000;
-  }
-
   const client = new MercadoPagoConfig({ accessToken });
   const preference = new Preference(client);
-  const marketplaceFee = Math.round(priceCLP * commissionRate);
+  const marketplaceFee = await getMarketplaceFee(venueId || null, priceCLP);
   const trimmedBase = (baseUrl || "").trim();
   const fallbackBase = process.env.NEXT_PUBLIC_BASE_URL?.trim();
   let resolvedBase = trimmedBase || fallbackBase || "";
@@ -367,9 +371,9 @@ export async function createMarketplacePreference({
       marketplace_fee: marketplaceFee,
       payer: payer?.email
         ? {
-            email: payer.email,
-            name: payer?.name ?? undefined,
-          }
+          email: payer.email,
+          name: payer?.name ?? undefined,
+        }
         : undefined,
       back_urls: {
         success: successUrl,
@@ -513,19 +517,19 @@ export async function testMpConnection(venueId: string): Promise<{
 }> {
   try {
     const creds = await ensureVenueAccessToken(venueId);
-    
+
     // Intentar hacer una llamada simple a la API de Mercado Pago
     const res = await fetch(`${MP_API_BASE}/users/me`, {
       headers: { Authorization: `Bearer ${creds.accessToken}` },
     });
-    
+
     if (!res.ok) {
       return {
         success: false,
         error: `Error de API: ${res.status} ${res.statusText}`,
       };
     }
-    
+
     const profile = await res.json();
     return {
       success: true,
