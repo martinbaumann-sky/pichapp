@@ -26,7 +26,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key-aqui
 SUPABASE_SERVICE_ROLE_KEY=tu-service-role-key-aqui
 
 # BASE DE DATOS (OBLIGATORIO)
+# Usa la cadena de conexion de Supabase o tu Postgres local.
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/pichanga_db"
+# Alternativa: deja que PichangApp genere DATABASE_URL usando las credenciales de Supabase.
+SUPABASE_DB_URL="postgresql://postgres:TU_CLAVE@db.tu-proyecto.supabase.co:5432/postgres"
+SUPABASE_DB_POOLER_URL="postgresql://postgres:TU_CLAVE@aws-...pgbouncer.supabase.co:6543/postgres?pgbouncer=true&connection_limit=1"
 
 # BASE URL (OBLIGATORIO)
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
@@ -49,7 +53,10 @@ ADMIN_PASSWORD=Babolat3008
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `service_role` → `SUPABASE_SERVICE_ROLE_KEY`
-4. En **Authentication > Settings**:
+4. En **Project Settings > Database** copia la seccion "Connection string":
+   - `psql` → `SUPABASE_DB_URL`
+   - `Pooling` → `SUPABASE_DB_POOLER_URL` (opcional pero recomendado en serverless)
+5. En **Authentication > Settings**:
    - Habilita "Email + Password"
    - Deshabilita "Confirm email" (para testing)
 

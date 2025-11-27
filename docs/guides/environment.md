@@ -11,6 +11,21 @@ This document centralizes every environment variable used across the project. Un
 | `WEB_APP_BASE_URL` | Optional | Internal origin used when background jobs need a stable base URL (defaults to `NEXT_PUBLIC_BASE_URL`). |
 | `AUTH_SECRET` | Yes | HS256 secret to sign authentication tokens. Generate with `openssl rand -base64 32`. |
 
+## Database Providers
+### Supabase (Postgres)
+If you manage your PostgreSQL database with Supabase you can either set `DATABASE_URL`/`DIRECT_URL` manually or let the app build them from the Supabase credentials below.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `SUPABASE_DB_URL` | Optional | Direct connection string (`psql`) copied from **Project Settings → Database**. Used when `DATABASE_URL` is not set. |
+| `SUPABASE_DB_POOLER_URL` | Optional | Connection pooling string (`pgbouncer`) copied from the same screen. Preferred for serverless deployments. |
+| `SUPABASE_DB_HOST` / `SUPABASE_DB_PORT` | Optional | Host and port of the primary database. Used to compose the connection string if `SUPABASE_DB_URL` is absent. Defaults to port `5432`. |
+| `SUPABASE_DB_DATABASE` | Optional | Database name (defaults to `postgres`). |
+| `SUPABASE_DB_USER` / `SUPABASE_DB_PASSWORD` | Optional | Credentials for the Postgres user. |
+| `SUPABASE_DB_POOLER_HOST` / `SUPABASE_DB_POOLER_PORT` | Optional | Host/port for the pooling endpoint. Defaults to port `6543`. |
+
+> The helper automatically enforces `sslmode=require` for Supabase hosts and adds `?pgbouncer=true&connection_limit=1` when pointing to the pooling endpoint.
+
 ## Email & Admin
 | Variable | Required | Description |
 | --- | --- | --- |

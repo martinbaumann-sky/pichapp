@@ -7,6 +7,20 @@ DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB?sslmode=prefer"
 # URL directa (sin pool) requerida para `prisma migrate deploy`
 DIRECT_URL="postgresql://USER:PASSWORD@HOST:PORT/DB"
 
+# Supabase Postgres (opcional)
+# Copia las credenciales del panel ("Project Settings > Database").
+# Si defines estas variables, la app generara DATABASE_URL/DIRECT_URL automaticamente.
+# Puedes usar solo las URL completas o combinar host/puerto/usuario.
+SUPABASE_DB_URL=""
+SUPABASE_DB_POOLER_URL=""
+SUPABASE_DB_HOST=""
+SUPABASE_DB_PORT="5432"
+SUPABASE_DB_DATABASE="postgres"
+SUPABASE_DB_USER=""
+SUPABASE_DB_PASSWORD=""
+SUPABASE_DB_POOLER_HOST=""
+SUPABASE_DB_POOLER_PORT="6543"
+
 # Base URL publica
 # Desarrollo:
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"

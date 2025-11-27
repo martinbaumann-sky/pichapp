@@ -8,9 +8,134 @@ const shouldSkipValidation =
   process.env.SKIP_PRISMA_ENV_VALIDATION === "1" ||
   process.env.npm_lifecycle_event === "build";
 
+const pickFirst = <T extends string | undefined>(...candidates: T[]) =>
+  candidates.find((value): value is Exclude<T, undefined> =>
+    typeof value === "string" && value.trim().length > 0,
+  );
+
+type SupabaseDatabaseUrls = {
+  pooled?: string;
+  direct?: string;
+};
+
+const normalizePostgresUrl = (candidate?: string | null) => {
+  if (!candidate) {
+    return undefined;
+  }
+
+  let value = candidate.trim();
+  if (!value) {
+    return undefined;
+  }
+
+  if (value.startsWith("postgres://")) {
+    value = `postgresql://${value.slice("postgres://".length)}`;
+  }
+
+  try {
+    const parsed = new URL(value);
+
+    const isSupabaseHost = /\.supabase\.(co|in)$/.test(parsed.hostname) ||
+      parsed.hostname.includes("supabase.co");
+    const isPoolerHost = parsed.hostname.includes("pooler.supabase") ||
+      parsed.searchParams.get("pgbouncer") === "true";
+
+    if (isSupabaseHost && !parsed.searchParams.has("sslmode")) {
+      parsed.searchParams.set("sslmode", "require");
+    }
+
+    if (isPoolerHost) {
+      if (!parsed.searchParams.has("pgbouncer")) {
+        parsed.searchParams.set("pgbouncer", "true");
+      }
+      if (!parsed.searchParams.has("connection_limit")) {
+        parsed.searchParams.set("connection_limit", "1");
+      }
+    }
+
+    return parsed.toString();
+  } catch (_err) {
+    return value;
+  }
+};
+
+const buildSupabaseUrlFromParts = (options: {
+  host?: string;
+  port?: string;
+  database?: string;
+  user?: string;
+  password?: string;
+}) => {
+  const { host, user, password } = options;
+  if (!host || !user || !password) {
+    return undefined;
+  }
+
+  const port = options.port && options.port.trim().length > 0 ? options.port : "5432";
+  const database =
+    options.database && options.database.trim().length > 0 ? options.database : "postgres";
+
+  const encodedUser = encodeURIComponent(user);
+  const encodedPassword = encodeURIComponent(password);
+
+  return `postgresql://${encodedUser}:${encodedPassword}@${host}:${port}/${database}`;
+};
+
+const resolveSupabaseDatabaseUrls = (): SupabaseDatabaseUrls => {
+  const directCandidate = pickFirst(
+    process.env.SUPABASE_DIRECT_URL,
+    process.env.SUPABASE_DB_DIRECT_URL,
+    process.env.SUPABASE_DATABASE_URL,
+    process.env.SUPABASE_DB_URL,
+    process.env.SUPABASE_DB_CONNECTION_STRING,
+    process.env.SUPABASE_CONNECTION_STRING,
+    buildSupabaseUrlFromParts({
+      host: pickFirst(process.env.SUPABASE_DB_HOST, process.env.SUPABASE_HOST),
+      port: pickFirst(process.env.SUPABASE_DB_PORT, process.env.SUPABASE_PORT),
+      database: pickFirst(
+        process.env.SUPABASE_DB_DATABASE,
+        process.env.SUPABASE_DB_NAME,
+        process.env.SUPABASE_DATABASE,
+      ),
+      user: pickFirst(process.env.SUPABASE_DB_USER, process.env.SUPABASE_USER),
+      password: pickFirst(process.env.SUPABASE_DB_PASSWORD, process.env.SUPABASE_PASSWORD),
+    }),
+  );
+
+  const pooledCandidate = pickFirst(
+    process.env.SUPABASE_DB_POOLER_URL,
+    process.env.SUPABASE_DB_POOL_URL,
+    process.env.SUPABASE_POOLER_URL,
+    process.env.SUPABASE_POOLING_URL,
+    buildSupabaseUrlFromParts({
+      host: pickFirst(
+        process.env.SUPABASE_DB_POOLER_HOST,
+        process.env.SUPABASE_POOLER_HOST,
+      ),
+      port: pickFirst(
+        process.env.SUPABASE_DB_POOLER_PORT,
+        process.env.SUPABASE_POOLER_PORT,
+        process.env.SUPABASE_DB_PORT,
+        process.env.SUPABASE_PORT,
+      ),
+      database: pickFirst(
+        process.env.SUPABASE_DB_DATABASE,
+        process.env.SUPABASE_DB_NAME,
+        process.env.SUPABASE_DATABASE,
+      ),
+      user: pickFirst(process.env.SUPABASE_DB_USER, process.env.SUPABASE_USER),
+      password: pickFirst(process.env.SUPABASE_DB_PASSWORD, process.env.SUPABASE_PASSWORD),
+    }),
+  );
+
+  const direct = normalizePostgresUrl(directCandidate);
+  const pooled = normalizePostgresUrl(pooledCandidate);
+
+  return { pooled, direct };
+};
+
 const ensureDatabaseEnv = () => {
-  const pickFirst = (...candidates: (string | undefined)[]) =>
-    candidates.find((value) => typeof value === "string" && value.trim().length > 0);
+  const supabase = resolveSupabaseDatabaseUrls();
 
   try {
     const fs = require('fs');
@@ -25,6 +150,8 @@ const ensureDatabaseEnv = () => {
   if (!process.env.DATABASE_URL) {
     const prismaDb = process.env.PRISMA_DATABASE_URL;
     const fallback = pickFirst(
+      supabase.pooled,
+      supabase.direct,
       process.env.POSTGRES_PRISMA_URL,
       process.env.POSTGRES_URL,
       process.env.POSTGRES_DATABASE_URL,
@@ -41,6 +168,8 @@ const ensureDatabaseEnv = () => {
 
   if (!process.env.DIRECT_URL) {
     const direct = pickFirst(
+      supabase.direct,
+      supabase.pooled,
       process.env.POSTGRES_URL_NON_POOLING,
       process.env.POSTGRES_DIRECT_URL,
       process.env.POSTGRES_URL,
