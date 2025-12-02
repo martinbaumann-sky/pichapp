@@ -136,8 +136,11 @@ export async function POST(
         }
         const venueCollectorId = hasModelField(venue, "mpCollectorId") ? (venue as any).mpCollectorId : null;
         const venueAccountType = hasModelField(venue, "mpAccountType") ? (venue as any).mpAccountType : null;
-        if (!venueCollectorId || !venueAccountType) {
-          throw new Response("La cancha debe completar sus datos de Mercado Pago antes de procesar pagos.", { status: 503 });
+
+        if (useVenueMpCredentials) {
+          if (!venueCollectorId || !venueAccountType) {
+            throw new Response("La cancha debe completar sus datos de Mercado Pago antes de procesar pagos.", { status: 503 });
+          }
         }
       } else if (provider === "FLOW") {
         const context = `venue:${venue.id}`;
@@ -247,7 +250,7 @@ export async function POST(
       return {
         status: "pending_payment" as const,
         match: { id: match.id, title: match.title, comuna: match.comuna, venueId: match.venueId },
-        payment,
+        payment: { ...payment, spotId: String(payment.spotId) },
         holdUntil: reservedSpot.holdUntil ?? holdUntilTarget,
         user: { email: user?.email ?? null, name: user?.profile?.name ?? null },
         provider,
@@ -285,7 +288,7 @@ export async function POST(
     try {
       const initResult = await initPaymentSession({
         provider: txResult.provider as any,
-        payment: { id: txResult.payment.id, amountCLP: txResult.payment.amountCLP, spotId: txResult.payment.spotId },
+        payment: { id: txResult.payment.id, amountCLP: txResult.payment.amountCLP, spotId: String(txResult.payment.spotId) },
         match: {
           id: txResult.match.id,
           title: txResult.match.title,

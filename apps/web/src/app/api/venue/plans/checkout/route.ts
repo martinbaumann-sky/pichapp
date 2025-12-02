@@ -81,14 +81,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, checkoutUrl: null, plan: VENUE_PLANS.gratis, redirectUrl: dashboardUrl });
     }
 
-    if (!venue.mpCollectorId || !venue.mpAccountType) {
-      return NextResponse.json(
-        {
-          error: "Completa el Collector ID y tipo de cuenta de Mercado Pago en tu perfil antes de contratar un plan pagado.",
-        },
-        { status: 400 },
-      );
-    }
+    // No requerimos que la cancha tenga MP conectado para pagar su suscripción.
+    // El pago se hace a la plataforma.
+    // if (!venue.mpCollectorId || !venue.mpAccountType) { ... }
 
     if (!venue.payoutEmail) {
       return NextResponse.json(

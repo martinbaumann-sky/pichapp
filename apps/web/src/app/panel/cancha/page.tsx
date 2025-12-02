@@ -656,16 +656,16 @@ function PaymentsTab({ loading, payments }: { loading: boolean; payments: PanelP
           ? payment.payoutStatus === "PAID"
             ? "Transferido"
             : payment.payoutStatus === "PENDING"
-            ? "Pendiente"
-            : payment.payoutStatus
+              ? "Pendiente"
+              : payment.payoutStatus
           : null;
         const payoutMethodLabel = payment.payoutMethod === "BANK_TRANSFER"
           ? "Transferencia"
           : payment.payoutMethod === "FLOW"
-          ? "Flow"
-          : payment.payoutMethod === "MP_WALLET"
-          ? "Mercado Pago"
-          : null;
+            ? "Flow"
+            : payment.payoutMethod === "MP_WALLET"
+              ? "Mercado Pago"
+              : null;
         return (
           <div
             key={payment.id}
@@ -878,8 +878,8 @@ function BillingTab({
             const label = isCurrent
               ? "Plan actual"
               : canDowngrade
-              ? "Volver a Gratis"
-              : "Contratar plan";
+                ? "Volver a Gratis"
+                : "Contratar plan";
             const disabled = isCurrent && plan.slug !== "gratis";
             return (
               <div
@@ -1102,8 +1102,8 @@ function SettingsTab({
       data.venue.payoutMethod === "BANK_TRANSFER"
         ? "BANK_TRANSFER"
         : data.venue.payoutMethod === "FLOW"
-        ? "FLOW"
-        : "MP_WALLET";
+          ? "FLOW"
+          : "MP_WALLET";
     setForm({
       name: data.venue.name ?? "",
       taxId: data.venue.taxId ?? "",
@@ -1395,8 +1395,8 @@ function SettingsTab({
           updatedVenue.payoutMethod === "BANK_TRANSFER"
             ? "BANK_TRANSFER"
             : updatedVenue.payoutMethod === "FLOW"
-            ? "FLOW"
-            : "MP_WALLET";
+              ? "FLOW"
+              : "MP_WALLET";
         setForm((prev) => ({
           ...prev,
           paymentProvider: provider,
@@ -1438,6 +1438,7 @@ function SettingsTab({
         mpError={mpError}
         onConnect={handleConnectMp}
         onDisconnect={handleDisconnectMp}
+        onTestConnection={handleTestMpConnection}
       />
 
       <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-lg backdrop-blur">
@@ -1755,6 +1756,7 @@ type MpConnectionSectionProps = {
   mpError: string | null;
   onConnect: () => void | Promise<void>;
   onDisconnect: () => void | Promise<void>;
+  onTestConnection: () => void | Promise<void>;
 };
 
 function MpConnectionSection({
@@ -1765,6 +1767,7 @@ function MpConnectionSection({
   mpError,
   onConnect,
   onDisconnect,
+  onTestConnection,
 }: MpConnectionSectionProps) {
   const mpConnection = venue.mpConnection;
   const mpUserId = mpConnection?.mpUserId ?? null;
@@ -1955,7 +1958,7 @@ function MpConnectionSection({
         {mpConnected && (
           <button
             type="button"
-            onClick={handleTestMpConnection}
+            onClick={onTestConnection}
             className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-5 py-2 text-xs font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50"
           >
             <RefreshCw className="h-4 w-4" /> Probar Conexión
@@ -2019,6 +2022,13 @@ function StatusBadge({ status }: { status: string }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full border border-sky-200/70 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 shadow-sm">
         <RefreshCw className="h-3.5 w-3.5" /> Reembolsado
+      </span>
+    );
+  }
+  if (normalized === "authorized") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200/70 bg-indigo-500/10 px-2.5 py-1 text-xs font-semibold text-indigo-700 shadow-sm">
+        <CheckCircle2 className="h-3.5 w-3.5" /> Autorizado
       </span>
     );
   }

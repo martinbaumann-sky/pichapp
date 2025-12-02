@@ -3,7 +3,7 @@ import { MercadoPagoConfig, Payment } from "mercadopago";
 import { requireUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getMarketplaceFee, ensureVenueAccessToken } from "@/lib/mp/marketplace";
-import { approvePayment } from "@/lib/payments/update";
+import { approvePayment, confirmMatchAndCapturePayments } from "@/lib/payments/update";
 
 export async function POST(req: NextRequest) {
     try {
@@ -26,20 +26,22 @@ export async function POST(req: NextRequest) {
 
         // Determinar token de acceso (Cancha o Plataforma)
         let accessToken = process.env.MP_ACCESS_TOKEN;
+        let useMarketplace = false;
+
         if (match.venueId) {
             try {
                 const creds = await ensureVenueAccessToken(match.venueId);
                 accessToken = creds.accessToken;
+                useMarketplace = true;
             } catch (e) {
-                console.error("No se pudo obtener credenciales de la cancha, usando token de plataforma como fallback (si existe)", e);
-                // Si falla la cancha, podríamos fallar o intentar con la plataforma (pero entonces no se divide el pago igual)
-                // Por consistencia con marketplace.ts, si falla ensureVenueAccessToken, fallamos.
-                return NextResponse.json({ error: "La cancha no tiene configurado Mercado Pago correctamente." }, { status: 400 });
+                console.warn(`[process] Venue ${match.venueId} no tiene MP conectado. Usando token de plataforma (Cobro directo).`);
+                // Fallback a token de plataforma.
+                // El dinero entra a la cuenta de la plataforma y luego se debe transferir a la cancha.
             }
         }
 
         if (!accessToken) {
-            return NextResponse.json({ error: "Error de configuración de pago en el servidor" }, { status: 500 });
+            return NextResponse.json({ error: "Error de configuración de pago en el servidor (Falta MP_ACCESS_TOKEN)" }, { status: 500 });
         }
 
         const client = new MercadoPagoConfig({ accessToken });
@@ -59,11 +61,14 @@ export async function POST(req: NextRequest) {
                 identification: payer.identification,
             },
             capture: false, // AUTH ONLY
-            application_fee: marketplaceFee,
             external_reference: `${matchId}:${spotId}`,
             statement_descriptor: "PICHANGAPP",
             binary_mode: true, // No pending payments
         };
+
+        if (useMarketplace) {
+            paymentData.application_fee = marketplaceFee;
+        }
 
         const result = await paymentClient.create({ body: paymentData });
 
@@ -106,7 +111,19 @@ export async function POST(req: NextRequest) {
             }
 
             // Aprobar (Authorizar) el pago y reservar el cupo
-            await approvePayment(paymentId!, String(result.id), result, { status: "AUTHORIZED" });
+            const approvalResult = await approvePayment(paymentId!, String(result.id), result, { status: "AUTHORIZED" as any });
+
+            if (approvalResult?.shouldCheckConfirmation) {
+                // Intentar confirmar el partido y capturar pagos (esto puede tardar un poco)
+                // Lo hacemos await para asegurar que se ejecute en Vercel (serverless)
+                try {
+                    console.log(`[process] Triggering confirmation for match ${matchId}`);
+                    await confirmMatchAndCapturePayments(matchId);
+                } catch (confirmError) {
+                    console.error("[process] Error confirming match:", confirmError);
+                    // No fallamos el request principal porque el pago ya fue autorizado
+                }
+            }
 
             return NextResponse.json({ status: result.status, id: result.id });
         } else {

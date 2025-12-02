@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         where: {
           matchId: match.id,
           provider: "MP",
-          status: { in: ["APPROVED", "AUTHORIZED"] },
+          status: { in: ["APPROVED", "AUTHORIZED" as any] },
         },
         select: { id: true, providerRef: true, status: true },
       });
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
             console.warn(`[t60] match ${match.id} sin venueId`);
             continue;
           }
-          await ensureVenueAccessToken(match.venueId);
+
           await createRefundForPayment({
             venueId: match.venueId,
             paymentId: payment.providerRef,
