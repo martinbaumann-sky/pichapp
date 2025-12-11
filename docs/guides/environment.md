@@ -5,8 +5,6 @@ This document centralizes every environment variable used across the project. Un
 ## Core
 | Variable | Required | Description |
 | --- | --- | --- |
-| `DATABASE_URL` | Yes | Full PostgreSQL connection string consumed by Prisma. |
-| `DIRECT_URL` | Recommended | Non-pooled PostgreSQL URL used by `prisma migrate deploy`. Required by some managed databases (e.g. Vercel Postgres). |
 | `NEXT_PUBLIC_BASE_URL` | Yes | Public origin of the app (with protocol). Used for cookies, redirects and metadata. |
 | `WEB_APP_BASE_URL` | Optional | Internal origin used when background jobs need a stable base URL (defaults to `NEXT_PUBLIC_BASE_URL`). |
 | `AUTH_SECRET` | Yes | HS256 secret to sign authentication tokens. Generate with `openssl rand -base64 32`. |
@@ -63,9 +61,8 @@ This document centralizes every environment variable used across the project. Un
 | Variable | Required | Description |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Optional | Required only for Supabase management scripts (`apps/web/scripts/clear-users.ts`, `apps/web/scripts/seed-dev-user.ts`, etc.). |
-| `POSTGRES_PRISMA_URL` / `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` | Optional | Aliases provided by some hosts (e.g. Vercel Postgres). Used as fallbacks in `npm run vercel-build`. |
+| `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` | Optional | Aliases provided by some hosts (e.g. Vercel Postgres). |
 
 ## Local Development Tips
 - Duplicate `apps/web/env-example.txt` into `apps/web/.env` as a starting point.
-- Run `npm run prisma:generate` after editing database variables so Prisma Client picks up the new connection.
 - Keep secrets out of version control by using `.env.local` or your provider's secret manager in production.

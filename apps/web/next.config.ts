@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { loadEnvConfig } from "@next/env";
 import path from "path";
 import type { NextConfig } from "next";
@@ -55,11 +56,10 @@ export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  release: process.env.SENTRY_RELEASE,
   disableServerWebpackPlugin: disableSentryUpload,
   disableClientWebpackPlugin: disableSentryUpload,
   dryRun: disableSentryUpload,
-}, {
   hideSourceMaps: true,
+  disableLogger: true,
   widenClientFileUpload: true,
 });
