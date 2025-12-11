@@ -2,8 +2,7 @@
   "name": "pichapp",
   "private": true,
   "workspaces": [
-    "apps/web",
-    "apps/mobile"
+    "apps/web"
   ],
   "scripts": {
     "dev": "npm run dev --workspace web",
@@ -11,9 +10,6 @@
     "start": "npm run start --workspace web",
     "lint": "npm run lint --workspace web",
     "test": "npm run test --workspace web",
-    "vercel-build": "npm run vercel-build --workspace web",
-    "prisma:generate": "npm run prisma:generate --workspace web",
-    "prisma:migrate": "npm run prisma:migrate --workspace web",
-    "prisma:studio": "npm run prisma:studio --workspace web"
+    "vercel-build": "npm run vercel-build --workspace web"
   }
 }

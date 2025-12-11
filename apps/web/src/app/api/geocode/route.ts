@@ -11,7 +11,11 @@ export async function GET(req: NextRequest) {
     const ip = getClientIp(req as any);
     const probe = await rl.check(`ip:${ip}`);
     if (!probe.allowed) {
-      return NextResponse.json({ items: [], error: "rate_limited", retryAfter: probe.reset.toISOString() }, { status: 429 });
+      const retryAfter =
+        typeof probe.reset === "number"
+          ? new Date(probe.reset).toISOString()
+          : probe.reset?.toISOString?.() ?? null;
+      return NextResponse.json({ items: [], error: "rate_limited", retryAfter }, { status: 429 });
     }
     const q = new URL(req.url).searchParams.get("q");
     console.log("[GEOCODE] Query recibida:", q);

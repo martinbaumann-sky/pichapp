@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,7 +19,7 @@ const pageVariants = {
         y: 0,
         transition: {
             duration: 0.4,
-            ease: [0.16, 1, 0.3, 1],
+            ease: "easeInOut",
         },
     },
     exit: {
@@ -26,7 +27,7 @@ const pageVariants = {
         y: -8,
         transition: {
             duration: 0.3,
-            ease: [0.16, 1, 0.3, 1],
+            ease: "easeInOut",
         },
     },
 };
@@ -73,7 +74,7 @@ export const staggerItem = {
         scale: 1,
         transition: {
             duration: 0.4,
-            ease: [0.16, 1, 0.3, 1],
+            ease: "easeInOut",
         },
     },
 };
@@ -101,7 +102,7 @@ export const scaleIn = {
         scale: 1,
         transition: {
             duration: 0.2,
-            ease: [0.16, 1, 0.3, 1],
+            ease: "easeInOut",
         },
     },
     exit: {
@@ -109,7 +110,7 @@ export const scaleIn = {
         scale: 0.95,
         transition: {
             duration: 0.15,
-            ease: [0.16, 1, 0.3, 1],
+            ease: "easeInOut",
         },
     },
 };

@@ -54,15 +54,15 @@ ADMIN_PASSWORD=Babolat3008
    - Deshabilita "Confirm email" (para testing)
 
 ### 4. EJECUTAR CONFIGURACIÓN
-```bash
-cd web
-# Opción A: Script automático
-setup-db.bat
+- No hay migraciones Prisma; aplica tus tablas/SQL en Supabase.
+- Si necesitas datos de ejemplo, adapta tu seed a Supabase antes de ejecutarlo.
 
-# Opción B: Manual
-npm run prisma:generate
-npm run prisma:migrate
-npm run seed
+
+
+
+
+
+
 ```
 
 ### 5. VERIFICAR CONEXIÓN

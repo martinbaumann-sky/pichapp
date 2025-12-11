@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { PaymentProvider } from "@prisma/client";
+type PaymentProvider = string;
 import { prisma } from "@/lib/db";
 import { createMatchSchema, listMatchesSchema } from "@/lib/validator";
 import { requireUserId } from "@/lib/auth";

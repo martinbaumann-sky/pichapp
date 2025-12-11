@@ -1,12 +1,11 @@
-# PichangApp Monorepo
+# PichangApp
 
-Este repositorio contiene la aplicación web y móvil de PichangApp organizadas como un monorepo de npm workspaces.
+Aplicación web de PichangApp desarrollada con Next.js.
 
 ## Estructura
 
 ```
 apps/
-├── mobile/   # App Expo Router (iOS, Android, Web)
 └── web/      # Aplicación Next.js + API
 
 docs/
@@ -15,15 +14,23 @@ docs/
 
 scripts/
 ├── dev/      # Lanzadores de entornos de desarrollo
-├── mobile/   # Utilidades específicas para la app móvil
-└── setup/    # Scripts de preparación del monorepo
+└── setup/    # Scripts de preparación del proyecto
 
 package.json        # Configuración de workspaces y comandos globales
-package-lock.json   # Lockfile de npm
 vercel.json         # Configuración de despliegue para Vercel
 ```
 
 Consulta [`docs/guides/requirements.md`](docs/guides/requirements.md) para un onboarding detallado y [`docs/guides/environment.md`](docs/guides/environment.md) para la referencia completa de variables de entorno.
+
+## Desarrollo
+
+```bash
+# Instalar dependencias
+npm install
+
+# Iniciar servidor de desarrollo
+npm run dev
+```
 
 ## Observabilidad y Calidad
 

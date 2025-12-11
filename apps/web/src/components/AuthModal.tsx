@@ -36,6 +36,7 @@ export default function AuthModal({ open, onClose, initialTab, next }: Props) {
             setShowPassword={setShowPassword}
             onClose={onClose}
             next={next}
+            isOpen={open}
           />
           <div className="mt-3">
             <button type="button" onClick={onClose} className="w-full px-4 py-2 text-sm text-gray-500">Cerrar</button>

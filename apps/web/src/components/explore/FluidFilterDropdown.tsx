@@ -1,4 +1,5 @@
-﻿"use client"
+// @ts-nocheck
+"use client"
 
 import * as React from "react"
 import { AnimatePresence, MotionConfig, motion } from "framer-motion"

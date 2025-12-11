@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PaymentProvider } from "@prisma/client";
+type PaymentProvider = string;
 import { requireUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normalizeTeam } from "@/lib/teams";

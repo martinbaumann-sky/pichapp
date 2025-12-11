@@ -1,4 +1,5 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { attachSessionCookie, createSession } from "@/lib/auth-core";
 import { createRateLimiter, getClientIp } from "@/lib/ratelimit";

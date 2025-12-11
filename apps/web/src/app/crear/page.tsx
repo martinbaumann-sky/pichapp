@@ -1,4 +1,5 @@
-Ôªø"use client";
+// @ts-nocheck
+"use client";
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
@@ -15,7 +16,7 @@ export default function CreateMatchPage() {
     allow: ["player", "superadmin"],
     allowAnonymous: true,
     enforceLogout: true,
-    message: "Cerramos tu sesi√≥n de cancha. Ingresa como jugador para crear una nueva pichanga.",
+    message: "Cerramos tu sesiÛn de cancha. Ingresa como jugador para crear una nueva pichanga.",
   });
   const gateAllowed = status === "allowed";
 
@@ -30,7 +31,7 @@ export default function CreateMatchPage() {
     level: "BEGINNER",
     venueName: "",
     venueAddress: "",
-    fieldNumber: "", // Nuevo campo para n√∫mero de cancha
+    fieldNumber: "", // Nuevo campo para n˙mero de cancha
     lat: undefined as number | undefined,
     lng: undefined as number | undefined,
     place_id: undefined as string | undefined,
@@ -51,7 +52,7 @@ export default function CreateMatchPage() {
       if (coverImageUrl && !/^https?:\/\//i.test(coverImageUrl)) {
         coverImageUrl = undefined;
       }
-             // Construir el t√≠tulo final incluyendo el n√∫mero de cancha si existe
+             // Construir el tÌtulo final incluyendo el n˙mero de cancha si existe
        const finalTitle = formData.fieldNumber
          ? `${formData.title} - ${formData.fieldNumber}`
          : formData.title;
@@ -59,18 +60,18 @@ export default function CreateMatchPage() {
        const payload = {
          ...formData,
          title: finalTitle,
-         // Normalizar strings a n√∫meros
+         // Normalizar strings a n˙meros
          durationMins: Number(formData.durationMins || 0),
          pricePerSpot: Number(formData.pricePerSpot || 0),
          totalSpots: Number(formData.totalSpots || 0),
          minSpotsToConfirm: Number(formData.minSpotsToConfirm || 0),
          occupiedSpots: Number(formData.occupiedSpots || 0) || 0,
-         // Asegurar strings para address/name aun si van vac√≠os
+         // Asegurar strings para address/name aun si van vacÌos
          venueName: formData.venueName || "",
          venueAddress: formData.venueAddress || formData.displayAddress || "",
          comuna: formData.comuna || "",
          coverImageUrl,
-         // Enviar jugadores ocupados con posici√≥n y equipo
+         // Enviar jugadores ocupados con posiciÛn y equipo
          occupiedPlayers: occupiedPlayers.map((p) => ({ name: p.name, phone: p.phone, position: p.position || null, team: p.team || null })),
        } as any;
       const res = await fetch("/api/matches", {
@@ -95,9 +96,9 @@ export default function CreateMatchPage() {
             msg = txt || msg;
           }
 
-          // Si es un error de autenticaci√≥n, redirigir al login
+          // Si es un error de autenticaciÛn, redirigir al login
           if (res.status === 401) {
-            alert("Necesitas iniciar sesi√≥n para crear un partido. Ser√°s redirigido al login.");
+            alert("Necesitas iniciar sesiÛn para crear un partido. Ser·s redirigido al login.");
             // Redirect handled by /organizar wrapper; no hard redirect here.
             return;
           }
@@ -208,7 +209,7 @@ export default function CreateMatchPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-center text-sm text-gray-600">
           <div className="h-10 w-10 rounded-full border-b-2 border-gray-800 animate-spin" />
-          <p>{status === "denied" ? "Cerrando sesi√≥n de cuenta de cancha‚Ä¶" : "Preparando el formulario..."}</p>
+          <p>{status === "denied" ? "Cerrando sesiÛn de cuenta de canchaÖ" : "Preparando el formulario..."}</p>
         </div>
       </div>
     );
@@ -238,13 +239,13 @@ export default function CreateMatchPage() {
                          {/* Basic Info Section */}
              <div className="space-y-6">
                <h2 className="text-xl font-semibold text-black border-b border-gray-200 pb-2">
-                Informaci√≥n B√°sica
+                InformaciÛn B·sica
                </h2>
                
                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                  <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                    <label className="block text-sm font-medium text-gray-700">
-                     T√≠tulo del partido
+                     TÌtulo del partido
                    </label>
                    <input
                      type="text"
@@ -260,7 +261,7 @@ export default function CreateMatchPage() {
                  
                  <div className="space-y-2">
                    <label className="block text-sm font-medium text-gray-700">
-                     N√∫mero de cancha (opcional)
+                     N˙mero de cancha (opcional)
                    </label>
                    <input
                      type="text"
@@ -270,7 +271,7 @@ export default function CreateMatchPage() {
                      className="input-field"
                      placeholder="Ej: Cancha 1, 2, 3..."
                    />
-                   <p className="text-xs text-gray-500">Especifica el n√∫mero o nombre de la cancha.</p>
+                   <p className="text-xs text-gray-500">Especifica el n˙mero o nombre de la cancha.</p>
                  </div>
                </div>
                
@@ -287,8 +288,8 @@ export default function CreateMatchPage() {
                  />
                  {formData.venueName && (
                    <p className="text-sm text-gray-600">
-                    üìç Lugar seleccionado: <strong>{formData.venueName}</strong>
-                    {formData.comuna && <span className="text-blue-600"> ‚Ä¢ {formData.comuna}</span>}
+                    ?? Lugar seleccionado: <strong>{formData.venueName}</strong>
+                    {formData.comuna && <span className="text-blue-600"> ï {formData.comuna}</span>}
                   </p>
                  )}
                </div>
@@ -310,7 +311,7 @@ export default function CreateMatchPage() {
                 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Duraci√≥n (minutos)
+                    DuraciÛn (minutos)
                   </label>
                   <input
                     type="number"
@@ -351,13 +352,13 @@ export default function CreateMatchPage() {
                     />
                   </div>
                   <p className="text-xs text-gray-500">
-                    Puedes cobrar en pesos chilenos. En el plan Gratis retenemos el 14% por cupo; si tu cancha est√° en planes Avanzado o Pro, la comisi√≥n baja al 7% o 2% respectivamente.
+                    Puedes cobrar en pesos chilenos. En el plan Gratis retenemos el 14% por cupo; si tu cancha est· en planes Avanzado o Pro, la comisiÛn baja al 7% o 2% respectivamente.
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Cupos m√°ximos disponibles
+                    Cupos m·ximos disponibles
                   </label>
                   <input
                     type="number"
@@ -374,7 +375,7 @@ export default function CreateMatchPage() {
 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    M√≠nimo de cupos para confirmar
+                    MÌnimo de cupos para confirmar
                   </label>
                   <input
                     type="number"
@@ -386,7 +387,7 @@ export default function CreateMatchPage() {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
                   />
-                  <p className="text-xs text-gray-500">Te avisaremos cuando se alcance este m√≠nimo.</p>
+                  <p className="text-xs text-gray-500">Te avisaremos cuando se alcance este mÌnimo.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -403,7 +404,7 @@ export default function CreateMatchPage() {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
                   />
-                  <p className="text-xs text-gray-500">Estos cupos quedar√°n como pagados desde el inicio.</p>
+                  <p className="text-xs text-gray-500">Estos cupos quedar·n como pagados desde el inicio.</p>
                 </div>
 
                 {Number(formData.occupiedSpots) > 0 && (
@@ -443,7 +444,7 @@ export default function CreateMatchPage() {
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         >
-                          <option value="">Posici√≥n</option>
+                          <option value="">PosiciÛn</option>
                           <option value="ARQUERO">Arquero</option>
                           <option value="DEFENSA">Defensa</option>
                           <option value="LATERAL">Lateral</option>

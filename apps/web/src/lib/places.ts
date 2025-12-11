@@ -2,6 +2,7 @@ import { comunasRM } from "@/lib/comunas-rm";
 import { getLogger } from "@/lib/logger";
 
 const logger = getLogger({ module: "places" });
+const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 type PlaceResult = {
   label: string;

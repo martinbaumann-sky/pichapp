@@ -8,6 +8,9 @@ export type AuthUserSource = {
     name: string | null;
     comuna: string | null;
     position: string | null;
+    skillLevel?: string | null;
+    bio?: string | null;
+    avatarUrl?: string | null;
   } | null;
 };
 

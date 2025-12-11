@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrisma } from "@/lib/prisma";
+import { getSupabaseServiceClient } from "@/lib/supabase-clients";
 import { getRedis } from "@/lib/redis";
 import { getLogger } from "@/lib/logger";
 
@@ -10,12 +10,13 @@ const logger = getLogger({ module: "api.health" });
 
 export async function GET() {
   const startedAt = Date.now();
-  const prisma = getPrisma();
+  const supabase = getSupabaseServiceClient();
 
   const database = await (async () => {
     const checkStart = Date.now();
     try {
-      await prisma.$queryRaw`SELECT 1`;
+      const { error } = await supabase.from("users").select("*", { head: true, count: "exact" });
+      if (error) throw error;
       return { status: "up", latencyMs: Date.now() - checkStart };
     } catch (error) {
       logger.error({ error }, "database health check failed");

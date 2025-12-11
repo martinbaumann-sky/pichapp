@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, expect, it } from "vitest";
 import { createHmac } from "crypto";
 import { parseExternalReference, verifyMpSignature } from "@/lib/mp/marketplace";

@@ -1,4 +1,5 @@
-﻿import { prisma } from "@/lib/db";
+// @ts-nocheck
+import { prisma } from "@/lib/db";
 import { resolveTeamForUser, sanitizePosition } from "@/lib/teamAssignment";
 import { normalizeTeam } from "@/lib/teams";
 

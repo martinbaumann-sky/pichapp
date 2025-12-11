@@ -26,6 +26,7 @@ export default function AnimatedBall() {
     ro.observe(wrapper);
 
     function start() {
+      if (!wrapper || !ball) return;
       const { width: w, height: h } = wrapper.getBoundingClientRect();
 
       // Puntos como porcentaje del campo (0..1), pensados en viewBox 600x400

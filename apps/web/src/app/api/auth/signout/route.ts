@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import type { CookieOptions } from "@supabase/supabase-js";
 import { clearSessionCookie } from "@/lib/auth-core";
+
+type CookieOptions = {
+  maxAge?: number;
+  domain?: string;
+  path?: string;
+  sameSite?: "lax" | "strict" | "none";
+  secure?: boolean;
+};
 
 async function signOutSupabase(res: NextResponse) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,7 +19,7 @@ async function signOutSupabase(res: NextResponse) {
   }
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         get(name: string) {

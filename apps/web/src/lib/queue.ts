@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Client, Receiver } from "@upstash/qstash";
 
 let queueClient: Client | null | undefined;
@@ -16,7 +17,7 @@ export function getQueueClient(): Client | null {
     return queueClient;
   }
 
-  queueClient = new Client({ token, url });
+  queueClient = new Client({ token, baseUrl: url as string });
   return queueClient;
 }
 

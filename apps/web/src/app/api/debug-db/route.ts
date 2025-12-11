@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { getSupabaseServiceClient } from "@/lib/supabase-clients";
 
 export async function GET() {
-    try {
-        await prisma.$connect();
-        // const count = await prisma.user.count();
-        const dbUrl = process.env.DATABASE_URL;
-        const maskedUrl = dbUrl ? dbUrl.replace(/:[^:@]+@/, ":***@") : "NOT_SET";
-        return NextResponse.json({
-            status: "ok",
-            count: -1,
-            env_db_url: maskedUrl,
-            env_keys: Object.keys(process.env).filter(k => k.includes("DB") || k.includes("POSTGRES") || k.includes("URL"))
-        });
-    } catch (e: any) {
-        return NextResponse.json({ status: "error", message: e.message, stack: e.stack }, { status: 500 });
-    }
+  try {
+    const client = getSupabaseServiceClient();
+    const { count, error } = await client.from("users").select("*", { count: "exact", head: true });
+    const maskedUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "NOT_SET").replace(/(https?:\/\/)([^.]+)/, "$1***");
+    return NextResponse.json({
+      status: error ? "warn" : "ok",
+      count: count ?? 0,
+      env_db_url: maskedUrl,
+      env_keys: Object.keys(process.env).filter((k) => k.toUpperCase().includes("SUPABASE")),
+      error: error?.message ?? null,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ status: "error", message: e.message, stack: e.stack }, { status: 500 });
+  }
 }

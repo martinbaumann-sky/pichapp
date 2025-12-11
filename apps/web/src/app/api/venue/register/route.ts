@@ -1,7 +1,6 @@
-Ôªøimport { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/db";
-import { UserRole } from "@prisma/client";
 import { normalizeForStorage } from "@/lib/phone";
 import { setPasswordHash, getPasswordHash } from "@/lib/auth-password";
 import { sendVenueReviewEmail } from "@/lib/venue-review-email";
@@ -31,6 +30,7 @@ interface VenueRegistrationPayload {
 }
 
 const rl = createRateLimiter({ name: "venue_register", limit: 4, windowSec: 300 });
+const UserRole = { VENUE_ADMIN: "VENUE_ADMIN" } as const;
 
 function parseFields(raw: string | undefined): string[] {
   if (!raw) return [];
@@ -102,21 +102,21 @@ export async function POST(request: NextRequest) {
 
     if (!acceptTerms) {
       return NextResponse.json(
-        { error: "Debes aceptar los t√©rminos y condiciones para continuar." },
+        { error: "Debes aceptar los tÈrminos y condiciones para continuar." },
         { status: 400 },
       );
     }
 
     if (lat == null || lng == null) {
       return NextResponse.json(
-        { error: "Necesitamos ubicar tu cancha en el mapa. Selecciona una direcci√≥n v√°lida." },
+        { error: "Necesitamos ubicar tu cancha en el mapa. Selecciona una direcciÛn v·lida." },
         { status: 400 },
       );
     }
 
     if (password.length < 8) {
       return NextResponse.json(
-        { error: "La contrase√±a debe tener al menos 8 caracteres." },
+        { error: "La contraseÒa debe tener al menos 8 caracteres." },
         { status: 400 },
       );
     }
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     if (existingUser && (existingUser.role === "VENUE_ADMIN" || existingUser.role === "SUPERADMIN" || !!existingVenue)) {
       return NextResponse.json(
-        { error: "Este correo ya est√° registrado como cancha. Intenta iniciar sesi√≥n." },
+        { error: "Este correo ya est· registrado como cancha. Intenta iniciar sesiÛn." },
         { status: 409 },
       );
     }
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
         const matches = await bcrypt.compare(password, storedHash);
         if (!matches) {
           return NextResponse.json(
-            { error: "La contrase√±a no coincide con tu cuenta. Inicia sesi√≥n e intenta nuevamente." },
+            { error: "La contraseÒa no coincide con tu cuenta. Inicia sesiÛn e intenta nuevamente." },
             { status: 401 },
           );
         }
@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
         const user = await tx.user.update({
           where: { id: existingUser.id },
           data: {
-            role: UserRole.VENUE_ADMIN,
+            role: "VENUE_ADMIN",
             passwordHash,
           },
           select: userSelect,
@@ -264,7 +264,7 @@ export async function POST(request: NextRequest) {
           data: {
             email,
             passwordHash,
-            role: UserRole.VENUE_ADMIN,
+            role: "VENUE_ADMIN",
             isAdmin: false,
             profile: {
               create: {
@@ -380,11 +380,12 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("[venue/register]", err);
     return NextResponse.json(
-      { error: "No pudimos completar el registro. Int√©ntalo nuevamente." },
+      { error: "No pudimos completar el registro. IntÈntalo nuevamente." },
       { status: 500 },
     );
   }
 }
+
 
 
 

@@ -69,15 +69,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No se pudo subir la imagen" }, { status: 500 });
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(objectPath, {
-        transform: {
-          width: 512,
-          resize: "contain",
-          format: "webp",
-        },
-      });
+    const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(objectPath);
 
     const avatarUrl = publicUrlData?.publicUrl || null;
     const profile = await prisma.profile.upsert({

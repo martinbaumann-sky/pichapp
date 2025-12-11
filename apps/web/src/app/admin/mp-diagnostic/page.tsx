@@ -1,13 +1,14 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
-import { 
-  CheckCircle2, 
-  XCircle, 
-  AlertTriangle, 
-  RefreshCw, 
+import {
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  RefreshCw,
   ExternalLink,
   Settings,
   CreditCard,
@@ -57,7 +58,7 @@ export default function MpDiagnosticPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || (!user.isAdmin && user.role !== "SUPERADMIN")) {
+    if (!user || (!user.isAdmin && (user.role as string) !== "SUPERADMIN")) {
       router.replace("/");
       return;
     }
@@ -145,11 +146,10 @@ export default function MpDiagnosticPage() {
               return (
                 <div
                   key={item.key}
-                  className={`flex items-center gap-3 p-3 rounded-lg border ${
-                    isConfigured 
-                      ? "border-green-200 bg-green-50" 
-                      : "border-red-200 bg-red-50"
-                  }`}
+                  className={`flex items-center gap-3 p-3 rounded-lg border ${isConfigured
+                    ? "border-green-200 bg-green-50"
+                    : "border-red-200 bg-red-50"
+                    }`}
                 >
                   <Icon className="h-5 w-5 text-gray-600" />
                   <div className="flex-1">

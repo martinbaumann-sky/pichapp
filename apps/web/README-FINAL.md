@@ -50,12 +50,11 @@ Esto borra pagos, lista de espera, spots y partidos; mantiene usuarios/perfiles.
 npm install
 ```
 
-### 2. **Configurar base de datos**
-```bash
-npm run prisma:generate
-npm run prisma:migrate
-npm run seed
-```
+### 2. **Configurar base de datos (Supabase)**
+- Crea un proyecto en Supabase y copia `env-example.txt` a `.env`.
+- Rellena `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+- Ejecuta tus migraciones/SQL en Supabase (este repo ya no usa Prisma).
+- Seed opcional: adapta `npm run seed` para Supabase si lo necesitas.
 
 ### 3. **Configurar imágenes de Google Maps**
 ```bash
@@ -105,8 +104,8 @@ npm run dev
 ## 🔧 **SCRIPTS ÚTILES**
 
 ```bash
-# Configurar base de datos
-npm run setup-db
+# Configurar base de datos (Supabase)
+# Usa la consola de Supabase o tus migraciones SQL (setup-db estÃ¡ deprecado)
 
 # Verificar endpoints
 node test-endpoints.js
@@ -126,8 +125,8 @@ node test-loops.js
 3. Revisa la consola del navegador para errores
 
 ### **Error de autenticación:**
-1. Verifica que la base de datos esté configurada
-2. Ejecuta `npm run prisma:migrate` si es necesario
+1. Verifica que las claves Supabase estǸn configuradas
+2. Revisa los logs/panel de Supabase (ya no hay migraciones Prisma en este repo)
 
 ### **Toast no desaparece:**
 - ✅ **SOLUCIONADO**: Los toasts ahora desaparecen automáticamente después de 3 segundos
@@ -141,7 +140,7 @@ node test-loops.js
 - ✅ **Imágenes automáticas** (Google Street View)
 - ✅ **Responsive design** (móvil y desktop)
 - ✅ **Manejo de errores** (toasts, validaciones)
-- ✅ **Base de datos SQLite** (local, sin dependencias externas)
+- ✅ **Base de datos Supabase/Postgres** (local, sin dependencias externas)
 
 ## 🎉 **¡LISTO PARA USAR!**
 
@@ -150,3 +149,8 @@ La aplicación está completamente funcional. Solo necesitas:
 2. Opcionalmente, configurar Mercado Pago para pagos
 
 ¡Disfruta organizando y jugando partidos! ⚽
+
+
+
+
+

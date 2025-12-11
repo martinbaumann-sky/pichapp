@@ -6,10 +6,10 @@ Configuraci??n r??pida
    - Copia `env-example.txt` a `.env` y completa los valores necesarios.
    - Consulta [Environment Configuration](../../docs/guides/environment.md) para ver qu?? variables son obligatorias y qu?? servicios habilita cada una.
 
-2) Base de datos y Prisma
-   - `npm run prisma:migrate` (crea tablas)
-   - `npm run prisma:generate`
-   - `npm run seed` (crea 5 partidos de ejemplo)
+2) Base de datos (Supabase)
+   - Crea proyecto en Supabase y configura `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+   - Usa las SQL/funciones de tu proyecto en Supabase para crear tablas. (No se usa Prisma.)
+   - Opcional: script de seed pendiente de migrar a Supabase.
 
 3) Desarrollo
    - `npm run dev`
@@ -22,7 +22,7 @@ Endpoints principales
 - POST `/api/matches/[id]/join` ??? reservar spot (concurrency-safe) y crear preferencia MP
 - POST `/api/mp/webhook` ??? confirmar pago
 - POST `/api/jobs/process-mp-webhook` ??? worker as??ncrono desde Upstash QStash
-- GET `/api/health` ??? health check para load balancers (DB + Redis)
+- GET `/api/health` ??? health check para load balancers (Supabase + Redis)
 - POST `/api/cron/release-holds` ??? liberar holds e invitar waitlist
 - POST `/api/matches/[id]/no-show` ??? marcar no-show
 
@@ -59,9 +59,9 @@ Deploy en Vercel
 
 - El repo usa npm workspaces; deja `Root Directory` en `.`.
 - `Install Command`: `npm install` (instala dependencias de `apps/web`).
-- `Build Command`: `npm run vercel-build` (ejecuta `prisma generate`, `prisma migrate deploy` y `next build`).
+- `Build Command`: `npm run vercel-build` (solo Next; no Prisma).
 - Configura las variables de entorno de produccion en el panel (ver [`docs/guides/environment.md`](../../docs/guides/environment.md)).
-- Si aun no tienes base Postgres, usa temporalmente `npm run build` y ejecuta migraciones manualmente.
+- La base de datos es Supabase (Postgres gestionado); no hay migraciones Prisma en este repo.
 
 
 

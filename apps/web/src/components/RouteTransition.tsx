@@ -19,8 +19,6 @@ export default function RouteTransition({ children }: Props) {
   const currIndex = pathname ? routeOrder.indexOf(pathname) : -1;
   const direction = prevIndex === -1 || currIndex === -1 ? 0 : currIndex > prevIndex ? 1 : currIndex < prevIndex ? -1 : 0;
 
-  const ease = [0.22, 1, 0.36, 1] as const;
-
   const pageVariants = {
     initial: (d: number) => ({
       opacity: 0,
@@ -65,7 +63,7 @@ export default function RouteTransition({ children }: Props) {
 
   const transition = {
     duration: 0.45,
-    ease: [0.32, 0.72, 0, 1],
+    ease: "easeInOut" as const,
   };
 
   return (
